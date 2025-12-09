@@ -1,4 +1,4 @@
- // src/lib/supabaseClient.ts
+// src/lib/supabaseClient.ts
 'use client';
 
 import { createClient, SupabaseClient } from '@supabase/supabase-js';
