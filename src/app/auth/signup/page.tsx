@@ -1,11 +1,11 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getSupabaseClient } from '@/lib/supabaseClient';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -18,6 +18,9 @@ type FormValues = z.infer<typeof schema>;
 export default function SignupPage() {
   const router = useRouter();
   const supabase = getSupabaseClient();
+  const searchParams = useSearchParams();
+  const [referrerId, setReferrerId] = useState<string | null>(null);
+
   const {
     register,
     handleSubmit,
@@ -27,11 +30,19 @@ export default function SignupPage() {
   });
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Read ?ref=... from URL once on load
+  useEffect(() => {
+    const ref = searchParams.get('ref');
+    if (ref) {
+      setReferrerId(ref);
+    }
+  }, [searchParams]);
+
   const onSubmit = async (values: FormValues) => {
     setFormError(null);
     const { email, password, companyName } = values;
 
-    const { error } = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
     });
@@ -41,16 +52,39 @@ export default function SignupPage() {
       return;
     }
 
+    // Store company name locally for onboarding
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('initialCompanyName', companyName);
     }
 
+    // If we have a referrerId and a created user, attach the referral
+    const newUser = data.user;
+    if (referrerId && newUser) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ referred_by: referrerId })
+        .eq('id', newUser.id);
+
+      if (profileError) {
+        console.error('Error attaching referral', profileError);
+        // not fatal for signup, so we don't block the user
+      }
+    }
+
+    // For now we still send them to login
     router.push('/auth/login');
   };
 
   return (
     <main className="max-w-md mx-auto space-y-6">
       <h1 className="text-2xl font-semibold">Create your account</h1>
+
+      {referrerId && (
+        <p className="text-sm text-gray-600">
+          You were referred by a partner. We&apos;ll attach your account to them
+          automatically.
+        </p>
+      )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <input className="w-full border p-2" placeholder="Email" {...register('email')} />
