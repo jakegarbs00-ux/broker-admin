@@ -12,6 +12,8 @@ type PartnerApplication = {
   loan_type: string;
   urgency: string | null;
   created_at: string;
+  is_hidden: boolean;
+  prospective_client_email: string | null;
   company?: {
     name: string;
   } | null;
@@ -28,21 +30,10 @@ export default function PartnerApplicationsPage() {
   const [loadingApps, setLoadingApps] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const userEmail = user?.email ?? 'Unknown';
-
-  // Same dev override as dashboard
-  const DEV_ROLE_OVERRIDES: Record<string, 'CLIENT' | 'PARTNER' | 'ADMIN'> = {
-    'jake.garbutt@out.fund': 'PARTNER',
-    'jakegarbs00+1@gmail.com': 'PARTNER',
-  };
-
-  const effectiveRole: 'CLIENT' | 'PARTNER' | 'ADMIN' =
-    DEV_ROLE_OVERRIDES[userEmail] ?? (profile?.role ?? 'CLIENT');
-
   useEffect(() => {
     const load = async () => {
       if (!user) return;
-      if (effectiveRole !== 'PARTNER') {
+      if (profile?.role !== 'PARTNER') {
         setLoadingApps(false);
         return;
       }
@@ -65,13 +56,18 @@ export default function PartnerApplicationsPage() {
 
       const clientIds = (clients ?? []).map((c) => c.id) as string[];
 
-      if (clientIds.length === 0) {
-        setApps([]);
-        setLoadingApps(false);
-        return;
-      }
+      // 2) Load applications:
+      //    - owned by referred clients
+      //    - OR draft apps created by this partner with no owner yet
+      const orFilters = [
+        clientIds.length > 0
+          ? `owner_id.in.(${clientIds.join(',')})`
+          : '',
+        `and(owner_id.is.null,created_by.eq.${user.id})`,
+      ]
+        .filter(Boolean)
+        .join(',');
 
-      // 2) Load applications owned by those clients
       const { data: appsData, error: appsError } = await supabase
         .from('applications')
         .select(
@@ -82,11 +78,13 @@ export default function PartnerApplicationsPage() {
             loan_type,
             urgency,
             created_at,
+            is_hidden,
+            prospective_client_email,
             company:companies(name),
-            owner:profiles(id, email)
+            owner:profiles!applications_owner_id_fkey (id, email)
           `
         )
-        .in('owner_id', clientIds)
+        .or(orFilters)
         .order('created_at', { ascending: false });
 
       if (appsError) {
@@ -103,7 +101,7 @@ export default function PartnerApplicationsPage() {
     if (!loading) {
       load();
     }
-  }, [user, effectiveRole, loading, supabase]);
+  }, [user, profile?.role, loading, supabase]);
 
   if (loading || loadingApps) {
     return <p className="p-4">Loading…</p>;
@@ -113,11 +111,11 @@ export default function PartnerApplicationsPage() {
     return <p className="p-4">You need to be logged in.</p>;
   }
 
-  if (effectiveRole !== 'PARTNER') {
+  if (profile?.role !== 'PARTNER') {
     return (
       <main className="max-w-3xl mx-auto space-y-4 p-4">
         <h1 className="text-2xl font-semibold">Partner applications</h1>
-        <p className="text-red-600 text-sm">
+        <p className="text-sm text-red-600">
           You are not a partner. This page is only available to users with the PARTNER
           role.
         </p>
@@ -144,36 +142,59 @@ export default function PartnerApplicationsPage() {
 
       {error && <p className="text-sm text-red-600">{error}</p>}
 
+      <div className="flex justify-end">
+        <Link
+          href="/partner/applications/new"
+          className="inline-block rounded-md bg-purple-600 px-3 py-1 text-sm text-white hover:bg-purple-700"
+        >
+          New client application
+        </Link>
+      </div>
+
       {apps.length === 0 ? (
         <p className="text-gray-600 text-sm">
-          None of your referred clients have created any applications yet.
+          You don&apos;t have any applications for your clients yet.
         </p>
       ) : (
         <div className="space-y-3">
-          {apps.map((a) => (
-            <div
-              key={a.id}
-              className="flex items-center justify-between rounded-md border bg-white px-4 py-3"
-            >
-              <div>
-                <p className="text-sm text-gray-500">
-                  {a.company?.name ?? 'Company'} •{' '}
-                  {a.owner?.email ?? 'Unknown client'}
-                </p>
-                <p className="text-lg font-semibold">
-                  £{a.requested_amount.toLocaleString()} – {a.loan_type}
-                </p>
-                <p className="text-xs text-gray-500">
-                  {new Date(a.created_at).toLocaleString()}
-                </p>
+          {apps.map((a) => {
+            const isDraft = a.is_hidden;
+            const hasOwner = !!a.owner?.id;
+
+            const clientLabel = hasOwner
+              ? a.owner?.email ?? 'Known client'
+              : a.prospective_client_email ?? 'Prospective client';
+
+            return (
+              <div
+                key={a.id}
+                className="flex items-center justify-between rounded-md border bg-white px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm text-gray-500">
+                    {a.company?.name ?? 'Company pending'} • {clientLabel}
+                  </p>
+                  <p className="text-lg font-semibold">
+                    £{a.requested_amount.toLocaleString()} – {a.loan_type}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(a.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                      isDraft
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {isDraft ? 'Draft (hidden)' : a.stage}
+                  </span>
+                </div>
               </div>
-              <div className="flex flex-col items-end gap-1">
-                <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium">
-                  {a.stage}
-                </span>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </main>

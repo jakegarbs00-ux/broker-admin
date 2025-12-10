@@ -78,11 +78,13 @@ export default function NewApplicationPage() {
       .insert({
         company_id: companyId,
         owner_id: user.id,
+        created_by: user.id,
         requested_amount: values.requested_amount,
         loan_type: values.loan_type,
         urgency: values.urgency,
         purpose: values.purpose,
         stage: 'created',
+        is_hidden: false, // client apps are visible to client
       })
       .select('id')
       .single();
