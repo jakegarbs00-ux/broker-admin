@@ -1,26 +1,29 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
-
-type ReferredClient = {
-  id: string;
-  email: string | null;
-};
+import { DashboardShell } from '@/components/layout';
+import { Card, CardContent, CardHeader, PageHeader, Button } from '@/components/ui';
 
 const schema = z.object({
-  clientType: z.enum(['existing', 'new']),
-  existingClientId: z.string().optional(),
-  newClientEmail: z.string().email('Enter a valid email').optional(),
-  requested_amount: z.coerce.number().min(1000, 'Minimum amount is 1,000'),
+  prospective_client_email: z
+    .string()
+    .email('Enter a valid email address')
+    .optional()
+    .or(z.literal('')),
+  requested_amount: z.coerce
+    .number()
+    .min(1000, 'Minimum amount is £1,000'),
   loan_type: z.string().min(1, 'Select a loan type'),
   urgency: z.string().min(1, 'Select urgency'),
-  purpose: z.string().min(10, 'Please describe the purpose'),
+  purpose: z.string().min(10, 'Please describe the purpose (at least 10 characters)'),
+  is_hidden: z.boolean(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -29,6 +32,7 @@ const LOAN_TYPES = [
   { value: 'term_loan', label: 'Term loan' },
   { value: 'revolving', label: 'Revolving facility' },
   { value: 'asset_finance', label: 'Asset finance' },
+  { value: 'invoice_finance', label: 'Invoice finance' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -42,8 +46,7 @@ export default function PartnerNewApplicationPage() {
   const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
   const router = useRouter();
-  const [clients, setClients] = useState<ReferredClient[]>([]);
-  const [loadingClients, setLoadingClients] = useState(true);
+  const [submitError, setSubmitError] = useState<string | null>(null);
 
   const {
     register,
@@ -53,259 +56,241 @@ export default function PartnerNewApplicationPage() {
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
-      clientType: 'existing',
+      is_hidden: true, // Draft by default
     },
   });
 
-  const clientType = watch('clientType');
-
-  useEffect(() => {
-    if (!user) return;
-    const loadClients = async () => {
-      const { data, error } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('role', 'CLIENT')
-        .eq('referred_by', user.id);
-
-      if (error) {
-        console.error('Error loading referred clients', error);
-      } else if (data) {
-        setClients(data as any);
-      }
-
-      setLoadingClients(false);
-    };
-
-    loadClients();
-  }, [user, supabase]);
-
-  if (loading) return <p>Loading...</p>;
-  if (!user) return null;
-
-  if (profile?.role !== 'PARTNER') {
-    return (
-      <main className="max-w-xl mx-auto p-4 space-y-4">
-        <h1 className="text-2xl font-semibold">New client application</h1>
-        <p className="text-sm text-red-600">
-          Only partners can create applications on behalf of clients.
-        </p>
-      </main>
-    );
-  }
+  const isHidden = watch('is_hidden');
 
   const onSubmit = async (values: FormValues) => {
     if (!user) return;
-
-    const {
-      clientType,
-      existingClientId,
-      newClientEmail,
-      requested_amount,
-      loan_type,
-      urgency,
-      purpose,
-    } = values;
-
-    let ownerId: string | null = null;
-    let companyId: string | null = null;
-    let prospectiveEmail: string | null = null;
-
-    if (clientType === 'existing') {
-      if (!existingClientId) {
-        alert('Select a client');
-        return;
-      }
-      ownerId = existingClientId;
-
-      // Try to find their company; it's ok if they haven't completed onboarding yet
-      const { data: company, error: companyError } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('owner_id', existingClientId)
-        .maybeSingle();
-
-      if (companyError) {
-        console.error('Error loading company for client', companyError);
-      }
-
-      companyId = company?.id ?? null;
-    } else {
-      // New client by email
-      if (!newClientEmail) {
-        alert('Enter a client email');
-        return;
-      }
-      prospectiveEmail = newClientEmail;
-      ownerId = null;
-      companyId = null;
-    }
+    setSubmitError(null);
 
     const { data, error } = await supabase
       .from('applications')
       .insert({
-        company_id: companyId,
-        owner_id: ownerId,
+        owner_id: null, // No owner yet - this is a draft
+        company_id: null, // No company yet
         created_by: user.id,
-        requested_amount,
-        loan_type,
-        urgency,
-        purpose,
+        requested_amount: values.requested_amount,
+        loan_type: values.loan_type,
+        urgency: values.urgency,
+        purpose: values.purpose,
         stage: 'created',
-        is_hidden: true, // hidden draft
-        prospective_client_email: prospectiveEmail,
+        is_hidden: values.is_hidden,
+        prospective_client_email: values.prospective_client_email || null,
       })
       .select('id')
       .single();
 
     if (error) {
-      alert('Error creating draft application: ' + error.message);
+      console.error('Error creating application:', error);
+      setSubmitError('Error creating application: ' + error.message);
       return;
     }
 
-    // For now just go back to partner applications list
     router.push('/partner/applications');
   };
 
+  if (loading) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (!user) {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600">You need to be logged in.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (profile?.role !== 'PARTNER') {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Access Denied</p>
+          <p className="text-sm text-gray-500 mt-1">This page is only available to partners.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
+
   return (
-    <main className="max-w-xl mx-auto p-4 space-y-6">
-      <h1 className="text-2xl font-semibold">New client application (partner)</h1>
-      <p className="text-gray-600 text-sm">
-        Start an application on behalf of one of your clients. You can attach it to an
-        existing referred client or a new email address.
-      </p>
+    <DashboardShell>
+      <PageHeader
+        title="New Client Application"
+        description="Create a funding application on behalf of a client. You can keep it as a draft until ready to share."
+        actions={
+          <Link href="/partner/applications">
+            <Button variant="outline">Cancel</Button>
+          </Link>
+        }
+      />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
-        {/* Client selection */}
-        <div className="space-y-2">
-          <p className="text-sm font-medium text-gray-700">Who is this for?</p>
-          <div className="flex flex-col gap-2">
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                value="existing"
-                {...register('clientType')}
-              />
-              Existing referred client
-            </label>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="radio"
-                value="new"
-                {...register('clientType')}
-              />
-              New client (by email)
-            </label>
+      {submitError && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-600">{submitError}</p>
+        </div>
+      )}
+
+      <div className="max-w-2xl">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Client Information */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Client Information</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Client Email (optional)
+                </label>
+                <input
+                  type="email"
+                  placeholder="client@example.com"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  {...register('prospective_client_email')}
+                />
+                {errors.prospective_client_email && (
+                  <p className="text-sm text-red-600 mt-1">{errors.prospective_client_email.message}</p>
+                )}
+                <p className="text-xs text-gray-500 mt-1">
+                  Enter the client's email if known. They'll be linked to this application when they sign up.
+                </p>
+              </div>
+
+              {/* Draft toggle */}
+              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+                <input
+                  type="checkbox"
+                  id="is_hidden"
+                  className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  {...register('is_hidden')}
+                />
+                <div>
+                  <label htmlFor="is_hidden" className="block text-sm font-medium text-gray-900">
+                    Keep as draft (hidden from client)
+                  </label>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {isHidden
+                      ? 'This application will only be visible to you and admins until you uncheck this option.'
+                      : 'The client will be able to see this application once linked.'}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Application Details */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Application Details</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {/* Requested Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Requested Amount (£) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 50000"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  {...register('requested_amount')}
+                />
+                {errors.requested_amount && (
+                  <p className="text-sm text-red-600 mt-1">{errors.requested_amount.message}</p>
+                )}
+              </div>
+
+              {/* Loan Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Loan Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  {...register('loan_type')}
+                >
+                  <option value="">Select a loan type...</option>
+                  {LOAN_TYPES.map((lt) => (
+                    <option key={lt.value} value={lt.value}>
+                      {lt.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.loan_type && (
+                  <p className="text-sm text-red-600 mt-1">{errors.loan_type.message}</p>
+                )}
+              </div>
+
+              {/* Urgency */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Urgency <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  {...register('urgency')}
+                >
+                  <option value="">How soon does the client need the funds?</option>
+                  {URGENCY_OPTIONS.map((u) => (
+                    <option key={u.value} value={u.value}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.urgency && (
+                  <p className="text-sm text-red-600 mt-1">{errors.urgency.message}</p>
+                )}
+              </div>
+
+              {/* Purpose */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Purpose of Funding <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder="Describe what the client will use the funds for..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  {...register('purpose')}
+                />
+                {errors.purpose && (
+                  <p className="text-sm text-red-600 mt-1">{errors.purpose.message}</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit */}
+          <div className="flex items-center justify-end gap-3">
+            <Link href="/partner/applications">
+              <Button variant="outline" type="button">Cancel</Button>
+            </Link>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSubmitting}
+              loading={isSubmitting}
+              className="bg-purple-600 hover:bg-purple-700 focus:ring-purple-500"
+            >
+              {isSubmitting ? 'Creating...' : 'Create Application'}
+            </Button>
           </div>
-        </div>
-
-        {clientType === 'existing' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Select client
-            </label>
-            {loadingClients ? (
-              <p className="text-xs text-gray-500">Loading clients…</p>
-            ) : clients.length === 0 ? (
-              <p className="text-xs text-gray-500">
-                You don&apos;t have any referred clients yet.
-              </p>
-            ) : (
-              <select
-                className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-                {...register('existingClientId')}
-              >
-                <option value="">Select a client…</option>
-                {clients.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.email ?? c.id}
-                  </option>
-                ))}
-              </select>
-            )}
-            <p className="text-sm text-red-600">{errors.existingClientId?.message}</p>
-          </div>
-        )}
-
-        {clientType === 'new' && (
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Client email
-            </label>
-            <input
-              type="email"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-              {...register('newClientEmail')}
-            />
-            <p className="text-sm text-red-600">{errors.newClientEmail?.message}</p>
-          </div>
-        )}
-
-        {/* Application details */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Requested amount (£)
-          </label>
-          <input
-            type="number"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('requested_amount')}
-          />
-          <p className="text-sm text-red-600">{errors.requested_amount?.message}</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Loan type</label>
-          <select
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('loan_type')}
-          >
-            <option value="">Select…</option>
-            {LOAN_TYPES.map((lt) => (
-              <option key={lt.value} value={lt.value}>
-                {lt.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-red-600">{errors.loan_type?.message}</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Urgency</label>
-          <select
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('urgency')}
-          >
-            <option value="">Select…</option>
-            {URGENCY_OPTIONS.map((u) => (
-              <option key={u.value} value={u.value}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-red-600">{errors.urgency?.message}</p>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Purpose of funding
-          </label>
-          <textarea
-            rows={4}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('purpose')}
-          />
-          <p className="text-sm text-red-600">{errors.purpose?.message}</p>
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded-md bg-purple-600 px-4 py-2 text-sm text-white hover:bg-purple-700 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Creating draft…' : 'Create draft application'}
-        </button>
-      </form>
-    </main>
+        </form>
+      </div>
+    </DashboardShell>
   );
 }

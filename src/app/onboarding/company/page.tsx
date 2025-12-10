@@ -1,13 +1,15 @@
-// src/app/onboarding/company/page.tsx
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useUserProfile } from '@/hooks/useUserProfile';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
+import { DashboardShell } from '@/components/layout';
+import { Card, CardContent, CardHeader, PageHeader, Button } from '@/components/ui';
 
 const schema = z.object({
   name: z.string().min(2, 'Company name is required'),
@@ -17,16 +19,17 @@ const schema = z.object({
   director_full_name: z.string().optional(),
   director_address: z.string().optional(),
   director_dob: z.string().optional(),
-  property_status: z.enum(['owner', 'renter']).optional(),
+  property_status: z.enum(['owner', 'renter', '']).optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
 
 export default function CompanyOnboardingPage() {
-  const { user, loading } = useRequireAuth();
+  const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
   const router = useRouter();
   const [companyId, setCompanyId] = useState<string | null>(null);
+  const [loadingCompany, setLoadingCompany] = useState(true);
 
   const {
     register,
@@ -50,6 +53,7 @@ export default function CompanyOnboardingPage() {
 
       if (error) {
         console.error('Error loading company', error);
+        setLoadingCompany(false);
         return;
       }
 
@@ -67,11 +71,11 @@ export default function CompanyOnboardingPage() {
         });
       } else {
         if (typeof window !== 'undefined') {
-          const storedName =
-            window.localStorage.getItem('initialCompanyName') ?? '';
+          const storedName = window.localStorage.getItem('initialCompanyName') ?? '';
           reset({ name: storedName });
         }
       }
+      setLoadingCompany(false);
     };
 
     fetchCompany();
@@ -118,118 +122,163 @@ export default function CompanyOnboardingPage() {
     router.push('/dashboard');
   };
 
-  if (loading) {
-    return <p>Loading...</p>;
+  if (loading || loadingCompany) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
 
   return (
-    <main className="max-w-xl mx-auto space-y-6">
-      <h1 className="text-2xl font-semibold">Company information</h1>
-      <p className="text-gray-600">
-        Tell us about your business so we can match you with the right lenders.
-      </p>
+    <DashboardShell>
+      <PageHeader
+        title={companyId ? 'Edit Company Information' : 'Company Information'}
+        description="Tell us about your business so we can match you with the right lenders."
+        actions={
+          <Link href="/dashboard">
+            <Button variant="outline">← Back to Dashboard</Button>
+          </Link>
+        }
+      />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Company name *
-          </label>
-          <input
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('name')}
-          />
-          {errors.name && (
-            <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
-          )}
-        </div>
+      <div className="max-w-2xl">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+          {/* Company Details */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Company Details</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Company Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g. Acme Ltd"
+                  {...register('name')}
+                />
+                {errors.name && (
+                  <p className="mt-1 text-sm text-red-600">{errors.name.message}</p>
+                )}
+              </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Company number
-            </label>
-            <input
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-              {...register('company_number')}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Industry
-            </label>
-            <input
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-              {...register('industry')}
-            />
-          </div>
-        </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Company Number
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. 12345678"
+                    {...register('company_number')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Industry
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g. Technology"
+                    {...register('industry')}
+                  />
+                </div>
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Website
-          </label>
-          <input
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('website')}
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Website
+                </label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g. https://acme.com"
+                  {...register('website')}
+                />
+              </div>
+            </CardContent>
+          </Card>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Director full name
-          </label>
-          <input
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('director_full_name')}
-          />
-        </div>
+          {/* Director Information */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Director Information</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Director Full Name
+                </label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g. John Smith"
+                  {...register('director_full_name')}
+                />
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Director address
-          </label>
-          <textarea
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            rows={3}
-            {...register('director_address')}
-          />
-        </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Director Address
+                </label>
+                <textarea
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  rows={3}
+                  placeholder="Full residential address"
+                  {...register('director_address')}
+                />
+              </div>
 
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Director date of birth
-            </label>
-            <input
-              type="date"
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-              {...register('director_dob')}
-            />
-          </div>
+              <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Director Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    {...register('director_dob')}
+                  />
+                </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700">
-              Property status
-            </label>
-            <select
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-              {...register('property_status')}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Property Status
+                  </label>
+                  <select
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    {...register('property_status')}
+                  >
+                    <option value="">Select...</option>
+                    <option value="owner">Homeowner</option>
+                    <option value="renter">Renter</option>
+                  </select>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Submit */}
+          <div className="flex items-center justify-end gap-3">
+            <Link href="/dashboard">
+              <Button variant="outline" type="button">Cancel</Button>
+            </Link>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={isSubmitting}
+              loading={isSubmitting}
             >
-              <option value="">Select...</option>
-              <option value="owner">Owner</option>
-              <option value="renter">Renter</option>
-            </select>
+              {isSubmitting ? 'Saving...' : 'Save and Continue'}
+            </Button>
           </div>
-        </div>
-
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Saving...' : 'Save and continue'}
-        </button>
-      </form>
-    </main>
+        </form>
+      </div>
+    </DashboardShell>
   );
 }

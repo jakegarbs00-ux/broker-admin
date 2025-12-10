@@ -5,16 +5,19 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
-import { useRequireAuth } from '@/hooks/useRequireAuth';
+import { useUserProfile } from '@/hooks/useUserProfile';
+import { DashboardShell } from '@/components/layout';
+import { Card, CardContent, CardHeader, PageHeader, Button } from '@/components/ui';
 
 const schema = z.object({
   requested_amount: z.coerce
     .number()
-    .min(1000, 'Minimum amount is 1,000'),
+    .min(1000, 'Minimum amount is £1,000'),
   loan_type: z.string().min(1, 'Select a loan type'),
   urgency: z.string().min(1, 'Select urgency'),
-  purpose: z.string().min(10, 'Please describe the purpose'),
+  purpose: z.string().min(10, 'Please describe the purpose (at least 10 characters)'),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -23,6 +26,7 @@ const LOAN_TYPES = [
   { value: 'term_loan', label: 'Term loan' },
   { value: 'revolving', label: 'Revolving facility' },
   { value: 'asset_finance', label: 'Asset finance' },
+  { value: 'invoice_finance', label: 'Invoice finance' },
   { value: 'other', label: 'Other' },
 ];
 
@@ -33,7 +37,7 @@ const URGENCY_OPTIONS = [
 ];
 
 export default function NewApplicationPage() {
-  const { user, loading } = useRequireAuth();
+  const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
   const router = useRouter();
   const [companyId, setCompanyId] = useState<string | null>(null);
@@ -84,7 +88,7 @@ export default function NewApplicationPage() {
         urgency: values.urgency,
         purpose: values.purpose,
         stage: 'created',
-        is_hidden: false, // client apps are visible to client
+        is_hidden: false,
       })
       .select('id')
       .single();
@@ -98,81 +102,129 @@ export default function NewApplicationPage() {
   };
 
   if (loading || loadingCompany) {
-    return <p>Loading...</p>;
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
 
   return (
-    <main className="max-w-xl mx-auto space-y-6">
-      <h1 className="text-2xl font-semibold">New application</h1>
-      <p className="text-gray-600">
-        Tell us what you&apos;re looking for. You can upload documents and submit after this step.
-      </p>
+    <DashboardShell>
+      <PageHeader
+        title="New Application"
+        description="Tell us what funding you're looking for. You can upload documents after creating the application."
+        actions={
+          <Link href="/applications">
+            <Button variant="outline">Cancel</Button>
+          </Link>
+        }
+      />
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Requested amount (£)
-          </label>
-          <input
-            type="number"
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('requested_amount')}
-          />
-          <p className="text-sm text-red-600">{errors.requested_amount?.message}</p>
-        </div>
+      <div className="max-w-2xl">
+        <Card>
+          <CardHeader>
+            <h2 className="font-medium text-gray-900">Application Details</h2>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+              {/* Requested Amount */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Requested Amount (£) <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="number"
+                  placeholder="e.g. 50000"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  {...register('requested_amount')}
+                />
+                {errors.requested_amount && (
+                  <p className="text-sm text-red-600 mt-1">{errors.requested_amount.message}</p>
+                )}
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Loan type</label>
-          <select
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('loan_type')}
-          >
-            <option value="">Select...</option>
-            {LOAN_TYPES.map((lt) => (
-              <option key={lt.value} value={lt.value}>
-                {lt.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-red-600">{errors.loan_type?.message}</p>
-        </div>
+              {/* Loan Type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Loan Type <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  {...register('loan_type')}
+                >
+                  <option value="">Select a loan type...</option>
+                  {LOAN_TYPES.map((lt) => (
+                    <option key={lt.value} value={lt.value}>
+                      {lt.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.loan_type && (
+                  <p className="text-sm text-red-600 mt-1">{errors.loan_type.message}</p>
+                )}
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">Urgency</label>
-          <select
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('urgency')}
-          >
-            <option value="">Select...</option>
-            {URGENCY_OPTIONS.map((u) => (
-              <option key={u.value} value={u.value}>
-                {u.label}
-              </option>
-            ))}
-          </select>
-          <p className="text-sm text-red-600">{errors.urgency?.message}</p>
-        </div>
+              {/* Urgency */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Urgency <span className="text-red-500">*</span>
+                </label>
+                <select
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  {...register('urgency')}
+                >
+                  <option value="">How soon do you need the funds?</option>
+                  {URGENCY_OPTIONS.map((u) => (
+                    <option key={u.value} value={u.value}>
+                      {u.label}
+                    </option>
+                  ))}
+                </select>
+                {errors.urgency && (
+                  <p className="text-sm text-red-600 mt-1">{errors.urgency.message}</p>
+                )}
+              </div>
 
-        <div>
-          <label className="block text-sm font-medium text-gray-700">
-            Purpose of funding
-          </label>
-          <textarea
-            rows={4}
-            className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2"
-            {...register('purpose')}
-          />
-          <p className="text-sm text-red-600">{errors.purpose?.message}</p>
-        </div>
+              {/* Purpose */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Purpose of Funding <span className="text-red-500">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  placeholder="Describe what you'll use the funds for..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  {...register('purpose')}
+                />
+                {errors.purpose && (
+                  <p className="text-sm text-red-600 mt-1">{errors.purpose.message}</p>
+                )}
+              </div>
 
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700 disabled:opacity-50"
-        >
-          {isSubmitting ? 'Creating...' : 'Create application'}
-        </button>
-      </form>
-    </main>
+              {/* Submit */}
+              <div className="flex items-center justify-end gap-3 pt-4 border-t border-gray-200">
+                <Link href="/applications">
+                  <Button variant="outline" type="button">Cancel</Button>
+                </Link>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={isSubmitting}
+                  loading={isSubmitting}
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Application'}
+                </Button>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
+      </div>
+    </DashboardShell>
   );
 }

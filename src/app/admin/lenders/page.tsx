@@ -4,6 +4,8 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { DashboardShell } from '@/components/layout';
+import { Card, CardContent, CardHeader, PageHeader, Badge, Button, EmptyState } from '@/components/ui';
 
 type Lender = {
   id: string;
@@ -24,17 +26,6 @@ export default function AdminLendersPage() {
   const [newNotes, setNewNotes] = useState('');
   const [creating, setCreating] = useState(false);
 
-  if (!loading && profile?.role !== 'ADMIN') {
-    return (
-      <main className="max-w-4xl mx-auto p-4 space-y-4">
-        <h1 className="text-2xl font-semibold">Admin – lenders</h1>
-        <p className="text-sm text-red-600">
-          You do not have permission to view this page.
-        </p>
-      </main>
-    );
-  }
-
   useEffect(() => {
     const loadLenders = async () => {
       setError(null);
@@ -47,7 +38,7 @@ export default function AdminLendersPage() {
         console.error('Error loading lenders', error);
         setError('Error loading lenders: ' + error.message);
       } else if (data) {
-        setLenders(data as any);
+        setLenders(data as Lender[]);
       }
       setLoadingLenders(false);
     };
@@ -60,6 +51,7 @@ export default function AdminLendersPage() {
   const handleCreate = async () => {
     if (!newName.trim()) return;
     setCreating(true);
+
     const { data, error } = await supabase
       .from('lenders')
       .insert({
@@ -73,7 +65,7 @@ export default function AdminLendersPage() {
     if (error) {
       alert('Error creating lender: ' + error.message);
     } else if (data) {
-      setLenders((prev) => [...prev, data as any]);
+      setLenders((prev) => [...prev, data as Lender].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName('');
       setNewNotes('');
     }
@@ -82,6 +74,7 @@ export default function AdminLendersPage() {
 
   const handleStatusToggle = async (lender: Lender) => {
     const newStatus = lender.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
+
     const { error } = await supabase
       .from('lenders')
       .update({ status: newStatus })
@@ -93,105 +86,208 @@ export default function AdminLendersPage() {
     }
 
     setLenders((prev) =>
-      prev.map((l) => (l.id === lender.id ? { ...l, status: newStatus } : l)),
+      prev.map((l) => (l.id === lender.id ? { ...l, status: newStatus } : l))
     );
   };
 
+  if (!loading && profile?.role !== 'ADMIN') {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Access Denied</p>
+          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
+
   if (loading || loadingLenders) {
-    return <p className="p-4">Loading…</p>;
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading lenders...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
 
   if (!user) return null;
 
+  const activeLenders = lenders.filter((l) => l.status === 'ACTIVE');
+  const inactiveLenders = lenders.filter((l) => l.status === 'INACTIVE');
+
   return (
-    <main className="max-w-4xl mx-auto space-y-6 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-red-600">Admin</p>
-          <h1 className="text-2xl font-semibold">Lenders</h1>
+    <DashboardShell>
+      <PageHeader
+        title="Lenders"
+        description={`Managing ${lenders.length} lender${lenders.length !== 1 ? 's' : ''}`}
+        actions={
+          <Link href="/admin/applications">
+            <Button variant="outline">← Back to Applications</Button>
+          </Link>
+        }
+      />
+
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-600">{error}</p>
         </div>
-        <Link
-          href="/admin/applications"
-          className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
-        >
-          Back to applications
-        </Link>
-      </div>
+      )}
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Main content - lenders list */}
+        <div className="lg:col-span-2 space-y-6">
+          {/* Active Lenders */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h2 className="font-medium text-gray-900">Active Lenders</h2>
+                <Badge variant="success">{activeLenders.length}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {activeLenders.length === 0 ? (
+                <p className="text-sm text-gray-500 text-center py-4">
+                  No active lenders. Add one using the form.
+                </p>
+              ) : (
+                <div className="space-y-3">
+                  {activeLenders.map((l) => (
+                    <div
+                      key={l.id}
+                      className="flex items-start justify-between p-4 bg-gray-50 rounded-lg"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{l.name}</p>
+                        {l.notes && (
+                          <p className="text-sm text-gray-600 mt-1">{l.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="success">Active</Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleStatusToggle(l)}
+                        >
+                          Deactivate
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
 
-      {/* New lender form */}
-      <section className="rounded-md border bg-white px-4 py-3 space-y-3">
-        <p className="font-medium text-gray-800 text-sm">Add lender</p>
-        <div className="space-y-2">
-          <input
-            type="text"
-            placeholder="Lender name"
-            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
-            value={newName}
-            onChange={(e) => setNewName(e.target.value)}
-          />
-          <textarea
-            rows={2}
-            placeholder="Notes (optional)"
-            className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
-            value={newNotes}
-            onChange={(e) => setNewNotes(e.target.value)}
-          />
-          <div className="flex justify-end">
-            <button
-              type="button"
-              disabled={creating || !newName.trim()}
-              onClick={handleCreate}
-              className="rounded-md bg-blue-600 px-3 py-1 text-sm text-white hover:bg-blue-700 disabled:opacity-50"
-            >
-              {creating ? 'Creating…' : 'Create lender'}
-            </button>
-          </div>
+          {/* Inactive Lenders */}
+          {inactiveLenders.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <h2 className="font-medium text-gray-900">Inactive Lenders</h2>
+                  <Badge variant="default">{inactiveLenders.length}</Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-3">
+                  {inactiveLenders.map((l) => (
+                    <div
+                      key={l.id}
+                      className="flex items-start justify-between p-4 bg-gray-50 rounded-lg opacity-60"
+                    >
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{l.name}</p>
+                        {l.notes && (
+                          <p className="text-sm text-gray-600 mt-1">{l.notes}</p>
+                        )}
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant="default">Inactive</Badge>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => handleStatusToggle(l)}
+                        >
+                          Activate
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          )}
         </div>
-      </section>
 
-      {/* Lenders list */}
-      <section className="space-y-3">
-        {lenders.length === 0 ? (
-          <p className="text-sm text-gray-600">
-            No lenders configured yet. Add one above.
-          </p>
-        ) : (
-          lenders.map((l) => (
-            <div
-              key={l.id}
-              className="flex items-start justify-between rounded-md border bg-white px-4 py-3"
-            >
+        {/* Sidebar - Add lender form */}
+        <div className="space-y-6">
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Add New Lender</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
               <div>
-                <p className="font-medium text-sm">{l.name}</p>
-                <p className="text-xs text-gray-500">ID: {l.id}</p>
-                {l.notes && (
-                  <p className="mt-1 text-xs text-gray-600">{l.notes}</p>
-                )}
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Lender Name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="e.g. HSBC, Funding Circle"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newName}
+                  onChange={(e) => setNewName(e.target.value)}
+                />
               </div>
-              <div className="flex flex-col items-end gap-2">
-                <span
-                  className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                    l.status === 'ACTIVE'
-                      ? 'bg-green-100 text-green-800'
-                      : 'bg-gray-100 text-gray-700'
-                  }`}
-                >
-                  {l.status}
-                </span>
-                <button
-                  type="button"
-                  onClick={() => handleStatusToggle(l)}
-                  className="rounded-md border border-gray-300 px-2 py-1 text-xs hover:bg-gray-50"
-                >
-                  {l.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-                </button>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Notes
+                </label>
+                <textarea
+                  rows={3}
+                  placeholder="Optional notes about this lender..."
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newNotes}
+                  onChange={(e) => setNewNotes(e.target.value)}
+                />
               </div>
-            </div>
-          ))
-        )}
-      </section>
-    </main>
+              <Button
+                variant="primary"
+                className="w-full"
+                disabled={creating || !newName.trim()}
+                loading={creating}
+                onClick={handleCreate}
+              >
+                {creating ? 'Creating...' : 'Add Lender'}
+              </Button>
+            </CardContent>
+          </Card>
+
+          {/* Quick stats */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Summary</h2>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Total Lenders</span>
+                <span className="font-medium text-gray-900">{lenders.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Active</span>
+                <Badge variant="success">{activeLenders.length}</Badge>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Inactive</span>
+                <Badge variant="default">{inactiveLenders.length}</Badge>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </DashboardShell>
   );
 }
