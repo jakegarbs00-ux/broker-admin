@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { DashboardShell } from '@/components/layout';
+import { Card, CardContent, PageHeader, Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
 
 type AdminApp = {
   id: string;
@@ -58,18 +60,6 @@ export default function AdminApplicationsPage() {
   const [savingAppId, setSavingAppId] = useState<string | null>(null);
   const [updatingStageId, setUpdatingStageId] = useState<string | null>(null);
   const [updatingLenderId, setUpdatingLenderId] = useState<string | null>(null);
-
-  // Only admins allowed
-  if (!loading && profile?.role !== 'ADMIN') {
-    return (
-      <main className="max-w-4xl mx-auto p-4 space-y-4">
-        <h1 className="text-2xl font-semibold">Admin – applications</h1>
-        <p className="text-sm text-red-600">
-          You do not have permission to view this page.
-        </p>
-      </main>
-    );
-  }
 
   useEffect(() => {
     const loadLenders = async () => {
@@ -195,193 +185,208 @@ export default function AdminApplicationsPage() {
     setSavingAppId(null);
   };
 
+  // Only admins allowed
+  if (!loading && profile?.role !== 'ADMIN') {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">You do not have permission to view this page.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
+
   if (loading || loadingApps || loadingLenders) {
-    return <p className="p-4">Loading…</p>;
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading applications...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
 
   if (!user) return null;
 
   return (
-    <main className="max-w-6xl mx-auto space-y-6 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-red-600">Admin</p>
-          <h1 className="text-2xl font-semibold">Applications overview</h1>
-        </div>
-        <div className="flex gap-3">
+    <DashboardShell>
+      <PageHeader
+        title="Applications Overview"
+        description={`Managing ${apps.length} applications`}
+        actions={
           <Link
             href="/admin/lenders"
-            className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
+            className="inline-flex items-center px-4 py-2 text-sm font-medium rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            Manage lenders
+            Manage Lenders
           </Link>
-          <Link
-            href="/dashboard"
-            className="rounded-md border border-gray-300 px-3 py-1 text-sm hover:bg-gray-50"
-          >
-            Back to dashboard
-          </Link>
-        </div>
-      </div>
+        }
+      />
 
-      {error && <p className="text-sm text-red-600">{error}</p>}
+      {error && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
 
       {/* Filters */}
-      <section className="rounded-md border bg-white px-4 py-3 flex flex-wrap gap-4 items-center">
-        <div>
-          <p className="text-xs font-medium text-gray-600 mb-1">Stage</p>
-          <select
-            className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-            value={stageFilter}
-            onChange={(e) => setStageFilter(e.target.value)}
-          >
-            <option value="all">All</option>
-            {STAGES.map((s) => (
-              <option key={s} value={s}>
-                {s}
-              </option>
-            ))}
-          </select>
-        </div>
+      <Card className="mb-6">
+        <CardContent>
+          <div className="flex flex-wrap gap-4 items-center">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Stage</label>
+              <select
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={stageFilter}
+                onChange={(e) => setStageFilter(e.target.value)}
+              >
+                <option value="all">All stages</option>
+                {STAGES.map((s) => (
+                  <option key={s} value={s}>
+                    {formatStage(s)}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <div>
-          <p className="text-xs font-medium text-gray-600 mb-1">Lender</p>
-          <select
-            className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-            value={lenderFilter}
-            onChange={(e) => setLenderFilter(e.target.value)}
-          >
-            <option value="all">All</option>
-            <option value="none">Unassigned</option>
-            {lenders.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-        </div>
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Lender</label>
+              <select
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                value={lenderFilter}
+                onChange={(e) => setLenderFilter(e.target.value)}
+              >
+                <option value="all">All lenders</option>
+                <option value="none">Unassigned</option>
+                {lenders.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+            </div>
 
-        <p className="text-xs text-gray-500">
-          Showing {filteredApps.length} of {apps.length} applications
-        </p>
-      </section>
+            <div className="ml-auto">
+              <p className="text-sm text-gray-500">
+                Showing <span className="font-medium">{filteredApps.length}</span> of{' '}
+                <span className="font-medium">{apps.length}</span> applications
+              </p>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Applications list */}
-      <section className="space-y-3">
+      <div className="space-y-4">
         {filteredApps.length === 0 ? (
-          <p className="text-sm text-gray-600">
-            No applications match your filters.
-          </p>
+          <Card>
+            <CardContent className="text-center py-12">
+              <p className="text-gray-500">No applications match your filters.</p>
+            </CardContent>
+          </Card>
         ) : (
           filteredApps.map((a) => {
             const lender = a.lender_id ? lenderMap[a.lender_id] : undefined;
 
             return (
-              <div
-                key={a.id}
-                className="rounded-md border bg-white px-4 py-3 space-y-2"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div>
-                    <p className="text-sm text-gray-500">
-                      {a.company?.name ?? 'No company'} •{' '}
-                      {a.owner?.email ??
-                        a.prospective_client_email ??
-                        'Unknown client'}
-                    </p>
-                    <p className="text-lg font-semibold">
-                      £{a.requested_amount.toLocaleString()} – {a.loan_type}
-                    </p>
-                    <p className="text-xs text-gray-500">
-                      Created {new Date(a.created_at).toLocaleString()}
-                    </p>
-                  </div>
-                  <div className="flex flex-col items-end gap-2">
+              <Card key={a.id}>
+                <CardContent className="space-y-4">
+                  {/* Header row */}
+                  <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-gray-500">
+                        {a.company?.name ?? 'No company'} •{' '}
+                        {a.owner?.email ?? a.prospective_client_email ?? 'Unknown client'}
+                      </p>
+                      <p className="text-xl font-semibold text-gray-900">
+                        £{a.requested_amount?.toLocaleString()} – {a.loan_type}
+                      </p>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Created {new Date(a.created_at).toLocaleDateString('en-GB')} at{' '}
+                        {new Date(a.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                      </p>
+                    </div>
                     <div className="flex flex-wrap gap-2">
                       {a.is_hidden && (
-                        <span className="inline-block rounded-full bg-yellow-100 px-2 py-0.5 text-xs font-medium text-yellow-800">
-                          Draft (hidden from client)
-                        </span>
+                        <Badge variant="warning">Draft (hidden)</Badge>
                       )}
-                      <span className="inline-block rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium">
-                        {a.stage}
-                      </span>
+                      <Badge variant={getStageBadgeVariant(a.stage)}>
+                        {formatStage(a.stage)}
+                      </Badge>
                       {lender && (
-                        <span className="inline-block rounded-full bg-blue-50 px-2 py-0.5 text-xs font-medium text-blue-800">
-                          {lender.name}
-                        </span>
+                        <Badge variant="info">{lender.name}</Badge>
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Controls: stage & lender */}
-                <div className="flex flex-wrap gap-4 text-sm">
-                  <div>
-                    <p className="text-xs text-gray-600 mb-1">Stage</p>
-                    <select
-                      className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-                      value={a.stage}
-                      disabled={updatingStageId === a.id}
-                      onChange={(e) => handleStageChange(a.id, e.target.value)}
-                    >
-                      {STAGES.map((s) => (
-                        <option key={s} value={s}>
-                          {s}
-                        </option>
-                      ))}
-                    </select>
+                  {/* Controls: stage & lender */}
+                  <div className="flex flex-wrap gap-4 pt-4 border-t border-gray-100">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Stage</label>
+                      <select
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                        value={a.stage}
+                        disabled={updatingStageId === a.id}
+                        onChange={(e) => handleStageChange(a.id, e.target.value)}
+                      >
+                        {STAGES.map((s) => (
+                          <option key={s} value={s}>
+                            {formatStage(s)}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
+
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Lender</label>
+                      <select
+                        className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                        value={a.lender_id ?? 'none'}
+                        disabled={updatingLenderId === a.id}
+                        onChange={(e) =>
+                          handleLenderChange(a.id, e.target.value as string | 'none')
+                        }
+                      >
+                        <option value="none">Unassigned</option>
+                        {lenders.map((l) => (
+                          <option key={l.id} value={l.id}>
+                            {l.name}
+                          </option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
 
-                  <div>
-                    <p className="text-xs text-gray-600 mb-1">Lender</p>
-                    <select
-                      className="rounded-md border border-gray-300 px-2 py-1 text-sm"
-                      value={a.lender_id ?? 'none'}
-                      disabled={updatingLenderId === a.id}
-                      onChange={(e) =>
-                        handleLenderChange(
-                          a.id,
-                          e.target.value as string | 'none',
-                        )
-                      }
-                    >
-                      <option value="none">Unassigned</option>
-                      {lenders.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                    </select>
+                  {/* Admin notes */}
+                  <div className="pt-4 border-t border-gray-100">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Admin Notes</label>
+                    <AdminNotesEditor
+                      appId={a.id}
+                      initialValue={a.admin_notes ?? ''}
+                      onSave={handleNotesSave}
+                      saving={savingAppId === a.id}
+                    />
                   </div>
-                </div>
 
-                {/* Admin notes */}
-                <div className="pt-2 border-t border-gray-100">
-                  <p className="text-xs text-gray-600 mb-1">Admin notes</p>
-                  <AdminNotesEditor
-                    appId={a.id}
-                    initialValue={a.admin_notes ?? ''}
-                    onSave={handleNotesSave}
-                    saving={savingAppId === a.id}
-                  />
-                </div>
-
-                {/* Info requests link */}
-                <div className="flex justify-end pt-2">
-                  <Link
-                    href={`/admin/applications/${a.id}`}
-                    className="text-xs text-blue-600 hover:underline"
-                  >
-                    Manage information requests
-                  </Link>
-                </div>
-              </div>
+                  {/* Actions */}
+                  <div className="flex justify-end pt-4 border-t border-gray-100">
+                    <Link
+                      href={`/admin/applications/${a.id}`}
+                      className="inline-flex items-center text-sm font-medium text-blue-600 hover:text-blue-700"
+                    >
+                      Manage information requests →
+                    </Link>
+                  </div>
+                </CardContent>
+              </Card>
             );
           })
         )}
-      </section>
-    </main>
+      </div>
+    </DashboardShell>
   );
 }
 
@@ -405,9 +410,9 @@ function AdminNotesEditor({
   }, [initialValue]);
 
   return (
-    <div className="space-y-1">
+    <div className="space-y-2">
       <textarea
-        className="w-full rounded-md border border-gray-300 px-2 py-1 text-sm"
+        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
         rows={2}
         value={value}
         onChange={(e) => {
@@ -424,7 +429,7 @@ function AdminNotesEditor({
             onSave(appId, value);
             setDirty(false);
           }}
-          className="rounded-md bg-gray-800 px-3 py-1 text-xs text-white hover:bg-black disabled:opacity-40"
+          className="inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-900 text-white hover:bg-gray-800 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
         >
           {saving ? 'Saving…' : 'Save notes'}
         </button>
