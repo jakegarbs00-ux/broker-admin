@@ -5,13 +5,13 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, PageHeader, Badge, Button, EmptyState } from '@/components/ui';
+import { Card, CardContent, CardHeader, PageHeader, Badge, Button } from '@/components/ui';
 
 type Lender = {
   id: string;
   name: string;
-  status: string;
   notes: string | null;
+  created_at: string;
 };
 
 export default function AdminLendersPage() {
@@ -31,7 +31,7 @@ export default function AdminLendersPage() {
       setError(null);
       const { data, error } = await supabase
         .from('lenders')
-        .select('id, name, status, notes')
+        .select('id, name, notes, created_at')
         .order('name', { ascending: true });
 
       if (error) {
@@ -59,7 +59,7 @@ export default function AdminLendersPage() {
         status: 'ACTIVE',
         notes: newNotes.trim() || null,
       })
-      .select('id, name, status, notes')
+      .select('id, name, notes, created_at')
       .single();
 
     if (error) {
@@ -70,24 +70,6 @@ export default function AdminLendersPage() {
       setNewNotes('');
     }
     setCreating(false);
-  };
-
-  const handleStatusToggle = async (lender: Lender) => {
-    const newStatus = lender.status === 'ACTIVE' ? 'INACTIVE' : 'ACTIVE';
-
-    const { error } = await supabase
-      .from('lenders')
-      .update({ status: newStatus })
-      .eq('id', lender.id);
-
-    if (error) {
-      alert('Error updating status: ' + error.message);
-      return;
-    }
-
-    setLenders((prev) =>
-      prev.map((l) => (l.id === lender.id ? { ...l, status: newStatus } : l))
-    );
   };
 
   if (!loading && profile?.role !== 'ADMIN') {
@@ -116,14 +98,11 @@ export default function AdminLendersPage() {
 
   if (!user) return null;
 
-  const activeLenders = lenders.filter((l) => l.status === 'ACTIVE');
-  const inactiveLenders = lenders.filter((l) => l.status === 'INACTIVE');
-
   return (
     <DashboardShell>
       <PageHeader
         title="Lenders"
-        description={`Managing ${lenders.length} lender${lenders.length !== 1 ? 's' : ''}`}
+        description={`${lenders.length} lender${lenders.length !== 1 ? 's' : ''} configured`}
         actions={
           <Link href="/admin/applications">
             <Button variant="outline">← Back to Applications</Button>
@@ -139,23 +118,22 @@ export default function AdminLendersPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content - lenders list */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Active Lenders */}
+        <div className="lg:col-span-2">
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Active Lenders</h2>
-                <Badge variant="success">{activeLenders.length}</Badge>
+                <h2 className="font-medium text-gray-900">All Lenders</h2>
+                <Badge variant="default">{lenders.length}</Badge>
               </div>
             </CardHeader>
             <CardContent>
-              {activeLenders.length === 0 ? (
+              {lenders.length === 0 ? (
                 <p className="text-sm text-gray-500 text-center py-4">
-                  No active lenders. Add one using the form.
+                  No lenders configured yet. Add one using the form.
                 </p>
               ) : (
                 <div className="space-y-3">
-                  {activeLenders.map((l) => (
+                  {lenders.map((l) => (
                     <div
                       key={l.id}
                       className="flex items-start justify-between p-4 bg-gray-50 rounded-lg"
@@ -165,16 +143,9 @@ export default function AdminLendersPage() {
                         {l.notes && (
                           <p className="text-sm text-gray-600 mt-1">{l.notes}</p>
                         )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant="success">Active</Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleStatusToggle(l)}
-                        >
-                          Deactivate
-                        </Button>
+                        <p className="text-xs text-gray-400 mt-2">
+                          Added {new Date(l.created_at).toLocaleDateString('en-GB')}
+                        </p>
                       </div>
                     </div>
                   ))}
@@ -182,49 +153,10 @@ export default function AdminLendersPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Inactive Lenders */}
-          {inactiveLenders.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <h2 className="font-medium text-gray-900">Inactive Lenders</h2>
-                  <Badge variant="default">{inactiveLenders.length}</Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-3">
-                  {inactiveLenders.map((l) => (
-                    <div
-                      key={l.id}
-                      className="flex items-start justify-between p-4 bg-gray-50 rounded-lg opacity-60"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{l.name}</p>
-                        {l.notes && (
-                          <p className="text-sm text-gray-600 mt-1">{l.notes}</p>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-3">
-                        <Badge variant="default">Inactive</Badge>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => handleStatusToggle(l)}
-                        >
-                          Activate
-                        </Button>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
         </div>
 
         {/* Sidebar - Add lender form */}
-        <div className="space-y-6">
+        <div>
           <Card>
             <CardHeader>
               <h2 className="font-medium text-gray-900">Add New Lender</h2>
@@ -258,32 +190,10 @@ export default function AdminLendersPage() {
                 variant="primary"
                 className="w-full"
                 disabled={creating || !newName.trim()}
-                loading={creating}
                 onClick={handleCreate}
               >
-                {creating ? 'Creating...' : 'Add Lender'}
+                {creating ? 'Adding...' : 'Add Lender'}
               </Button>
-            </CardContent>
-          </Card>
-
-          {/* Quick stats */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-gray-900">Summary</h2>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Lenders</span>
-                <span className="font-medium text-gray-900">{lenders.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Active</span>
-                <Badge variant="success">{activeLenders.length}</Badge>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Inactive</span>
-                <Badge variant="default">{inactiveLenders.length}</Badge>
-              </div>
             </CardContent>
           </Card>
         </div>

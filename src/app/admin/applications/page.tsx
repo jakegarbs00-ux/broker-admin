@@ -18,12 +18,8 @@ type AdminApp = {
   admin_notes: string | null;
   lender_id: string | null;
   prospective_client_email: string | null;
-  company?: {
-    name: string;
-  } | null;
-  owner?: {
-    email: string | null;
-  } | null;
+  company: { id: string; name: string }[] | null;
+  owner: { email: string | null }[] | null;
 };
 
 type Lender = {
@@ -92,7 +88,7 @@ export default function AdminApplicationsPage() {
           admin_notes,
           lender_id,
           prospective_client_email,
-          company:companies(name),
+          company:companies(id, name),
           owner:profiles!applications_owner_id_fkey (email)
         `
         )
@@ -102,7 +98,7 @@ export default function AdminApplicationsPage() {
         console.error('Error loading applications', error);
         setError('Error loading applications: ' + error.message);
       } else if (data) {
-        setApps(data as any);
+        setApps(data as AdminApp[]);
       }
       setLoadingApps(false);
     };
@@ -140,7 +136,7 @@ export default function AdminApplicationsPage() {
       alert('Error updating stage: ' + error.message);
     } else {
       setApps((prev) =>
-        prev.map((a) => (a.id === appId ? { ...a, stage: newStage } : a)),
+        prev.map((a) => (a.id === appId ? { ...a, stage: newStage } : a))
       );
     }
     setUpdatingStageId(null);
@@ -159,9 +155,7 @@ export default function AdminApplicationsPage() {
       alert('Error updating lender: ' + error.message);
     } else {
       setApps((prev) =>
-        prev.map((a) =>
-          a.id === appId ? { ...a, lender_id } : a,
-        ),
+        prev.map((a) => (a.id === appId ? { ...a, lender_id } : a))
       );
     }
 
@@ -179,7 +173,7 @@ export default function AdminApplicationsPage() {
       alert('Error saving notes: ' + error.message);
     } else {
       setApps((prev) =>
-        prev.map((a) => (a.id === appId ? { ...a, admin_notes: notes } : a)),
+        prev.map((a) => (a.id === appId ? { ...a, admin_notes: notes } : a))
       );
     }
     setSavingAppId(null);
@@ -290,6 +284,9 @@ export default function AdminApplicationsPage() {
         ) : (
           filteredApps.map((a) => {
             const lender = a.lender_id ? lenderMap[a.lender_id] : undefined;
+            const companyId = a.company?.[0]?.id;
+            const companyName = a.company?.[0]?.name ?? 'No company';
+            const ownerEmail = a.owner?.[0]?.email ?? a.prospective_client_email ?? 'Unknown client';
 
             return (
               <Card key={a.id}>
@@ -298,8 +295,18 @@ export default function AdminApplicationsPage() {
                   <div className="flex flex-wrap items-start justify-between gap-4">
                     <div>
                       <p className="text-sm text-gray-500">
-                        {a.company?.name ?? 'No company'} •{' '}
-                        {a.owner?.email ?? a.prospective_client_email ?? 'Unknown client'}
+                        {companyId ? (
+                          <Link
+                            href={`/admin/companies/${companyId}`}
+                            className="text-blue-600 hover:text-blue-700 hover:underline font-medium"
+                          >
+                            {companyName}
+                          </Link>
+                        ) : (
+                          <span>{companyName}</span>
+                        )}
+                        {' • '}
+                        {ownerEmail}
                       </p>
                       <p className="text-xl font-semibold text-gray-900">
                         £{a.requested_amount?.toLocaleString()} – {a.loan_type}

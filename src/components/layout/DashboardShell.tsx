@@ -1,6 +1,6 @@
 'use client';
 
-import { ReactNode } from 'react';
+import { ReactNode, useState } from 'react';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import Sidebar from './Sidebar';
 import Header from './Header';
@@ -11,6 +11,7 @@ interface DashboardShellProps {
 
 export default function DashboardShell({ children }: DashboardShellProps) {
   const { user, profile, loading } = useUserProfile();
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   if (loading) {
     return (
@@ -31,13 +32,34 @@ export default function DashboardShell({ children }: DashboardShellProps) {
   const email = user.email ?? 'Unknown';
 
   return (
-    <div className="min-h-screen bg-gray-50 flex">
-      <div className="block">
-        <Sidebar role={role} />
+    <div className="min-h-screen bg-gray-50">
+      {/* Mobile sidebar overlay */}
+      {sidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black bg-opacity-50 z-40 lg:hidden"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
+      {/* Sidebar - fixed on all screen sizes, hidden on mobile unless open */}
+      <div className={`
+        fixed inset-y-0 left-0 z-50 transform transition-transform duration-300 ease-in-out
+        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:translate-x-0
+      `}>
+        <Sidebar role={role} userId={user.id} onClose={() => setSidebarOpen(false)} />
       </div>
-      <div className="flex-1 flex flex-col min-h-screen">
-        <Header email={email} role={role} />
-        <main className="flex-1 p-6">
+
+      {/* Main content area - offset by sidebar width on desktop */}
+      <div className="lg:pl-64 flex flex-col min-h-screen">
+        <Header 
+          email={email} 
+          role={role} 
+          onMenuClick={() => setSidebarOpen(true)} 
+        />
+        
+        {/* Page content */}
+        <main className="flex-1 p-4 sm:p-6">
           <div className="max-w-6xl mx-auto">
             {children}
           </div>
