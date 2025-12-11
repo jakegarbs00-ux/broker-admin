@@ -58,11 +58,9 @@ export default function DashboardShell({ children }: DashboardShellProps) {
           onMenuClick={() => setSidebarOpen(true)} 
         />
         
-        {/* Page content */}
-        <main className="flex-1 p-4 sm:p-6">
-          <div className="max-w-6xl mx-auto">
-            {children}
-          </div>
+        {/* Page content - full width, no max-width constraint */}
+        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+          {children}
         </main>
       </div>
     </div>

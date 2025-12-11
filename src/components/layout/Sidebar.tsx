@@ -2,8 +2,6 @@
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { useEffect, useState } from 'react';
-import { getSupabaseClient } from '@/lib/supabaseClient';
 
 type UserRole = 'CLIENT' | 'PARTNER' | 'ADMIN';
 
@@ -19,13 +17,6 @@ interface NavItem {
   icon: React.ReactNode;
   roles: UserRole[];
 }
-
-type Company = {
-  id: string;
-  name: string;
-  company_number: string | null;
-  industry: string | null;
-};
 
 const navItems: NavItem[] = [
   {
@@ -48,22 +39,54 @@ const navItems: NavItem[] = [
     ),
     roles: ['CLIENT'],
   },
+  // Partner navigation
   {
-    label: 'Client Applications',
-    href: '/partner/applications',
+    label: 'Companies',
+    href: '/partner/companies',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
       </svg>
     ),
     roles: ['PARTNER'],
   },
   {
-    label: 'All Applications',
+    label: 'Applications',
+    href: '/partner/applications',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    roles: ['PARTNER'],
+  },
+  // Admin navigation
+  {
+    label: 'Applications',
     href: '/admin/applications',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+      </svg>
+    ),
+    roles: ['ADMIN'],
+  },
+  {
+    label: 'Companies',
+    href: '/admin/companies',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    roles: ['ADMIN'],
+  },
+  {
+    label: 'Partners',
+    href: '/admin/partners',
+    icon: (
+      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
       </svg>
     ),
     roles: ['ADMIN'],
@@ -73,7 +96,7 @@ const navItems: NavItem[] = [
     href: '/admin/lenders',
     icon: (
       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
       </svg>
     ),
     roles: ['ADMIN'],
@@ -82,29 +105,8 @@ const navItems: NavItem[] = [
 
 export default function Sidebar({ role, userId, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const supabase = getSupabaseClient();
-  const [company, setCompany] = useState<Company | null>(null);
 
   const filteredItems = navItems.filter((item) => item.roles.includes(role));
-
-  // Load company info for clients
-  useEffect(() => {
-    if (role !== 'CLIENT' || !userId) return;
-
-    const loadCompany = async () => {
-      const { data } = await supabase
-        .from('companies')
-        .select('id, name, company_number, industry')
-        .eq('owner_id', userId)
-        .maybeSingle();
-
-      if (data) {
-        setCompany(data as Company);
-      }
-    };
-
-    loadCompany();
-  }, [role, userId, supabase]);
 
   return (
     <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
@@ -152,62 +154,41 @@ export default function Sidebar({ role, userId, onClose }: SidebarProps) {
             </Link>
           );
         })}
+
+        {/* Company info link for clients - separate from nav */}
+        {role === 'CLIENT' && (
+          <Link
+            href="/onboarding/company"
+            onClick={onClose}
+            className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              pathname === '/onboarding/company'
+                ? 'bg-blue-50 text-blue-700'
+                : 'text-gray-700 hover:bg-gray-100'
+            }`}
+          >
+            <span className={pathname === '/onboarding/company' ? 'text-blue-600' : 'text-gray-400'}>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+              </svg>
+            </span>
+            Company Info
+          </Link>
+        )}
       </nav>
 
-      {/* Client company info section */}
-      {role === 'CLIENT' && (
-        <div className="border-t border-gray-200 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider">Your Company</p>
-            <Link 
-              href="/onboarding/company" 
-              onClick={onClose}
-              className="text-xs text-blue-600 hover:text-blue-700"
-            >
-              Edit
-            </Link>
-          </div>
-          
-          {company ? (
-            <div className="space-y-1">
-              <p className="text-sm font-medium text-gray-900 truncate">{company.name}</p>
-              {company.company_number && (
-                <p className="text-xs text-gray-500">#{company.company_number}</p>
-              )}
-              {company.industry && (
-                <p className="text-xs text-gray-500">{company.industry}</p>
-              )}
-            </div>
-          ) : (
-            <Link
-              href="/onboarding/company"
-              onClick={onClose}
-              className="block text-sm text-blue-600 hover:text-blue-700"
-            >
-              + Add company info
-            </Link>
-          )}
-        </div>
-      )}
-
-      {/* Role-specific sections */}
+      {/* Quick actions */}
       {role === 'PARTNER' && (
         <div className="px-4 pb-4">
-          <p className="px-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">
-            Partner Tools
-          </p>
-          <div className="mt-2 space-y-1">
-            <Link
-              href="/partner/applications/new"
-              onClick={onClose}
-              className="flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium text-gray-700 hover:bg-gray-100"
-            >
-              <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-              </svg>
-              New Client Application
-            </Link>
-          </div>
+          <Link
+            href="/partner/companies/new"
+            onClick={onClose}
+            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+            </svg>
+            New Company
+          </Link>
         </div>
       )}
 

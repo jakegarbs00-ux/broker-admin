@@ -5,13 +5,16 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, PageHeader, Badge, Button } from '@/components/ui';
+import { Card, CardContent, CardHeader, PageHeader, Badge, Button, EmptyState } from '@/components/ui';
 
 type Lender = {
   id: string;
   name: string;
-  notes: string | null;
+  contact_email: string | null;
+  contact_phone: string | null;
+  status: string;
   created_at: string;
+  applications_count: number;
 };
 
 export default function AdminLendersPage() {
@@ -19,71 +22,80 @@ export default function AdminLendersPage() {
   const supabase = getSupabaseClient();
 
   const [lenders, setLenders] = useState<Lender[]>([]);
-  const [loadingLenders, setLoadingLenders] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [newName, setNewName] = useState('');
-  const [newNotes, setNewNotes] = useState('');
   const [creating, setCreating] = useState(false);
 
   useEffect(() => {
+    if (loading) return;
+    if (profile?.role !== 'ADMIN') {
+      setLoadingData(false);
+      return;
+    }
+
     const loadLenders = async () => {
       setError(null);
-      const { data, error } = await supabase
+
+      // Get lenders
+      const { data: lendersData, error: lendersError } = await supabase
         .from('lenders')
-        .select('id, name, notes, created_at')
+        .select('id, name, contact_email, contact_phone, status, created_at')
         .order('name', { ascending: true });
 
-      if (error) {
-        console.error('Error loading lenders', error);
-        setError('Error loading lenders: ' + error.message);
-      } else if (data) {
-        setLenders(data as Lender[]);
+      if (lendersError) {
+        console.error('Error loading lenders', lendersError);
+        setError('Error loading lenders: ' + lendersError.message);
+        setLoadingData(false);
+        return;
       }
-      setLoadingLenders(false);
+
+      // Get application counts
+      const { data: appCounts } = await supabase
+        .from('applications')
+        .select('lender_id');
+
+      const countMap: Record<string, number> = {};
+      (appCounts || []).forEach((a: any) => {
+        if (a.lender_id) {
+          countMap[a.lender_id] = (countMap[a.lender_id] || 0) + 1;
+        }
+      });
+
+      const processedLenders: Lender[] = (lendersData || []).map((l) => ({
+        ...l,
+        applications_count: countMap[l.id] || 0,
+      }));
+
+      setLenders(processedLenders);
+      setLoadingData(false);
     };
 
-    if (!loading && profile?.role === 'ADMIN') {
-      loadLenders();
-    }
+    loadLenders();
   }, [loading, profile?.role, supabase]);
 
-  const handleCreate = async () => {
+  const handleAddLender = async () => {
     if (!newName.trim()) return;
     setCreating(true);
+    setError(null);
 
     const { data, error } = await supabase
       .from('lenders')
-      .insert({
-        name: newName.trim(),
-        status: 'ACTIVE',
-        notes: newNotes.trim() || null,
-      })
-      .select('id, name, notes, created_at')
+      .insert({ name: newName.trim(), status: 'active' })
+      .select()
       .single();
 
     if (error) {
-      alert('Error creating lender: ' + error.message);
+      setError('Error adding lender: ' + error.message);
     } else if (data) {
-      setLenders((prev) => [...prev, data as Lender].sort((a, b) => a.name.localeCompare(b.name)));
+      setLenders((prev) => [...prev, { ...data, applications_count: 0 }].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName('');
-      setNewNotes('');
     }
     setCreating(false);
   };
 
-  if (!loading && profile?.role !== 'ADMIN') {
-    return (
-      <DashboardShell>
-        <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
-        </div>
-      </DashboardShell>
-    );
-  }
-
-  if (loading || loadingLenders) {
+  if (loading || loadingData) {
     return (
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
@@ -96,18 +108,24 @@ export default function AdminLendersPage() {
     );
   }
 
+  if (profile?.role !== 'ADMIN') {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Access Denied</p>
+          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
+
   if (!user) return null;
 
   return (
     <DashboardShell>
       <PageHeader
         title="Lenders"
-        description={`${lenders.length} lender${lenders.length !== 1 ? 's' : ''} configured`}
-        actions={
-          <Link href="/admin/applications">
-            <Button variant="outline">← Back to Applications</Button>
-          </Link>
-        }
+        description={`${lenders.length} lenders registered`}
       />
 
       {error && (
@@ -126,29 +144,77 @@ export default function AdminLendersPage() {
                 <Badge variant="default">{lenders.length}</Badge>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="p-0">
               {lenders.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
-                  No lenders configured yet. Add one using the form.
-                </p>
+                <div className="p-6">
+                  <EmptyState
+                    icon={
+                      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                    }
+                    title="No lenders yet"
+                    description="Add your first lender using the form."
+                  />
+                </div>
               ) : (
-                <div className="space-y-3">
-                  {lenders.map((l) => (
-                    <div
-                      key={l.id}
-                      className="flex items-start justify-between p-4 bg-gray-50 rounded-lg"
-                    >
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{l.name}</p>
-                        {l.notes && (
-                          <p className="text-sm text-gray-600 mt-1">{l.notes}</p>
-                        )}
-                        <p className="text-xs text-gray-400 mt-2">
-                          Added {new Date(l.created_at).toLocaleDateString('en-GB')}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                          Lender
+                        </th>
+                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                          Contact
+                        </th>
+                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                          Applications
+                        </th>
+                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                          Added
+                        </th>
+                        <th className="px-6 py-3"></th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {lenders.map((l) => (
+                        <tr key={l.id} className="hover:bg-gray-50 transition-colors">
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <Link
+                              href={`/admin/lenders/${l.id}`}
+                              className="font-medium text-gray-900 hover:text-blue-600"
+                            >
+                              {l.name}
+                            </Link>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            <span className="text-sm text-gray-600">
+                              {l.contact_email || l.contact_phone || '—'}
+                            </span>
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap">
+                            {l.applications_count > 0 ? (
+                              <Badge variant="info">{l.applications_count}</Badge>
+                            ) : (
+                              <span className="text-sm text-gray-400">0</span>
+                            )}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(l.created_at).toLocaleDateString('en-GB')}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-right">
+                            <Link
+                              href={`/admin/lenders/${l.id}`}
+                              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            >
+                              View →
+                            </Link>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
             </CardContent>
@@ -159,41 +225,54 @@ export default function AdminLendersPage() {
         <div>
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Add New Lender</h2>
+              <h2 className="font-medium text-gray-900">Add Lender</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Lender Name <span className="text-red-500">*</span>
+                  Lender Name
                 </label>
                 <input
                   type="text"
-                  placeholder="e.g. HSBC, Funding Circle"
+                  placeholder="e.g. Funding Circle"
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Notes
-                </label>
-                <textarea
-                  rows={3}
-                  placeholder="Optional notes about this lender..."
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  value={newNotes}
-                  onChange={(e) => setNewNotes(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleAddLender();
+                  }}
                 />
               </div>
               <Button
                 variant="primary"
                 className="w-full"
                 disabled={creating || !newName.trim()}
-                onClick={handleCreate}
+                onClick={handleAddLender}
               >
                 {creating ? 'Adding...' : 'Add Lender'}
               </Button>
+              <p className="text-xs text-gray-500">
+                After adding, click the lender to add contact details.
+              </p>
+            </CardContent>
+          </Card>
+
+          {/* Summary */}
+          <Card className="mt-6">
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Summary</h2>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Total Lenders</span>
+                <span className="font-medium text-gray-900">{lenders.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Total Assigned Apps</span>
+                <span className="font-medium text-gray-900">
+                  {lenders.reduce((sum, l) => sum + l.applications_count, 0)}
+                </span>
+              </div>
             </CardContent>
           </Card>
         </div>
