@@ -485,7 +485,7 @@ export default function DashboardPage() {
   // Admins get redirected to admin dashboard
   if (role === 'ADMIN') {
     if (typeof window !== 'undefined') {
-      window.location.href = '/admin/applications';
+      window.location.href = '/admin';
     }
     return null;
   }

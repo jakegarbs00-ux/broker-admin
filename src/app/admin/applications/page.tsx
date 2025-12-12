@@ -19,7 +19,7 @@ type AdminApp = {
   company_id: string | null;
   owner_id: string | null;
   prospective_client_email: string | null;
-  company: { id: string; name: string }[] | null;
+  company: { id: string; name: string; director_full_name: string | null }[] | null;
   owner: { email: string | null }[] | null;
 };
 
@@ -114,16 +114,21 @@ export default function AdminApplicationsPage() {
       const companyIds = Array.from(new Set(appsData.map(a => a.company_id).filter(Boolean))) as string[];
       const ownerIds = Array.from(new Set(appsData.map(a => a.owner_id).filter(Boolean))) as string[];
 
-      // Fetch companies
-      let companyMap: Record<string, { id: string; name: string }> = {};
+      // Fetch companies with director information
+      let companyMap: Record<string, { id: string; name: string; director_full_name: string | null; director_email: string | null }> = {};
       if (companyIds.length > 0) {
         const { data: companies } = await supabase
           .from('companies')
-          .select('id, name')
+          .select('id, name, director_full_name, director_email')
           .in('id', companyIds);
         
         (companies || []).forEach((c: any) => {
-          companyMap[c.id] = c;
+          companyMap[c.id] = {
+            id: c.id,
+            name: c.name,
+            director_full_name: c.director_full_name,
+            director_email: c.director_email,
+          };
         });
       }
 
@@ -267,11 +272,16 @@ export default function AdminApplicationsPage() {
             const lender = a.lender_id ? lenderMap[a.lender_id] : undefined;
             const companyName = a.company?.[0]?.name;
             const companyId = a.company?.[0]?.id;
-            const ownerEmail = a.owner?.[0]?.email || a.prospective_client_email;
+            const directorName = a.company?.[0]?.director_full_name;
+            const directorEmail = a.company?.[0]?.director_email;
+            const ownerEmail = a.owner?.[0]?.email;
+            const prospectiveEmail = a.prospective_client_email;
             
-            // Display logic: show what we have
-            const primaryDisplay = companyName || ownerEmail || `Application ${a.id.slice(0, 8)}`;
-            const secondaryDisplay = companyName && ownerEmail ? ownerEmail : null;
+            // Display logic: prefer director name, then company name, then director email, then owner email
+            const primaryDisplay = directorName || companyName || directorEmail || ownerEmail || prospectiveEmail || `Application ${a.id.slice(0, 8)}`;
+            const secondaryDisplay = companyName && directorName ? companyName :
+                                     directorEmail && directorEmail !== primaryDisplay ? directorEmail :
+                                     ownerEmail && ownerEmail !== primaryDisplay ? ownerEmail : null;
 
             return (
               <Link key={a.id} href={`/admin/applications/${a.id}`} className="block">

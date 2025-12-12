@@ -365,7 +365,9 @@ const handleSaveOffer = async () => {
   if (!application) return null;
 
   const currentLender = lenders.find((l) => l.id === application.lender_id);
-  const ownerEmail = company?.owner?.[0]?.email ?? application.prospective_client_email ?? 'Unknown';
+  // Director name from companies table, email from owner (login) or prospective client
+  const directorName = company?.director_full_name;
+  const directorEmail = company?.owner?.[0]?.email ?? application.prospective_client_email ?? 'Unknown';
 
   return (
     <DashboardShell>
@@ -491,109 +493,111 @@ const handleSaveOffer = async () => {
             </CardContent>
           </Card>
 
-             {/* Offer Details */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-gray-900">Offer Details</h2>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Offer Amount (£)
-                </label>
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 50000"
-                  value={offerAmount}
-                  onChange={(e) => {
-                    setOfferAmount(e.target.value);
-                    setOfferDirty(true);
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Loan Term
-                </label>
-                <input
-                  type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 12 months"
-                  value={offerLoanTerm}
-                  onChange={(e) => {
-                    setOfferLoanTerm(e.target.value);
-                    setOfferDirty(true);
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Cost of Funding
-                </label>
-                <input
-                  type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 8% APR"
-                  value={offerCostOfFunding}
-                  onChange={(e) => {
-                    setOfferCostOfFunding(e.target.value);
-                    setOfferDirty(true);
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Repayments
-                </label>
-                <input
-                  type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., £4,500/month"
-                  value={offerRepayments}
-                  onChange={(e) => {
-                    setOfferRepayments(e.target.value);
-                    setOfferDirty(true);
-                  }}
-                />
-              </div>
-
-              <div className="pt-2">
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  disabled={!offerDirty || savingOffer}
-                  onClick={handleSaveOffer}
-                >
-                  {savingOffer ? 'Saving...' : 'Save Offer Details'}
-                </Button>
-              </div>
-
-              {/* Show current values as reference */}
-              <div className="pt-3 border-t border-gray-100 space-y-2">
-                <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Requested</span>
-                  <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
+             {/* Offer Details - Only show when stage is approved */}
+          {application.stage === 'approved' && (
+            <Card>
+              <CardHeader>
+                <h2 className="font-medium text-gray-900">Offer Details</h2>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Offer Amount (£)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., 50000"
+                    value={offerAmount}
+                    onChange={(e) => {
+                      setOfferAmount(e.target.value);
+                      setOfferDirty(true);
+                    }}
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Type</span>
-                  <span className="text-sm font-medium">{application.loan_type}</span>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Loan Term
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., 12 months"
+                    value={offerLoanTerm}
+                    onChange={(e) => {
+                      setOfferLoanTerm(e.target.value);
+                      setOfferDirty(true);
+                    }}
+                  />
                 </div>
-                {currentLender && (
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Cost of Funding
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., 8% APR"
+                    value={offerCostOfFunding}
+                    onChange={(e) => {
+                      setOfferCostOfFunding(e.target.value);
+                      setOfferDirty(true);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Repayments
+                  </label>
+                  <input
+                    type="text"
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="e.g., £4,500/month"
+                    value={offerRepayments}
+                    onChange={(e) => {
+                      setOfferRepayments(e.target.value);
+                      setOfferDirty(true);
+                    }}
+                  />
+                </div>
+
+                <div className="pt-2">
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    disabled={!offerDirty || savingOffer}
+                    onClick={handleSaveOffer}
+                  >
+                    {savingOffer ? 'Saving...' : 'Save Offer Details'}
+                  </Button>
+                </div>
+
+                {/* Show current values as reference */}
+                <div className="pt-3 border-t border-gray-100 space-y-2">
+                  <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Lender</span>
-                    <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
-                      {currentLender.name}
-                    </Link>
+                    <span className="text-sm text-gray-600">Requested</span>
+                    <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
                   </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Type</span>
+                    <span className="text-sm font-medium">{application.loan_type}</span>
+                  </div>
+                  {currentLender && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Lender</span>
+                      <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
+                        {currentLender.name}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
             </div> 
 
 
@@ -636,16 +640,16 @@ const handleSaveOffer = async () => {
                       <p className="font-medium text-gray-900">—</p>
                     )}
                   </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase mb-1">Client Email</p>
-                    <p className="font-medium text-gray-900">{ownerEmail}</p>
-                  </div>
-                  {company.director_full_name && (
+                  {directorName && (
                     <div>
-                      <p className="text-xs text-gray-500 uppercase mb-1">Director</p>
-                      <p className="font-medium text-gray-900">{company.director_full_name}</p>
+                      <p className="text-xs text-gray-500 uppercase mb-1">Director Name</p>
+                      <p className="font-medium text-gray-900">{directorName}</p>
                     </div>
                   )}
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase mb-1">Client Email</p>
+                    <p className="font-medium text-gray-900">{directorEmail}</p>
+                  </div>
                   {company.property_status && (
                     <div>
                       <p className="text-xs text-gray-500 uppercase mb-1">Property Status</p>

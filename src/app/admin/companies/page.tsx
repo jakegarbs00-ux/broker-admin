@@ -7,6 +7,13 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
 import { Card, CardContent, CardHeader, PageHeader, Badge, Button, EmptyState } from '@/components/ui';
 
+type Partner = {
+  id: string;
+  email: string;
+  full_name: string | null;
+  company_name: string | null;
+};
+
 type Company = {
   id: string;
   name: string;
@@ -14,8 +21,12 @@ type Company = {
   industry: string | null;
   website: string | null;
   created_at: string;
-  owner: { id: string; email: string }[] | null;
+  director_full_name: string | null;
+  director_address: string | null;
+  director_dob: string | null;
+  owner: { id: string; email: string; referred_by: string | null }[] | null;
   applications: { id: string; stage: string }[];
+  partner?: Partner | null;
 };
 
 export default function AdminCompaniesPage() {
@@ -40,7 +51,10 @@ export default function AdminCompaniesPage() {
           industry,
           website,
           created_at,
-          owner:profiles!companies_owner_id_fkey(id, email),
+          director_full_name,
+          director_address,
+          director_dob,
+          owner:profiles!companies_owner_id_fkey(id, email, referred_by),
           applications(id, stage)
         `)
         .order('created_at', { ascending: false });
@@ -48,9 +62,58 @@ export default function AdminCompaniesPage() {
       if (error) {
         console.error('Error loading companies', error);
         setError('Error loading companies: ' + error.message);
-      } else if (data) {
-        setCompanies(data as Company[]);
+        setLoadingData(false);
+        return;
       }
+
+      if (!data || data.length === 0) {
+        setCompanies([]);
+        setLoadingData(false);
+        return;
+      }
+
+      // Get all unique partner IDs from referred_by fields
+      const partnerIds = Array.from(
+        new Set(
+          data
+            .map((c: any) => c.owner?.[0]?.referred_by)
+            .filter((id: string | null) => id !== null && id !== undefined)
+        )
+      ) as string[];
+
+      // Fetch partner information
+      let partnerMap: Record<string, Partner> = {};
+      if (partnerIds.length > 0) {
+        const { data: partnersData } = await supabase
+          .from('profiles')
+          .select('id, email, full_name, company_name')
+          .in('id', partnerIds)
+          .eq('role', 'PARTNER');
+
+        if (partnersData) {
+          partnersData.forEach((p: any) => {
+            partnerMap[p.id] = {
+              id: p.id,
+              email: p.email,
+              full_name: p.full_name,
+              company_name: p.company_name,
+            };
+          });
+        }
+      }
+
+      // Enrich companies with partner information
+      const enrichedCompanies: Company[] = data.map((c: any) => {
+        const ownerReferredBy = c.owner?.[0]?.referred_by;
+        const partner = ownerReferredBy ? partnerMap[ownerReferredBy] || null : null;
+
+        return {
+          ...c,
+          partner,
+        };
+      });
+
+      setCompanies(enrichedCompanies);
       setLoadingData(false);
     };
 
@@ -91,6 +154,7 @@ export default function AdminCompaniesPage() {
     return (
       c.name.toLowerCase().includes(search) ||
       c.owner?.[0]?.email?.toLowerCase().includes(search) ||
+      c.director_full_name?.toLowerCase().includes(search) ||
       c.company_number?.toLowerCase().includes(search)
     );
   });
@@ -156,7 +220,13 @@ export default function AdminCompaniesPage() {
                       Company
                     </th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                      Client Email
+                      Director / Client
+                    </th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                      Status
+                    </th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                      Referred By
                     </th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
                       Website
@@ -173,6 +243,13 @@ export default function AdminCompaniesPage() {
                 <tbody className="divide-y divide-gray-200">
                   {filteredCompanies.map((c) => {
                     const openApps = getOpenApplicationsCount(c.applications);
+                    // Company is referred if the owner (client) was referred by a partner
+                    const ownerReferredBy = c.owner?.[0]?.referred_by;
+                    const isReferred = ownerReferredBy !== null && ownerReferredBy !== undefined;
+                    const directorName = c.director_full_name;
+                    const clientEmail = c.owner?.[0]?.email;
+                    const hasOwner = c.owner && c.owner.length > 0 && c.owner[0]?.id;
+                    
                     return (
                       <tr key={c.id} className="hover:bg-gray-50 transition-colors">
                         <td className="px-6 py-4">
@@ -186,10 +263,45 @@ export default function AdminCompaniesPage() {
                             )}
                           </div>
                         </td>
+                        <td className="px-6 py-4">
+                          <div className="space-y-1">
+                            {directorName ? (
+                              <p className="text-sm font-medium text-gray-900">{directorName}</p>
+                            ) : (
+                              <p className="text-sm text-gray-400">Director name unknown</p>
+                            )}
+                            {clientEmail ? (
+                              <p className="text-xs text-gray-500">Client: {clientEmail}</p>
+                            ) : (
+                              <p className="text-xs text-gray-400">No client email</p>
+                            )}
+                          </div>
+                        </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-600">
-                            {c.owner?.[0]?.email ?? '—'}
-                          </span>
+                          {isReferred ? (
+                            <Badge variant="success">Referred</Badge>
+                          ) : hasOwner ? (
+                            <Badge variant="default">Direct</Badge>
+                          ) : (
+                            <Badge variant="warning">No Client</Badge>
+                          )}
+                        </td>
+                        <td className="px-6 py-4">
+                          {c.partner ? (
+                            <div>
+                              <Link
+                                href={`/admin/partners/${c.partner.id}`}
+                                className="text-sm font-medium text-blue-600 hover:text-blue-700"
+                              >
+                                {c.partner.full_name || c.partner.company_name || c.partner.email}
+                              </Link>
+                              {c.partner.company_name && c.partner.full_name && (
+                                <p className="text-xs text-gray-500">{c.partner.email}</p>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-sm text-gray-400">—</span>
+                          )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {c.website ? (

@@ -167,7 +167,11 @@ export default function AdminCompanyDetailPage() {
     <DashboardShell>
       <PageHeader
         title={company.name}
-        description={`Client: ${company.owner?.[0]?.email ?? 'Unknown'}`}
+        description={company.director_full_name 
+          ? `Director: ${company.director_full_name}`
+          : company.owner?.[0]?.email 
+            ? `Client: ${company.owner[0].email}`
+            : 'No director or client information'}
         actions={
           <Link href="/admin/applications">
             <Button variant="outline">← Back to Applications</Button>
@@ -332,8 +336,8 @@ export default function AdminCompanyDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase">Client Email</p>
-                <p className="text-sm text-gray-900">{company.owner?.[0]?.email ?? 'Unknown'}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase">Client Email (Login)</p>
+                <p className="text-sm text-gray-900">{company.owner?.[0]?.email ?? 'No client account'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase">Created</p>

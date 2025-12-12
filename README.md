@@ -1,2 +1,3 @@
 # loan-broker-portal
 --- this does a rollback to checkpoint? -- git checkout checkpoint-roles-mvp
+--- . The Code is stored locally on my mac. There is a secret link that connects it to my github repo. 2. The type of terminal (Visual studio or Cursor) is just an interface as to how I change that code. 3. Local host is me viewing that code live 4. I make save cmd S in the terminal then it updates the lock folder, and I also see this update in the local host. 5. Nothing happens in github until I add, commit, and push.
