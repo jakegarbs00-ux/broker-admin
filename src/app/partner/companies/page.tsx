@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, PageHeader, Badge, Button, EmptyState } from '@/components/ui';
+import { Card, CardContent, Badge, Button, EmptyState } from '@/components/ui';
 
 type Company = {
   id: string;
@@ -28,11 +28,16 @@ export default function PartnerCompaniesPage() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    if (loading || !user) return;
+    if (profile?.role !== 'PARTNER') {
+      setLoadingData(false);
+      return;
+    }
+
     const loadCompanies = async () => {
-      if (!user) return;
       setError(null);
 
-      // First, get all clients referred by this partner
+      // Get clients referred by this partner
       const { data: referredClients, error: clientsError } = await supabase
         .from('profiles')
         .select('id, email')
@@ -98,21 +103,8 @@ export default function PartnerCompaniesPage() {
       setLoadingData(false);
     };
 
-    if (!loading && profile?.role === 'PARTNER') {
-      loadCompanies();
-    }
+    loadCompanies();
   }, [loading, profile?.role, user, supabase]);
-
-  if (!loading && profile?.role !== 'PARTNER') {
-    return (
-      <DashboardShell>
-        <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
-        </div>
-      </DashboardShell>
-    );
-  }
 
   if (loading || loadingData) {
     return (
@@ -127,19 +119,31 @@ export default function PartnerCompaniesPage() {
     );
   }
 
+  if (profile?.role !== 'PARTNER') {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Access Denied</p>
+          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
+
   if (!user) return null;
 
   return (
     <DashboardShell>
-      <PageHeader
-        title="Your Companies"
-        description={`${companies.length} referred companies`}
-        actions={
-          <Link href="/partner/companies/new">
-            <Button variant="primary">+ Add Company</Button>
-          </Link>
-        }
-      />
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Your Companies</h1>
+          <p className="text-gray-600">{companies.length} referred companies</p>
+        </div>
+        <Link href="/partner/companies/new">
+          <Button variant="primary">+ Add Company</Button>
+        </Link>
+      </div>
 
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
@@ -147,9 +151,9 @@ export default function PartnerCompaniesPage() {
         </div>
       )}
 
-      <Card>
-        <CardContent className="p-0">
-          {companies.length === 0 ? (
+      {companies.length === 0 ? (
+        <Card>
+          <CardContent className="py-12">
             <EmptyState
               icon={
                 <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -157,95 +161,59 @@ export default function PartnerCompaniesPage() {
                 </svg>
               }
               title="No companies yet"
-              description="Companies you refer will appear here. Use your referral link or add a company directly."
+              description="Companies you refer will appear here. Add your first company to get started."
               action={
                 <Link href="/partner/companies/new">
                   <Button variant="primary">Add Company</Button>
                 </Link>
               }
             />
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                      Company
-                    </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                      Client Email
-                    </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                      Website
-                    </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                      Open Apps
-                    </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                      Created
-                    </th>
-                    <th className="px-6 py-3"></th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {companies.map((c) => (
-                    <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium text-gray-900">{c.name}</p>
-                          {c.company_number && (
-                            <p className="text-xs text-gray-500">#{c.company_number}</p>
-                          )}
-                          {c.industry && (
-                            <p className="text-xs text-gray-500">{c.industry}</p>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="text-sm text-gray-600">
-                          {c.owner_email ?? '—'}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {c.website ? (
-                          <a
-                            href={c.website}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm text-blue-600 hover:text-blue-700"
-                          >
-                            {c.website.replace(/^https?:\/\//, '')}
-                          </a>
-                        ) : (
-                          <span className="text-sm text-gray-400">—</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        {c.open_applications_count > 0 ? (
-                          <Badge variant="info">{c.open_applications_count}</Badge>
-                        ) : (
-                          <span className="text-sm text-gray-400">0</span>
-                        )}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {new Date(c.created_at).toLocaleDateString('en-GB')}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right">
-                        <Link
-                          href={`/partner/companies/${c.id}`}
-                          className="text-purple-600 hover:text-purple-700 text-sm font-medium"
-                        >
-                          View →
-                        </Link>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="space-y-3">
+          {companies.map((c) => (
+            <Link key={c.id} href={`/partner/companies/${c.id}`} className="block">
+              <div className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md hover:border-gray-300 transition-all cursor-pointer">
+                <div className="flex flex-wrap items-center justify-between gap-4">
+                  {/* Left side - main info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-medium text-gray-900">{c.name}</span>
+                      {c.company_number && (
+                        <>
+                          <span className="text-gray-400">•</span>
+                          <span className="text-sm text-gray-500">#{c.company_number}</span>
+                        </>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-gray-500">
+                      {c.industry && <span>{c.industry}</span>}
+                      {c.owner_email && <span>{c.owner_email}</span>}
+                    </div>
+                    <p className="text-xs text-gray-400 mt-1">
+                      Added {new Date(c.created_at).toLocaleDateString('en-GB')}
+                    </p>
+                  </div>
+
+                  {/* Right side - stats and badges */}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-sm font-medium text-gray-900">{c.applications_count} applications</p>
+                      {c.open_applications_count > 0 && (
+                        <p className="text-xs text-purple-600">{c.open_applications_count} open</p>
+                      )}
+                    </div>
+                    <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </div>
+                </div>
+              </div>
+            </Link>
+          ))}
+        </div>
+      )}
     </DashboardShell>
   );
 }

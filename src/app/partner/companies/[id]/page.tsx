@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, PageHeader, Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
+import { Card, CardContent, CardHeader, Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
 
 type Company = {
   id: string;
@@ -19,7 +19,7 @@ type Company = {
   director_dob: string | null;
   property_status: string | null;
   created_at: string;
-  owner: { email: string }[] | null;
+  owner_id: string;
 };
 
 type Application = {
@@ -30,6 +30,10 @@ type Application = {
   created_at: string;
 };
 
+type Owner = {
+  email: string;
+};
+
 export default function PartnerCompanyDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -37,6 +41,7 @@ export default function PartnerCompanyDetailPage() {
   const supabase = getSupabaseClient();
 
   const [company, setCompany] = useState<Company | null>(null);
+  const [owner, setOwner] = useState<Owner | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -51,42 +56,46 @@ export default function PartnerCompanyDetailPage() {
     const loadData = async () => {
       setError(null);
 
-      // First verify this company belongs to a client referred by this partner
+      // Load company
       const { data: companyData, error: companyError } = await supabase
         .from('companies')
         .select(`
           id, name, company_number, industry, website,
           director_full_name, director_address, director_dob, property_status,
-          created_at, owner_id,
-          owner:profiles!companies_owner_id_fkey(email)
+          created_at, owner_id
         `)
         .eq('id', id)
         .single();
 
-      if (companyError) {
+      if (companyError || !companyData) {
         setError('Company not found');
         setLoadingData(false);
         return;
       }
 
-      // Check if owner was referred by this partner
-      if (companyData.owner_id) {
-        const { data: ownerProfile } = await supabase
-          .from('profiles')
-          .select('referred_by')
-          .eq('id', companyData.owner_id)
-          .single();
+      // Verify this company belongs to a client referred by this partner
+      const { data: ownerData, error: ownerError } = await supabase
+        .from('profiles')
+        .select('email, referred_by')
+        .eq('id', companyData.owner_id)
+        .single();
 
-        if (ownerProfile?.referred_by !== user.id) {
-          setError('You do not have access to this company');
-          setLoadingData(false);
-          return;
-        }
+      if (ownerError || !ownerData) {
+        setError('Company owner not found');
+        setLoadingData(false);
+        return;
+      }
+
+      if (ownerData.referred_by !== user.id) {
+        setError('You do not have access to this company');
+        setLoadingData(false);
+        return;
       }
 
       setCompany(companyData as Company);
+      setOwner({ email: ownerData.email });
 
-      // Load applications
+      // Load applications for this company
       const { data: appsData } = await supabase
         .from('applications')
         .select('id, requested_amount, loan_type, stage, created_at')
@@ -119,6 +128,9 @@ export default function PartnerCompanyDetailPage() {
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Access Denied</p>
           <p className="text-sm text-gray-500 mt-1">{error || 'You do not have permission to view this page.'}</p>
+          <Link href="/partner/companies" className="text-purple-600 hover:text-purple-700 text-sm mt-4 inline-block">
+            ← Back to Companies
+          </Link>
         </div>
       </DashboardShell>
     );
@@ -126,17 +138,37 @@ export default function PartnerCompanyDetailPage() {
 
   if (!company) return null;
 
+  const closedStages = ['funded', 'declined', 'withdrawn'];
+  const openApplications = applications.filter((a) => !closedStages.includes(a.stage));
+  const totalRequested = applications.reduce((sum, a) => sum + (a.requested_amount || 0), 0);
+
   return (
     <DashboardShell>
-      <PageHeader
-        title={company.name}
-        description={company.industry || 'Company details'}
-      />
+      {/* Back link */}
+      <div className="mb-4">
+        <Link href="/partner/companies" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+          </svg>
+          Back to Companies
+        </Link>
+      </div>
+
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">{company.name}</h1>
+        {company.industry && (
+          <p className="text-gray-600">{company.industry}</p>
+        )}
+        <p className="text-sm text-gray-500 mt-1">
+          Added {new Date(company.created_at).toLocaleDateString('en-GB')}
+        </p>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* Main content */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Company Info */}
+          {/* Company Information */}
           <Card>
             <CardHeader>
               <h2 className="font-medium text-gray-900">Company Information</h2>
@@ -169,11 +201,17 @@ export default function PartnerCompanyDetailPage() {
                     </dd>
                   </div>
                 )}
+                {owner && (
+                  <div>
+                    <dt className="text-xs text-gray-500 uppercase">Client Email</dt>
+                    <dd className="text-sm font-medium text-gray-900">{owner.email}</dd>
+                  </div>
+                )}
               </dl>
             </CardContent>
           </Card>
 
-          {/* Director Info */}
+          {/* Director Information */}
           {(company.director_full_name || company.director_dob || company.property_status) && (
             <Card>
               <CardHeader>
@@ -211,32 +249,6 @@ export default function PartnerCompanyDetailPage() {
               </CardContent>
             </Card>
           )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Summary */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-gray-900">Summary</h2>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Client Email</span>
-                <span className="text-sm font-medium text-gray-900">{company.owner?.[0]?.email || '—'}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Applications</span>
-                <span className="text-sm font-medium text-gray-900">{applications.length}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Created</span>
-                <span className="text-sm font-medium text-gray-900">
-                  {new Date(company.created_at).toLocaleDateString('en-GB')}
-                </span>
-              </div>
-            </CardContent>
-          </Card>
 
           {/* Applications */}
           <Card>
@@ -248,35 +260,83 @@ export default function PartnerCompanyDetailPage() {
             </CardHeader>
             <CardContent className="p-0">
               {applications.length === 0 ? (
-                <div className="p-4 text-center">
+                <div className="p-6 text-center">
                   <p className="text-sm text-gray-500">No applications yet</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
+                <div className="divide-y divide-gray-100">
                   {applications.map((app) => (
                     <Link
                       key={app.id}
                       href={`/partner/applications/${app.id}`}
                       className="block p-4 hover:bg-gray-50 transition-colors"
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-gray-900">
-                          £{app.requested_amount.toLocaleString()}
-                        </span>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-gray-900">
+                            £{app.requested_amount?.toLocaleString()}
+                          </p>
+                          <p className="text-sm text-gray-600">{app.loan_type}</p>
+                          <p className="text-xs text-gray-400 mt-1">
+                            {new Date(app.created_at).toLocaleDateString('en-GB')}
+                          </p>
+                        </div>
                         <Badge variant={getStageBadgeVariant(app.stage)}>
                           {formatStage(app.stage)}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-500">{app.loan_type}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {new Date(app.created_at).toLocaleDateString('en-GB')}
-                      </p>
                     </Link>
                   ))}
                 </div>
               )}
             </CardContent>
           </Card>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Summary */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Summary</h2>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Total Applications</span>
+                <span className="font-medium text-gray-900">{applications.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Open Applications</span>
+                <span className="font-medium text-purple-600">{openApplications.length}</span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-sm text-gray-600">Total Requested</span>
+                <span className="font-medium text-gray-900">£{totalRequested.toLocaleString()}</span>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Status breakdown */}
+          {applications.length > 0 && (
+            <Card>
+              <CardHeader>
+                <h2 className="font-medium text-gray-900">By Status</h2>
+              </CardHeader>
+              <CardContent className="space-y-2">
+                {Array.from(new Set(applications.map((a) => a.stage))).map((stage) => {
+                  const count = applications.filter((a) => a.stage === stage).length;
+                  return (
+                    <div key={stage} className="flex items-center justify-between py-1">
+                      <Badge variant={getStageBadgeVariant(stage)}>
+                        {formatStage(stage)}
+                      </Badge>
+                      <span className="text-sm font-medium text-gray-900">{count}</span>
+                    </div>
+                  );
+                })}
+              </CardContent>
+            </Card>
+          )}
         </div>
       </div>
     </DashboardShell>

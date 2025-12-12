@@ -15,12 +15,14 @@ type Application = {
   loan_type: string;
   stage: string;
   created_at: string;
+  company_id?: string;
+  company_name?: string;
 };
 
 type ReferredClient = {
   id: string;
   email: string | null;
-  companies: { name: string }[] | null;
+  companies: { id: string; name: string }[] | null;
 };
 
 function ClientDashboardContent({ userId }: { userId: string }) {
@@ -192,7 +194,13 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
   const supabase = getSupabaseClient();
   const [referralLink, setReferralLink] = useState('');
   const [clients, setClients] = useState<ReferredClient[]>([]);
-  const [applicationCount, setApplicationCount] = useState(0);
+  const [applications, setApplications] = useState<Application[]>([]);
+  const [stats, setStats] = useState({
+    totalCompanies: 0,
+    totalApplications: 0,
+    openApplications: 0,
+    fundedAmount: 0,
+  });
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -206,21 +214,58 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
       // Load referred clients with their companies
       const { data: clientsData } = await supabase
         .from('profiles')
-        .select('id, email, companies(name)')
+        .select('id, email, companies(id, name)')
         .eq('role', 'CLIENT')
         .eq('referred_by', userId);
 
       if (clientsData) setClients(clientsData as ReferredClient[]);
 
-      // Count applications from referred clients
-      if (clientsData && clientsData.length > 0) {
-        const clientIds = clientsData.map((c) => c.id);
-        const { count } = await supabase
-          .from('applications')
-          .select('*', { count: 'exact', head: true })
-          .in('owner_id', clientIds);
+      if (!clientsData || clientsData.length === 0) {
+        setLoading(false);
+        return;
+      }
 
-        setApplicationCount(count ?? 0);
+      const clientIds = clientsData.map((c) => c.id);
+
+      // Build company map
+      const companyMap: Record<string, string> = {};
+      clientsData.forEach((c: any) => {
+        if (c.companies) {
+          c.companies.forEach((comp: any) => {
+            companyMap[comp.id] = comp.name;
+          });
+        }
+      });
+
+      const companyIds = Object.keys(companyMap);
+
+      // Load all applications for these companies
+      if (companyIds.length > 0) {
+        const { data: appsData } = await supabase
+          .from('applications')
+          .select('id, requested_amount, loan_type, stage, created_at, company_id')
+          .in('company_id', companyIds)
+          .order('created_at', { ascending: false });
+
+        const enrichedApps = (appsData || []).map((a: any) => ({
+          ...a,
+          company_name: companyMap[a.company_id] || 'Unknown',
+        }));
+
+        setApplications(enrichedApps);
+
+        // Calculate stats
+        const closedStages = ['funded', 'declined', 'withdrawn'];
+        const openApps = enrichedApps.filter((a: Application) => !closedStages.includes(a.stage));
+        const fundedApps = enrichedApps.filter((a: Application) => a.stage === 'funded');
+        const fundedTotal = fundedApps.reduce((sum: number, a: Application) => sum + (a.requested_amount || 0), 0);
+
+        setStats({
+          totalCompanies: companyIds.length,
+          totalApplications: enrichedApps.length,
+          openApplications: openApps.length,
+          fundedAmount: fundedTotal,
+        });
       }
 
       setLoading(false);
@@ -239,109 +284,192 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
         title="Partner Dashboard"
         description="Manage your referred clients and track their applications."
         actions={
-          <Link href="/partner/applications/new">
+          <Link href="/partner/companies/new">
             <Button variant="primary">
-              New Client Application
+              + Add Company
             </Button>
           </Link>
         }
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Clients count */}
+      {/* Stats cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
-          <CardHeader>
-            <h2 className="text-sm font-medium text-gray-500">Referred Clients</h2>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold text-gray-900">{clients.length}</p>
-            <p className="text-sm text-gray-500 mt-1">Active clients</p>
+          <CardContent className="p-4">
+            <p className="text-sm text-gray-500">Referred Companies</p>
+            <p className="text-2xl font-bold text-gray-900">{stats.totalCompanies}</p>
           </CardContent>
         </Card>
-
-        {/* Applications count */}
         <Card>
-          <CardHeader>
-            <h2 className="text-sm font-medium text-gray-500">Applications</h2>
-          </CardHeader>
-          <CardContent>
-            <p className="text-3xl font-semibold text-gray-900">{applicationCount}</p>
-            <p className="text-sm text-gray-500 mt-1">Total applications</p>
+          <CardContent className="p-4">
+            <p className="text-sm text-gray-500">Total Applications</p>
+            <p className="text-2xl font-bold text-gray-900">{stats.totalApplications}</p>
           </CardContent>
         </Card>
-
-        {/* Quick link */}
         <Card>
-          <CardHeader>
-            <h2 className="text-sm font-medium text-gray-500">Quick Action</h2>
-          </CardHeader>
-          <CardContent>
-            <Link href="/partner/applications">
-              <Button variant="outline" className="w-full">
-                View All Applications
-              </Button>
-            </Link>
+          <CardContent className="p-4">
+            <p className="text-sm text-gray-500">Open Applications</p>
+            <p className="text-2xl font-bold text-purple-600">{stats.openApplications}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-sm text-gray-500">Total Funded</p>
+            <p className="text-2xl font-bold text-green-600">£{stats.fundedAmount.toLocaleString()}</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Referral Link */}
-      <Card className="mt-6">
-        <CardHeader>
-          <h2 className="font-medium text-gray-900">Your Referral Link</h2>
-          <p className="text-sm text-gray-500">
-            Share this link with clients. Their accounts will be automatically linked to you.
-          </p>
-        </CardHeader>
-        <CardContent>
-          <div className="flex gap-2">
-            <input
-              readOnly
-              value={referralLink}
-              className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-sm text-gray-600"
-            />
-            <Button
-              variant="secondary"
-              onClick={() => {
-                if (navigator.clipboard && referralLink) {
-                  navigator.clipboard.writeText(referralLink);
-                }
-              }}
-            >
-              Copy
-            </Button>
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* Referred Clients List */}
-      <Card className="mt-6">
-        <CardHeader>
-          <h2 className="font-medium text-gray-900">Referred Clients</h2>
-        </CardHeader>
-        <CardContent className="p-0">
-          {clients.length === 0 ? (
-            <EmptyState
-              title="No clients yet"
-              description="Share your referral link to start building your client base."
-            />
-          ) : (
-            <div className="divide-y divide-gray-200">
-              {clients.map((client) => (
-                <div key={client.id} className="flex items-center justify-between px-6 py-4">
-                  <div>
-                    <p className="font-medium text-gray-900">{client.email ?? 'Unknown'}</p>
-                    {client.companies && client.companies[0] && (
-                      <p className="text-sm text-gray-500">{client.companies[0].name}</p>
-                    )}
-                  </div>
-                  <Badge variant="info">Client</Badge>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Applications List */}
+        <div className="lg:col-span-2">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h2 className="font-medium text-gray-900">All Applications</h2>
+                <Badge variant="default">{applications.length}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {applications.length === 0 ? (
+                <EmptyState
+                  title="No applications yet"
+                  description="Applications from your referred companies will appear here."
+                />
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {applications.slice(0, 10).map((app) => (
+                    <Link
+                      key={app.id}
+                      href={`/partner/applications/${app.id}`}
+                      className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">
+                          {app.company_name}
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          £{app.requested_amount?.toLocaleString()} – {app.loan_type}
+                        </p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {new Date(app.created_at).toLocaleDateString('en-GB')}
+                        </p>
+                      </div>
+                      <Badge variant={getStageBadgeVariant(app.stage)}>
+                        {formatStage(app.stage)}
+                      </Badge>
+                    </Link>
+                  ))}
+                  {applications.length > 10 && (
+                    <div className="px-6 py-4 text-center">
+                      <Link
+                        href="/partner/applications"
+                        className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                      >
+                        View all {applications.length} applications →
+                      </Link>
+                    </div>
+                  )}
                 </div>
-              ))}
-            </div>
-          )}
-        </CardContent>
-      </Card>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {/* Referral Link */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Your Referral Link</h2>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <p className="text-sm text-gray-500">
+                Share this link with clients to automatically link them to you.
+              </p>
+              <div className="flex gap-2">
+                <input
+                  readOnly
+                  value={referralLink}
+                  className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600"
+                />
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => {
+                    if (navigator.clipboard && referralLink) {
+                      navigator.clipboard.writeText(referralLink);
+                    }
+                  }}
+                >
+                  Copy
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Quick Actions */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Quick Actions</h2>
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Link href="/partner/companies/new" className="block">
+                <Button variant="primary" className="w-full">
+                  + Add New Company
+                </Button>
+              </Link>
+              <Link href="/partner/companies" className="block">
+                <Button variant="secondary" className="w-full">
+                  View All Companies
+                </Button>
+              </Link>
+              <Link href="/partner/company" className="block">
+                <Button variant="secondary" className="w-full">
+                  Your Company Info
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+
+          {/* Companies summary */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h2 className="font-medium text-gray-900">Your Companies</h2>
+                <Link href="/partner/companies" className="text-sm text-purple-600 hover:text-purple-700">
+                  View all →
+                </Link>
+              </div>
+            </CardHeader>
+            <CardContent className="p-0">
+              {clients.length === 0 ? (
+                <div className="p-4">
+                  <p className="text-sm text-gray-500">No companies referred yet</p>
+                </div>
+              ) : (
+                <div className="divide-y divide-gray-100">
+                  {clients.slice(0, 5).map((client) => (
+                    <div key={client.id} className="px-4 py-3">
+                      {client.companies && client.companies[0] ? (
+                        <Link
+                          href={`/partner/companies/${client.companies[0].id}`}
+                          className="font-medium text-gray-900 hover:text-purple-600"
+                        >
+                          {client.companies[0].name}
+                        </Link>
+                      ) : (
+                        <p className="text-gray-500">No company</p>
+                      )}
+                      <p className="text-xs text-gray-500">{client.email}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
     </>
   );
 }
