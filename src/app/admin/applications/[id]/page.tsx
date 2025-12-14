@@ -20,7 +20,6 @@ type Application = {
   lender_id: string | null;
   created_at: string;
   company_id: string | null;
-  owner_id: string | null;
   prospective_client_email: string | null;
   created_by: string | null;
   offer_amount: number | null;
@@ -35,11 +34,21 @@ type Company = {
   company_number: string | null;
   industry: string | null;
   website: string | null;
-  director_full_name: string | null;
-  director_address: string | null;
-  director_dob: string | null;
-  property_status: string | null;
-  owner: { email: string }[] | null;
+  referred_by: string | null;
+  primary_director: { 
+    id: string; 
+    email: string; 
+    full_name: string | null; 
+    address: string | null; 
+    dob: string | null; 
+    property_status: string | null;
+  }[] | null;
+  partner: { 
+    id: string; 
+    email: string; 
+    full_name: string | null; 
+    company_name: string | null;
+  }[] | null;
 };
 
 type Lender = {
@@ -147,38 +156,31 @@ export default function AdminApplicationDetailPage() {
           .from('companies')
           .select(`
             id, name, company_number, industry, website,
-            director_full_name, director_address, director_dob, property_status,
-            owner:profiles!companies_owner_id_fkey(email)
+            referred_by,
+            primary_director:profiles!profiles_company_id_fkey(id, email, full_name, address, dob, property_status, is_primary_director),
+            partner:profiles!companies_referred_by_fkey(id, email, full_name, company_name)
           `)
           .eq('id', appData.company_id)
+          .eq('primary_director.is_primary_director', true)
           .single();
 
         if (companyData) {
-          setCompany(companyData as Company);
+          setCompany(companyData as any);
         }
       }
 
-      // Check for referral partner - try multiple sources
+      // Check for referral partner - get from company.referred_by
       let foundPartner: Partner | null = null;
 
-      // 1. Check if owner has referred_by set
-      if (appData.owner_id && !foundPartner) {
-        const { data: ownerProfile } = await supabase
+      if (appData.company_id && company?.referred_by) {
+        const { data: partnerData } = await supabase
           .from('profiles')
-          .select('referred_by')
-          .eq('id', appData.owner_id)
+          .select('id, email, full_name, company_name')
+          .eq('id', company.referred_by)
           .single();
 
-        if (ownerProfile?.referred_by) {
-          const { data: partnerData } = await supabase
-            .from('profiles')
-            .select('id, email')
-            .eq('id', ownerProfile.referred_by)
-            .single();
-
-          if (partnerData) {
-            foundPartner = partnerData as Partner;
-          }
+        if (partnerData) {
+          foundPartner = partnerData as Partner;
         }
       }
 
@@ -365,9 +367,7 @@ const handleSaveOffer = async () => {
   if (!application) return null;
 
   const currentLender = lenders.find((l) => l.id === application.lender_id);
-  // Director name from companies table, email from owner (login) or prospective client
-  const directorName = company?.director_full_name;
-  const directorEmail = company?.owner?.[0]?.email ?? application.prospective_client_email ?? 'Unknown';
+  const directorEmail = company?.primary_director?.[0]?.email ?? application.prospective_client_email ?? 'Unknown';
 
   return (
     <DashboardShell>
@@ -493,111 +493,109 @@ const handleSaveOffer = async () => {
             </CardContent>
           </Card>
 
-             {/* Offer Details - Only show when stage is approved */}
-          {application.stage === 'approved' && (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-gray-900">Offer Details</h2>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Offer Amount (£)
-                  </label>
-                  <input
-                    type="number"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., 50000"
-                    value={offerAmount}
-                    onChange={(e) => {
-                      setOfferAmount(e.target.value);
-                      setOfferDirty(true);
-                    }}
-                  />
-                </div>
+             {/* Offer Details */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Offer Details</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Offer Amount (£)
+                </label>
+                <input
+                  type="number"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 50000"
+                  value={offerAmount}
+                  onChange={(e) => {
+                    setOfferAmount(e.target.value);
+                    setOfferDirty(true);
+                  }}
+                />
+              </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Loan Term
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., 12 months"
-                    value={offerLoanTerm}
-                    onChange={(e) => {
-                      setOfferLoanTerm(e.target.value);
-                      setOfferDirty(true);
-                    }}
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Loan Term
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 12 months"
+                  value={offerLoanTerm}
+                  onChange={(e) => {
+                    setOfferLoanTerm(e.target.value);
+                    setOfferDirty(true);
+                  }}
+                />
+              </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Cost of Funding
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., 8% APR"
-                    value={offerCostOfFunding}
-                    onChange={(e) => {
-                      setOfferCostOfFunding(e.target.value);
-                      setOfferDirty(true);
-                    }}
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Cost of Funding
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 8% APR"
+                  value={offerCostOfFunding}
+                  onChange={(e) => {
+                    setOfferCostOfFunding(e.target.value);
+                    setOfferDirty(true);
+                  }}
+                />
+              </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Repayments
-                  </label>
-                  <input
-                    type="text"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="e.g., £4,500/month"
-                    value={offerRepayments}
-                    onChange={(e) => {
-                      setOfferRepayments(e.target.value);
-                      setOfferDirty(true);
-                    }}
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Repayments
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., £4,500/month"
+                  value={offerRepayments}
+                  onChange={(e) => {
+                    setOfferRepayments(e.target.value);
+                    setOfferDirty(true);
+                  }}
+                />
+              </div>
 
-                <div className="pt-2">
-                  <Button
-                    variant="primary"
-                    className="w-full"
-                    disabled={!offerDirty || savingOffer}
-                    onClick={handleSaveOffer}
-                  >
-                    {savingOffer ? 'Saving...' : 'Save Offer Details'}
-                  </Button>
-                </div>
+              <div className="pt-2">
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  disabled={!offerDirty || savingOffer}
+                  onClick={handleSaveOffer}
+                >
+                  {savingOffer ? 'Saving...' : 'Save Offer Details'}
+                </Button>
+              </div>
 
-                {/* Show current values as reference */}
-                <div className="pt-3 border-t border-gray-100 space-y-2">
-                  <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
+              {/* Show current values as reference */}
+              <div className="pt-3 border-t border-gray-100 space-y-2">
+                <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Requested</span>
+                  <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Type</span>
+                  <span className="text-sm font-medium">{application.loan_type}</span>
+                </div>
+                {currentLender && (
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Requested</span>
-                    <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
+                    <span className="text-sm text-gray-600">Lender</span>
+                    <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
+                      {currentLender.name}
+                    </Link>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Type</span>
-                    <span className="text-sm font-medium">{application.loan_type}</span>
-                  </div>
-                  {currentLender && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Lender</span>
-                      <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
-                        {currentLender.name}
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+                )}
+              </div>
+            </CardContent>
+          </Card>
             </div> 
 
 
@@ -640,20 +638,20 @@ const handleSaveOffer = async () => {
                       <p className="font-medium text-gray-900">—</p>
                     )}
                   </div>
-                  {directorName && (
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase mb-1">Director Name</p>
-                      <p className="font-medium text-gray-900">{directorName}</p>
-                    </div>
-                  )}
                   <div>
                     <p className="text-xs text-gray-500 uppercase mb-1">Client Email</p>
                     <p className="font-medium text-gray-900">{directorEmail}</p>
                   </div>
-                  {company.property_status && (
+                  {company.primary_director?.[0]?.full_name && (
+                    <div>
+                      <p className="text-xs text-gray-500 uppercase mb-1">Director</p>
+                      <p className="font-medium text-gray-900">{company.primary_director[0].full_name}</p>
+                    </div>
+                  )}
+                  {company.primary_director?.[0]?.property_status && (
                     <div>
                       <p className="text-xs text-gray-500 uppercase mb-1">Property Status</p>
-                      <p className="font-medium text-gray-900 capitalize">{company.property_status.replace(/_/g, ' ')}</p>
+                      <p className="font-medium text-gray-900 capitalize">{company.primary_director[0].property_status.replace(/_/g, ' ')}</p>
                     </div>
                   )}
                 </div>

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { DashboardShell } from '@/components/layout';
 
 type PartnerApplication = {
   id: string;
@@ -13,14 +14,18 @@ type PartnerApplication = {
   urgency: string | null;
   created_at: string;
   is_hidden: boolean;
+  company_id: string | null;
+  created_by: string | null;
   prospective_client_email: string | null;
   company?: {
+    id: string;
     name: string;
-  } | null;
-  owner?: {
+  }[] | null;
+  creator?: {
     id: string;
     email: string | null;
-  } | null;
+    full_name: string | null;
+  }[] | null;
 };
 
 export default function PartnerApplicationsPage() {
@@ -40,30 +45,27 @@ export default function PartnerApplicationsPage() {
 
       setError(null);
 
-      // 1) Find IDs of clients referred by this partner
-      const { data: clients, error: clientsError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('role', 'CLIENT')
+      // Get companies referred by this partner
+      const { data: referredCompanies, error: companiesError } = await supabase
+        .from('companies')
+        .select('id')
         .eq('referred_by', user.id);
 
-      if (clientsError) {
-        console.error('Error loading referred clients', clientsError);
-        setError('Error loading referred clients: ' + clientsError.message);
+      if (companiesError) {
+        console.error('Error loading referred companies', companiesError);
+        setError('Error loading referred companies: ' + companiesError.message);
         setLoadingApps(false);
         return;
       }
 
-      const clientIds = (clients ?? []).map((c) => c.id) as string[];
+      const companyIds = (referredCompanies ?? []).map((c) => c.id) as string[];
 
-      // 2) Load applications:
-      //    - owned by referred clients
-      //    - OR draft apps created by this partner with no owner yet
+      // Load applications for referred companies OR draft apps created by this partner
       const orFilters = [
-        clientIds.length > 0
-          ? `owner_id.in.(${clientIds.join(',')})`
+        companyIds.length > 0
+          ? `company_id.in.(${companyIds.join(',')})`
           : '',
-        `and(owner_id.is.null,created_by.eq.${user.id})`,
+        `and(company_id.is.null,created_by.eq.${user.id})`,
       ]
         .filter(Boolean)
         .join(',');
@@ -79,9 +81,11 @@ export default function PartnerApplicationsPage() {
             urgency,
             created_at,
             is_hidden,
+            company_id,
+            created_by,
             prospective_client_email,
-            company:companies(name),
-            owner:profiles!applications_owner_id_fkey (id, email)
+            company:companies!applications_company_id_fkey(id, name),
+            creator:profiles!applications_created_by_fkey(id, email, full_name)
           `
         )
         .or(orFilters)
@@ -104,27 +108,45 @@ export default function PartnerApplicationsPage() {
   }, [user, profile?.role, loading, supabase]);
 
   if (loading || loadingApps) {
-    return <p className="p-4">Loading…</p>;
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading applications...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
 
   if (!user) {
-    return <p className="p-4">You need to be logged in.</p>;
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Authentication Required</p>
+          <p className="text-sm text-gray-500 mt-1">You need to be logged in to view this page.</p>
+        </div>
+      </DashboardShell>
+    );
   }
 
   if (profile?.role !== 'PARTNER') {
     return (
-      <main className="max-w-3xl mx-auto space-y-4 p-4">
-        <h1 className="text-2xl font-semibold">Partner applications</h1>
-        <p className="text-sm text-red-600">
-          You are not a partner. This page is only available to users with the PARTNER
-          role.
-        </p>
-      </main>
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Access Denied</p>
+          <p className="text-sm text-gray-500 mt-1">
+            You are not a partner. This page is only available to users with the PARTNER role.
+          </p>
+        </div>
+      </DashboardShell>
     );
   }
 
   return (
-    <main className="max-w-4xl mx-auto space-y-6 p-4">
+    <DashboardShell>
+      <div className="max-w-4xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-purple-600">
@@ -159,11 +181,12 @@ export default function PartnerApplicationsPage() {
         <div className="space-y-3">
           {apps.map((a) => {
             const isDraft = a.is_hidden;
-            const hasOwner = !!a.owner?.id;
-
-            const clientLabel = hasOwner
-              ? a.owner?.email ?? 'Known client'
-              : a.prospective_client_email ?? 'Prospective client';
+            const creatorEmail = a.creator?.[0]?.email;
+            const creatorName = a.creator?.[0]?.full_name;
+            const clientLabel = creatorEmail 
+              ? (creatorName ? `${creatorName} (${creatorEmail})` : creatorEmail)
+              : a.prospective_client_email ?? 'Unknown creator';
+            const companyName = a.company?.[0]?.name ?? 'Company pending';
 
             return (
               <div
@@ -172,7 +195,7 @@ export default function PartnerApplicationsPage() {
               >
                 <div>
                   <p className="text-sm text-gray-500">
-                    {a.company?.name ?? 'Company pending'} • {clientLabel}
+                    {companyName} • {clientLabel}
                   </p>
                   <p className="text-lg font-semibold">
                     £{a.requested_amount.toLocaleString()} – {a.loan_type}
@@ -197,6 +220,7 @@ export default function PartnerApplicationsPage() {
           })}
         </div>
       )}
-    </main>
+      </div>
+    </DashboardShell>
   );
 }

@@ -37,32 +37,7 @@ export default function PartnerCompaniesPage() {
     const loadCompanies = async () => {
       setError(null);
 
-      // Get clients referred by this partner
-      const { data: referredClients, error: clientsError } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('referred_by', user.id);
-
-      if (clientsError) {
-        console.error('Error loading referred clients', clientsError);
-        setError('Error loading referred clients: ' + clientsError.message);
-        setLoadingData(false);
-        return;
-      }
-
-      if (!referredClients || referredClients.length === 0) {
-        setCompanies([]);
-        setLoadingData(false);
-        return;
-      }
-
-      const clientIds = referredClients.map((c) => c.id);
-      const clientEmailMap: Record<string, string> = {};
-      referredClients.forEach((c) => {
-        clientEmailMap[c.id] = c.email;
-      });
-
-      // Get companies owned by these clients
+      // Get companies referred by this partner
       const { data: companiesData, error: companiesError } = await supabase
         .from('companies')
         .select(`
@@ -72,10 +47,12 @@ export default function PartnerCompaniesPage() {
           industry,
           website,
           created_at,
-          owner_id,
-          applications(id, stage)
+          referred_by,
+          applications(id, stage),
+          primary_director:profiles!profiles_company_id_fkey(id, email, full_name)
         `)
-        .in('owner_id', clientIds)
+        .eq('referred_by', user.id)
+        .eq('primary_director.is_primary_director', true)
         .order('created_at', { ascending: false });
 
       if (companiesError) {
@@ -94,7 +71,7 @@ export default function PartnerCompaniesPage() {
         industry: c.industry,
         website: c.website,
         created_at: c.created_at,
-        owner_email: clientEmailMap[c.owner_id] || null,
+        owner_email: c.primary_director?.[0]?.email || null,
         applications_count: c.applications?.length || 0,
         open_applications_count: c.applications?.filter((a: any) => !closedStages.includes(a.stage)).length || 0,
       }));

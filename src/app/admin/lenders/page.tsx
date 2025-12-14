@@ -38,10 +38,10 @@ export default function AdminLendersPage() {
     const loadLenders = async () => {
       setError(null);
 
-      // Get lenders - select only columns that exist in the database
+      // Get lenders
       const { data: lendersData, error: lendersError } = await supabase
         .from('lenders')
-        .select('id, name, status, created_at')
+        .select('id, name, contact_email, contact_phone, status, created_at')
         .order('name', { ascending: true });
 
       if (lendersError) {
@@ -50,13 +50,6 @@ export default function AdminLendersPage() {
         setLoadingData(false);
         return;
       }
-
-      // Add contact_email and contact_phone as null (columns may not exist in DB)
-      const enrichedLendersData = (lendersData || []).map((l: any) => ({
-        ...l,
-        contact_email: null,
-        contact_phone: null,
-      }));
 
       // Get application counts
       const { data: appCounts } = await supabase
@@ -70,7 +63,7 @@ export default function AdminLendersPage() {
         }
       });
 
-      const processedLenders: Lender[] = enrichedLendersData.map((l) => ({
+      const processedLenders: Lender[] = (lendersData || []).map((l) => ({
         ...l,
         applications_count: countMap[l.id] || 0,
       }));
@@ -90,58 +83,16 @@ export default function AdminLendersPage() {
     const { data, error } = await supabase
       .from('lenders')
       .insert({ name: newName.trim(), status: 'active' })
-      .select('id, name, contact_email, contact_phone, status, created_at')
+      .select()
       .single();
 
     if (error) {
       setError('Error adding lender: ' + error.message);
-      setCreating(false);
-      return;
-    }
-
-    if (data) {
-      // Reload lenders to ensure we have the latest data
-      const { data: lendersData, error: lendersError } = await supabase
-        .from('lenders')
-        .select('id, name, status, created_at')
-        .order('name', { ascending: true });
-
-      if (lendersError) {
-        setError('Error reloading lenders: ' + lendersError.message);
-        setCreating(false);
-        return;
-      }
-
-      // Add contact_email and contact_phone as null (columns may not exist in DB)
-      const enrichedLendersData = (lendersData || []).map((l: any) => ({
-        ...l,
-        contact_email: null,
-        contact_phone: null,
-      }));
-
-      // Get application counts
-      const { data: appCounts } = await supabase
-        .from('applications')
-        .select('lender_id');
-
-      const countMap: Record<string, number> = {};
-      (appCounts || []).forEach((a: any) => {
-        if (a.lender_id) {
-          countMap[a.lender_id] = (countMap[a.lender_id] || 0) + 1;
-        }
-      });
-
-      const processedLenders: Lender[] = enrichedLendersData.map((l) => ({
-        ...l,
-        applications_count: countMap[l.id] || 0,
-      }));
-
-      setLenders(processedLenders);
+    } else if (data) {
+      setLenders((prev) => [...prev, { ...data, applications_count: 0 }].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName('');
-      setCreating(false);
-    } else {
-      setCreating(false);
     }
+    setCreating(false);
   };
 
   if (loading || loadingData) {

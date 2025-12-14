@@ -60,7 +60,6 @@ export default function PartnerCompanyPage() {
         .from('profiles')
         .select(`
           company_name, company_address, company_website, company_registration_number,
-          director_name, director_email, director_phone, director_address,
           bank_name, bank_account_name, bank_account_number, bank_sort_code
         `)
         .eq('id', user.id)
@@ -74,10 +73,10 @@ export default function PartnerCompanyPage() {
           company_address: data.company_address || null,
           company_website: data.company_website || null,
           company_registration_number: data.company_registration_number || null,
-          director_name: data.director_name || null,
-          director_email: data.director_email || null,
-          director_phone: data.director_phone || null,
-          director_address: data.director_address || null,
+          director_name: null, // Director info not stored on profiles
+          director_email: null, // Director info not stored on profiles
+          director_phone: null, // Director info not stored on profiles
+          director_address: null, // Director info not stored on profiles
           bank_name: data.bank_name || null,
           bank_account_name: data.bank_account_name || null,
           bank_account_number: data.bank_account_number || null,
@@ -108,10 +107,7 @@ export default function PartnerCompanyPage() {
         company_address: formData.company_address,
         company_website: formData.company_website,
         company_registration_number: formData.company_registration_number,
-        director_name: formData.director_name,
-        director_email: formData.director_email,
-        director_phone: formData.director_phone,
-        director_address: formData.director_address,
+        // Director info not stored on profiles - it belongs on companies table
         bank_name: formData.bank_name,
         bank_account_name: formData.bank_account_name,
         bank_account_number: formData.bank_account_number,
@@ -236,69 +232,6 @@ export default function PartnerCompanyPage() {
           </CardContent>
         </Card>
 
-        {/* Director Information */}
-        <Card>
-          <CardHeader>
-            <h2 className="font-medium text-gray-900">Director Information</h2>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Director Name
-              </label>
-              <input
-                type="text"
-                name="director_name"
-                value={formData.director_name || ''}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                placeholder="John Smith"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Director Email
-              </label>
-              <input
-                type="email"
-                name="director_email"
-                value={formData.director_email || ''}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                placeholder="director@company.com"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Director Phone
-              </label>
-              <input
-                type="tel"
-                name="director_phone"
-                value={formData.director_phone || ''}
-                onChange={handleChange}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                placeholder="+44 7700 900000"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Director Address
-              </label>
-              <textarea
-                name="director_address"
-                value={formData.director_address || ''}
-                onChange={handleChange}
-                rows={3}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                placeholder="123 Home Street&#10;London&#10;SW1A 1AA"
-              />
-            </div>
-          </CardContent>
-        </Card>
 
         {/* Payment Information */}
         <Card className="lg:col-span-2">

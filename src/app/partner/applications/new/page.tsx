@@ -69,8 +69,7 @@ export default function PartnerNewApplicationPage() {
     const { data, error } = await supabase
       .from('applications')
       .insert({
-        owner_id: null, // No owner yet - this is a draft
-        company_id: null, // No company yet
+        company_id: null, // No company yet - this is a draft
         created_by: user.id,
         requested_amount: values.requested_amount,
         loan_type: values.loan_type,

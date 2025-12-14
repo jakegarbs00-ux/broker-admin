@@ -38,6 +38,18 @@ export default function ApplicationsListPage() {
     if (!user) return;
 
     const loadApplications = async () => {
+      // Get user's company_id from profile
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userProfile?.company_id) {
+        setLoading(false);
+        return;
+      }
+
       const { data, error } = await supabase
         .from('applications')
         .select(`
@@ -49,9 +61,9 @@ export default function ApplicationsListPage() {
           stage,
           created_at,
           submitted_at,
-          company:companies(name)
+          company:companies!applications_company_id_fkey(id, name)
         `)
-        .eq('owner_id', user.id)
+        .eq('company_id', userProfile.company_id)
         .order('created_at', { ascending: false });
 
       if (error) {

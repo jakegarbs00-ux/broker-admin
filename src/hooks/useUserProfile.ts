@@ -8,7 +8,8 @@ type Profile = {
   id: string;
   role: 'CLIENT' | 'PARTNER' | 'ADMIN';
   email?: string | null;
-  referred_by?: string | null;
+  company_id?: string | null;
+  is_primary_director?: boolean | null;
 };
 
 export function useUserProfile() {
@@ -37,7 +38,7 @@ export function useUserProfile() {
       // Simple, robust lookup: find profile row by email
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, role, email, referred_by')
+        .select('id, role, email, company_id, is_primary_director')
         .eq('email', email)
         .maybeSingle();
 

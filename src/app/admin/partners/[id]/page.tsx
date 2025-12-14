@@ -78,33 +78,23 @@ export default function AdminPartnerDetailPage() {
         phone: partnerData.phone || '',
       });
 
-      // Load clients referred by this partner
-      const { data: referredClients } = await supabase
-        .from('profiles')
-        .select('id, email')
-        .eq('referred_by', id);
+      // Get companies referred by this partner
+      const { data: companiesData } = await supabase
+        .from('companies')
+        .select(`
+          id, name, company_number, industry, created_at,
+          primary_director:profiles!profiles_company_id_fkey(id, email, full_name, is_primary_director),
+          applications(id, stage)
+        `)
+        .eq('referred_by', id)
+        .eq('primary_director.is_primary_director', true)
+        .order('created_at', { ascending: false });
 
-      if (!referredClients || referredClients.length === 0) {
+      if (!companiesData || companiesData.length === 0) {
         setReferredCompanies([]);
         setLoadingData(false);
         return;
       }
-
-      const clientIds = referredClients.map((c) => c.id);
-      const clientEmailMap: Record<string, string> = {};
-      referredClients.forEach((c) => {
-        clientEmailMap[c.id] = c.email;
-      });
-
-      // Get companies owned by referred clients
-      const { data: companiesData } = await supabase
-        .from('companies')
-        .select(`
-          id, name, company_number, industry, created_at, owner_id,
-          applications(id, stage)
-        `)
-        .in('owner_id', clientIds)
-        .order('created_at', { ascending: false });
 
       const closedStages = ['funded', 'declined', 'withdrawn'];
 
@@ -114,7 +104,7 @@ export default function AdminPartnerDetailPage() {
         company_number: c.company_number,
         industry: c.industry,
         created_at: c.created_at,
-        owner_email: clientEmailMap[c.owner_id] || null,
+        owner_email: c.primary_director?.[0]?.email || null,
         applications_count: c.applications?.length || 0,
         open_applications_count: c.applications?.filter((a: any) => !closedStages.includes(a.stage)).length || 0,
       }));

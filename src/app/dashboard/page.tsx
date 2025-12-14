@@ -33,24 +33,33 @@ function ClientDashboardContent({ userId }: { userId: string }) {
 
   useEffect(() => {
     const loadData = async () => {
-      // Load company
-      const { data: companyData } = await supabase
-        .from('companies')
-        .select('id, name')
-        .eq('owner_id', userId)
-        .maybeSingle();
+      // Get user's company_id from profile
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', userId)
+        .single();
 
-      if (companyData) setCompany(companyData);
+      if (userProfile?.company_id) {
+        // Load company
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('id, name')
+          .eq('id', userProfile.company_id)
+          .maybeSingle();
 
-      // Load recent applications
-      const { data: appsData } = await supabase
-        .from('applications')
-        .select('id, requested_amount, loan_type, stage, created_at')
-        .eq('owner_id', userId)
-        .order('created_at', { ascending: false })
-        .limit(5);
+        if (companyData) setCompany(companyData);
 
-      if (appsData) setApplications(appsData);
+        // Load recent applications for this company
+        const { data: appsData } = await supabase
+          .from('applications')
+          .select('id, requested_amount, loan_type, stage, created_at')
+          .eq('company_id', userProfile.company_id)
+          .order('created_at', { ascending: false })
+          .limit(5);
+
+        if (appsData) setApplications(appsData);
+      }
       setLoading(false);
     };
 
@@ -211,31 +220,36 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
 
   useEffect(() => {
     const loadData = async () => {
-      // Load referred clients with their companies
-      const { data: clientsData } = await supabase
-        .from('profiles')
-        .select('id, email, companies(id, name)')
-        .eq('role', 'CLIENT')
-        .eq('referred_by', userId);
+      // Load companies referred by this partner
+      const { data: companiesData } = await supabase
+        .from('companies')
+        .select('id, name, primary_director:profiles!profiles_company_id_fkey(id, email, is_primary_director)')
+        .eq('referred_by', userId)
+        .eq('primary_director.is_primary_director', true);
 
-      if (clientsData) setClients(clientsData as ReferredClient[]);
-
-      if (!clientsData || clientsData.length === 0) {
+      if (!companiesData || companiesData.length === 0) {
         setLoading(false);
         return;
       }
 
-      const clientIds = clientsData.map((c) => c.id);
-
-      // Build company map
+      // Build company map and client list
       const companyMap: Record<string, string> = {};
-      clientsData.forEach((c: any) => {
-        if (c.companies) {
-          c.companies.forEach((comp: any) => {
-            companyMap[comp.id] = comp.name;
+      const clientsList: ReferredClient[] = [];
+      companiesData.forEach((c: any) => {
+        companyMap[c.id] = c.name;
+        const director = c.primary_director?.[0];
+        if (director) {
+          clientsList.push({
+            id: director.id,
+            email: director.email,
+            companies: [{ id: c.id, name: c.name }],
           });
         }
       });
+
+      if (clientsList.length > 0) {
+        setClients(clientsList);
+      }
 
       const companyIds = Object.keys(companyMap);
 
@@ -485,7 +499,7 @@ export default function DashboardPage() {
   // Admins get redirected to admin dashboard
   if (role === 'ADMIN') {
     if (typeof window !== 'undefined') {
-      window.location.href = '/admin';
+      window.location.href = '/admin/applications';
     }
     return null;
   }

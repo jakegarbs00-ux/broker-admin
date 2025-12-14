@@ -42,37 +42,47 @@ export default function SignupPage() {
     setFormError(null);
     const { email, password, companyName } = values;
 
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-    });
+    try {
+      // Call API route to create user, profile, and company
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          email,
+          password,
+          companyName,
+          referrerId,
+        }),
+      });
 
-    if (error) {
-      setFormError(error.message);
-      return;
-    }
+      const result = await response.json();
 
-    // Store company name locally for onboarding
-    if (typeof window !== 'undefined') {
-      window.localStorage.setItem('initialCompanyName', companyName);
-    }
-
-    // If we have a referrerId and a created user, attach the referral
-    const newUser = data.user;
-    if (referrerId && newUser) {
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ referred_by: referrerId })
-        .eq('id', newUser.id);
-
-      if (profileError) {
-        console.error('Error attaching referral', profileError);
-        // not fatal for signup, so we don't block the user
+      if (!response.ok) {
+        setFormError(result.error || 'Failed to create account');
+        return;
       }
-    }
 
-    // For now we still send them to login
-    router.push('/auth/login');
+      // Sign in the user with the credentials they just created
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (signInError) {
+        console.error('Error signing in after signup:', signInError);
+        // Still redirect to login - account was created
+        router.push('/auth/login?message=Account created. Please sign in.');
+        return;
+      }
+
+      // Redirect to company onboarding/edit page
+      router.push('/onboarding/company');
+    } catch (error: any) {
+      console.error('Signup error:', error);
+      setFormError('An unexpected error occurred. Please try again.');
+    }
   };
 
   return (

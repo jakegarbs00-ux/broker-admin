@@ -44,32 +44,42 @@ export default function CompanyOnboardingPage() {
     if (!user) return;
 
     const fetchCompany = async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('owner_id', user.id)
-        .limit(1)
-        .maybeSingle();
+      // Get user's profile to find their company_id
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('company_id, full_name, address, dob, property_status')
+        .eq('id', user.id)
+        .single();
 
-      if (error) {
-        console.error('Error loading company', error);
-        setLoadingCompany(false);
-        return;
-      }
+      if (userProfile?.company_id) {
+        // User already has a company - load it
+        const { data: companyData, error: companyError } = await supabase
+          .from('companies')
+          .select('*')
+          .eq('id', userProfile.company_id)
+          .single();
 
-      if (data) {
-        setCompanyId(data.id);
-        reset({
-          name: data.name ?? '',
-          company_number: data.company_number ?? '',
-          industry: data.industry ?? '',
-          website: data.website ?? '',
-          director_full_name: data.director_full_name ?? '',
-          director_address: data.director_address ?? '',
-          director_dob: data.director_dob ?? undefined,
-          property_status: data.property_status ?? undefined,
-        });
+        if (companyError) {
+          console.error('Error loading company', companyError);
+          setLoadingCompany(false);
+          return;
+        }
+
+        if (companyData) {
+          setCompanyId(companyData.id);
+          reset({
+            name: companyData.name ?? '',
+            company_number: companyData.company_number ?? '',
+            industry: companyData.industry ?? '',
+            website: companyData.website ?? '',
+            director_full_name: userProfile.full_name ?? '',
+            director_address: userProfile.address ?? '',
+            director_dob: userProfile.dob ?? undefined,
+            property_status: userProfile.property_status ?? undefined,
+          });
+        }
       } else {
+        // No company yet - check for stored company name
         if (typeof window !== 'undefined') {
           const storedName = window.localStorage.getItem('initialCompanyName') ?? '';
           reset({ name: storedName });
@@ -82,41 +92,83 @@ export default function CompanyOnboardingPage() {
   }, [user, supabase, reset]);
 
   const onSubmit = async (values: FormValues) => {
-    if (!user) return;
+    if (!user || !profile) return;
 
-    const payload: any = {
-      owner_id: user.id,
+    // Map property_status to match database constraint
+    let finalPropertyStatus: string | null = null;
+    if (values.property_status && values.property_status.trim()) {
+      const status = values.property_status.trim().toLowerCase();
+      const statusMap: Record<string, string | null> = {
+        'homeowner': 'owner',
+        'owner': 'owner',
+        'tenant': 'renter',
+        'renter': 'renter',
+        'living_with_family': 'renter',
+        'other': null,
+      };
+      finalPropertyStatus = statusMap[status] ?? null;
+    }
+
+    // Company payload - NO owner_id, NO director fields
+    const companyPayload: any = {
       name: values.name,
       company_number: values.company_number || null,
       industry: values.industry || null,
       website: values.website || null,
-      director_full_name: values.director_full_name || null,
-      director_address: values.director_address || null,
-      director_dob: values.director_dob || null,
-      property_status: values.property_status || null,
+      // Get referred_by from profile if user was referred (but profiles.referred_by doesn't exist anymore)
+      // Actually, we need to check if there's a way to get this - maybe from signup flow stored it?
+      // For now, set to null if creating new, keep existing if updating
+      referred_by: companyId ? undefined : null, // Don't update referred_by if company exists
     };
 
+    let newCompanyId: string | null = companyId;
     let error;
 
     if (companyId) {
+      // Update existing company
       const res = await supabase
         .from('companies')
-        .update(payload)
+        .update(companyPayload)
         .eq('id', companyId);
       error = res.error;
     } else {
+      // Create new company
       const res = await supabase
         .from('companies')
-        .insert(payload)
+        .insert(companyPayload)
         .select('id')
         .single();
       error = res.error;
-      if (!error && res.data) setCompanyId(res.data.id);
+      if (!error && res.data) {
+        newCompanyId = res.data.id;
+        setCompanyId(res.data.id);
+      }
     }
 
     if (error) {
       alert('Error saving company: ' + error.message);
       return;
+    }
+
+    // Update profile: link to company, set as primary director, add director details
+    if (newCompanyId) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          company_id: newCompanyId,
+          is_primary_director: true,
+          full_name: values.director_full_name || null,
+          address: values.director_address || null,
+          dob: values.director_dob || null,
+          property_status: finalPropertyStatus,
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.error('Error updating profile:', profileError);
+        alert('Company saved but failed to update director profile: ' + profileError.message);
+        return;
+      }
     }
 
     router.push('/dashboard');

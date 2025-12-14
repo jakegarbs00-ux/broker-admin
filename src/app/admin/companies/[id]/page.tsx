@@ -14,12 +14,22 @@ type Company = {
   company_number: string | null;
   industry: string | null;
   website: string | null;
-  director_full_name: string | null;
-  director_address: string | null;
-  director_dob: string | null;
-  property_status: string | null;
   created_at: string;
-  owner: { email: string }[] | null;
+  referred_by: string | null;
+  primary_director: { 
+    id: string; 
+    email: string; 
+    full_name: string | null; 
+    address: string | null; 
+    dob: string | null; 
+    property_status: string | null;
+  }[] | null;
+  partner: { 
+    id: string; 
+    email: string; 
+    full_name: string | null; 
+    company_name: string | null;
+  }[] | null;
 };
 
 type Application = {
@@ -56,7 +66,7 @@ export default function AdminCompanyDetailPage() {
     const load = async () => {
       setError(null);
 
-      // Load company
+      // Load company with primary director and partner info
       const { data: companyData, error: companyError } = await supabase
         .from('companies')
         .select(`
@@ -65,14 +75,13 @@ export default function AdminCompanyDetailPage() {
           company_number,
           industry,
           website,
-          director_full_name,
-          director_address,
-          director_dob,
-          property_status,
           created_at,
-          owner:profiles!companies_owner_id_fkey(email)
+          referred_by,
+          primary_director:profiles!profiles_company_id_fkey(id, email, full_name, address, dob, property_status, is_primary_director),
+          partner:profiles!companies_referred_by_fkey(id, email, full_name, company_name)
         `)
         .eq('id', id)
+        .eq('primary_director.is_primary_director', true)
         .maybeSingle();
 
       if (companyError) {
@@ -167,11 +176,7 @@ export default function AdminCompanyDetailPage() {
     <DashboardShell>
       <PageHeader
         title={company.name}
-        description={company.director_full_name 
-          ? `Director: ${company.director_full_name}`
-          : company.owner?.[0]?.email 
-            ? `Client: ${company.owner[0].email}`
-            : 'No director or client information'}
+        description={`Director: ${company.primary_director?.[0]?.email ?? 'Unknown'}`}
         actions={
           <Link href="/admin/applications">
             <Button variant="outline">← Back to Applications</Button>
@@ -222,35 +227,65 @@ export default function AdminCompanyDetailPage() {
           </Card>
 
           {/* Director Information */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-gray-900">Director Information</h2>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Full Name</p>
-                  <p className="text-gray-900">{company.director_full_name ?? '—'}</p>
+          {company.primary_director?.[0] && (
+            <Card>
+              <CardHeader>
+                <h2 className="font-medium text-gray-900">Director Information</h2>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Email</p>
+                    <p className="text-gray-900">{company.primary_director[0].email ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Full Name</p>
+                    <p className="text-gray-900">{company.primary_director[0].full_name ?? '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Date of Birth</p>
+                    <p className="text-gray-900">
+                      {company.primary_director[0].dob 
+                        ? new Date(company.primary_director[0].dob).toLocaleDateString('en-GB') 
+                        : '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Property Status</p>
+                    <p className="text-gray-900 capitalize">{company.primary_director[0].property_status ?? '—'}</p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
+                    <p className="text-gray-900 whitespace-pre-line">{company.primary_director[0].address ?? '—'}</p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Date of Birth</p>
-                  <p className="text-gray-900">
-                    {company.director_dob 
-                      ? new Date(company.director_dob).toLocaleDateString('en-GB') 
-                      : '—'}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Referred By Partner */}
+          {company.partner?.[0] && (
+            <Card>
+              <CardHeader>
+                <h2 className="font-medium text-gray-900">Referred By</h2>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  <p className="text-sm">
+                    <span className="font-medium text-gray-900">
+                      {company.partner[0].full_name || company.partner[0].company_name || 'Partner'}
+                    </span>
+                    {company.partner[0].email && (
+                      <>
+                        {' '}
+                        <span className="text-gray-500">({company.partner[0].email})</span>
+                      </>
+                    )}
                   </p>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Property Status</p>
-                  <p className="text-gray-900 capitalize">{company.property_status ?? '—'}</p>
-                </div>
-                <div className="sm:col-span-2">
-                  <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
-                  <p className="text-gray-900 whitespace-pre-line">{company.director_address ?? '—'}</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Documents */}
           <Card>
@@ -336,8 +371,8 @@ export default function AdminCompanyDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase">Client Email (Login)</p>
-                <p className="text-sm text-gray-900">{company.owner?.[0]?.email ?? 'No client account'}</p>
+                <p className="text-xs font-medium text-gray-500 uppercase">Client Email</p>
+                <p className="text-sm text-gray-900">{company.primary_director?.[0]?.email ?? 'Unknown'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase">Created</p>

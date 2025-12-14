@@ -17,10 +17,10 @@ type AdminApp = {
   is_hidden: boolean;
   lender_id: string | null;
   company_id: string | null;
-  owner_id: string | null;
+  created_by: string | null;
   prospective_client_email: string | null;
-  company: { id: string; name: string; director_full_name: string | null }[] | null;
-  owner: { email: string | null }[] | null;
+  company: { id: string; name: string }[] | null;
+  creator: { email: string | null; full_name: string | null }[] | null;
 };
 
 type Lender = {
@@ -79,7 +79,7 @@ export default function AdminApplicationsPage() {
     const loadApps = async () => {
       setError(null);
       
-      // First get all applications
+      // Get all applications with company and creator info
       const { data: appsData, error: appsError } = await supabase
         .from('applications')
         .select(`
@@ -92,8 +92,10 @@ export default function AdminApplicationsPage() {
           is_hidden,
           lender_id,
           company_id,
-          owner_id,
-          prospective_client_email
+          created_by,
+          prospective_client_email,
+          company:companies!applications_company_id_fkey(id, name),
+          creator:profiles!applications_created_by_fkey(id, email, full_name)
         `)
         .order('created_at', { ascending: false });
 
@@ -110,46 +112,21 @@ export default function AdminApplicationsPage() {
         return;
       }
 
-      // Get unique company IDs and owner IDs
-      const companyIds = Array.from(new Set(appsData.map(a => a.company_id).filter(Boolean))) as string[];
-      const ownerIds = Array.from(new Set(appsData.map(a => a.owner_id).filter(Boolean))) as string[];
-
-      // Fetch companies with director information
-      let companyMap: Record<string, { id: string; name: string; director_full_name: string | null; director_email: string | null }> = {};
-      if (companyIds.length > 0) {
-        const { data: companies } = await supabase
-          .from('companies')
-          .select('id, name, director_full_name, director_email')
-          .in('id', companyIds);
-        
-        (companies || []).forEach((c: any) => {
-          companyMap[c.id] = {
-            id: c.id,
-            name: c.name,
-            director_full_name: c.director_full_name,
-            director_email: c.director_email,
-          };
-        });
-      }
-
-      // Fetch owners
-      let ownerMap: Record<string, { email: string }> = {};
-      if (ownerIds.length > 0) {
-        const { data: owners } = await supabase
-          .from('profiles')
-          .select('id, email')
-          .in('id', ownerIds);
-        
-        (owners || []).forEach((o: any) => {
-          ownerMap[o.id] = { email: o.email };
-        });
-      }
-
-      // Combine data
-      const enrichedApps: AdminApp[] = appsData.map((a) => ({
-        ...a,
-        company: a.company_id && companyMap[a.company_id] ? [companyMap[a.company_id]] : null,
-        owner: a.owner_id && ownerMap[a.owner_id] ? [ownerMap[a.owner_id]] : null,
+      // Map to AdminApp type
+      const enrichedApps: AdminApp[] = appsData.map((a: any) => ({
+        id: a.id,
+        requested_amount: a.requested_amount,
+        stage: a.stage,
+        loan_type: a.loan_type,
+        urgency: a.urgency,
+        created_at: a.created_at,
+        is_hidden: a.is_hidden,
+        lender_id: a.lender_id,
+        company_id: a.company_id,
+        created_by: a.created_by,
+        prospective_client_email: a.prospective_client_email,
+        company: a.company ? [a.company] : null,
+        creator: a.creator ? [a.creator] : null,
       }));
 
       setApps(enrichedApps);
@@ -272,16 +249,12 @@ export default function AdminApplicationsPage() {
             const lender = a.lender_id ? lenderMap[a.lender_id] : undefined;
             const companyName = a.company?.[0]?.name;
             const companyId = a.company?.[0]?.id;
-            const directorName = a.company?.[0]?.director_full_name;
-            const directorEmail = a.company?.[0]?.director_email;
-            const ownerEmail = a.owner?.[0]?.email;
-            const prospectiveEmail = a.prospective_client_email;
+            const creatorEmail = a.creator?.[0]?.email || a.prospective_client_email;
+            const creatorName = a.creator?.[0]?.full_name;
             
-            // Display logic: prefer director name, then company name, then director email, then owner email
-            const primaryDisplay = directorName || companyName || directorEmail || ownerEmail || prospectiveEmail || `Application ${a.id.slice(0, 8)}`;
-            const secondaryDisplay = companyName && directorName ? companyName :
-                                     directorEmail && directorEmail !== primaryDisplay ? directorEmail :
-                                     ownerEmail && ownerEmail !== primaryDisplay ? ownerEmail : null;
+            // Display logic: show what we have
+            const primaryDisplay = companyName || creatorEmail || creatorName || `Application ${a.id.slice(0, 8)}`;
+            const secondaryDisplay = companyName && creatorEmail ? creatorEmail : null;
 
             return (
               <Link key={a.id} href={`/admin/applications/${a.id}`} className="block">
@@ -297,7 +270,7 @@ export default function AdminApplicationsPage() {
                             <span className="text-sm text-gray-500 truncate">{secondaryDisplay}</span>
                           </>
                         )}
-                        {!companyName && !ownerEmail && (
+                        {!companyName && !creatorEmail && (
                           <Badge variant="warning">No client linked</Badge>
                         )}
                       </div>
