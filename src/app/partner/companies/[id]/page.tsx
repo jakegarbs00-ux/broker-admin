@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
+import { Card, CardContent, CardHeader, Badge, getStageBadgeVariant, formatStage, Button } from '@/components/ui';
 
 type Company = {
   id: string;
@@ -262,13 +262,23 @@ export default function PartnerCompanyDetailPage() {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <h2 className="font-medium text-gray-900">Applications</h2>
-                <Badge variant="default">{applications.length}</Badge>
+                <div className="flex items-center gap-3">
+                  <Badge variant="default">{applications.length}</Badge>
+                  <Link href={`/partner/applications/create?company_id=${id}`}>
+                    <Button variant="primary" size="sm">
+                      {applications.length === 0 ? 'Create Application' : 'Add Another Application'}
+                    </Button>
+                  </Link>
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {applications.length === 0 ? (
                 <div className="p-6 text-center">
-                  <p className="text-sm text-gray-500">No applications yet</p>
+                  <p className="text-sm text-gray-500 mb-4">No applications yet</p>
+                  <Link href={`/partner/applications/create?company_id=${id}`}>
+                    <Button variant="primary">Create First Application</Button>
+                  </Link>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">

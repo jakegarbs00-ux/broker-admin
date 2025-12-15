@@ -78,7 +78,8 @@ export default function PartnerNewCompanyPage() {
       return;
     }
 
-    router.push(`/partner/companies/${result.company.id}`);
+    // Redirect to create application page with the new company pre-selected
+    router.push(`/partner/applications/create?company_id=${result.company.id}`);
   };
 
   if (loading) {

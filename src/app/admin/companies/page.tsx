@@ -44,7 +44,6 @@ export default function AdminCompaniesPage() {
           created_at,
           referred_by,
           primary_director:profiles!profiles_company_id_fkey(id, email, full_name, is_primary_director),
-          partner:profiles!companies_referred_by_fkey(id, email, full_name, company_name),
           applications(id, stage)
         `)
         .eq('primary_director.is_primary_director', true)
@@ -53,9 +52,44 @@ export default function AdminCompaniesPage() {
       if (error) {
         console.error('Error loading companies', error);
         setError('Error loading companies: ' + error.message);
-      } else if (data) {
-        setCompanies(data as Company[]);
+        setLoadingData(false);
+        return;
       }
+
+      // Load partner info separately for companies with referred_by
+      if (data) {
+        const partnerIds = data
+          .map((c: any) => c.referred_by)
+          .filter((id: string | null): id is string => id !== null);
+        
+        if (partnerIds.length > 0) {
+          const { data: partnersData } = await supabase
+            .from('profiles')
+            .select('id, email, full_name, company_name')
+            .in('id', partnerIds);
+
+          // Map partners to companies
+          const companiesWithPartners = data.map((company: any) => {
+            if (company.referred_by && partnersData) {
+              const partner = partnersData.find((p: any) => p.id === company.referred_by);
+              return { ...company, partner: partner ? [partner] : null };
+            }
+            return { ...company, partner: null };
+          });
+
+          setCompanies(companiesWithPartners as Company[]);
+        } else {
+          // No partners to load, just set companies with null partner
+          const companiesWithNullPartner = data.map((company: any) => ({
+            ...company,
+            partner: null
+          }));
+          setCompanies(companiesWithNullPartner as Company[]);
+        }
+      } else {
+        setCompanies([]);
+      }
+      
       setLoadingData(false);
     };
 
@@ -113,6 +147,11 @@ export default function AdminCompaniesPage() {
       <PageHeader
         title="Companies"
         description={`${companies.length} companies registered`}
+        actions={
+          <Link href="/admin/companies/create">
+            <Button variant="primary">Create Company</Button>
+          </Link>
+        }
       />
 
       {error && (
@@ -167,6 +206,9 @@ export default function AdminCompaniesPage() {
                       Client Email
                     </th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                      Partner
+                    </th>
+                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
                       Website
                     </th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
@@ -203,6 +245,11 @@ export default function AdminCompaniesPage() {
                               {c.primary_director?.[0]?.email ?? '—'}
                             </span>
                           </div>
+                        </td>
+                        <td className="px-6 py-4 whitespace-nowrap">
+                          <span className="text-sm text-gray-600">
+                            {c.partner?.[0]?.company_name ?? c.partner?.[0]?.full_name ?? '—'}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {c.website ? (

@@ -57,6 +57,7 @@ export default function AdminCompanyDetailPage() {
   const [company, setCompany] = useState<Company | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [directors, setDirectors] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -100,10 +101,23 @@ export default function AdminCompanyDetailPage() {
         .eq('company_id', id)
         .order('created_at', { ascending: false });
 
+      // Load all directors for this company
+      const { data: directorsData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('company_id', id)
+        .eq('role', 'CLIENT')
+        .order('is_primary_director', { ascending: false })
+        .order('full_name', { ascending: true });
+
       if (appsError) {
         console.error('Error loading applications', appsError);
       } else {
-        setApplications(appsData as Application[]);
+        setApplications((appsData || []) as Application[]);
+      }
+
+      if (directorsData) {
+        setDirectors(directorsData);
 
         // Load documents for all applications
         if (appsData && appsData.length > 0) {
@@ -178,9 +192,17 @@ export default function AdminCompanyDetailPage() {
         title={company.name}
         description={`Director: ${company.primary_director?.[0]?.email ?? 'Unknown'}`}
         actions={
-          <Link href="/admin/applications">
-            <Button variant="outline">← Back to Applications</Button>
-          </Link>
+          <div className="flex items-center gap-2">
+            <Link href={`/admin/applications/create?company_id=${id}`}>
+              <Button variant="primary">Create Application</Button>
+            </Link>
+            <Link href={`/admin/companies/${id}/edit`}>
+              <Button variant="outline">Edit</Button>
+            </Link>
+            <Link href="/admin/companies">
+              <Button variant="outline">← Back</Button>
+            </Link>
+          </div>
         }
       />
 
@@ -258,6 +280,44 @@ export default function AdminCompanyDetailPage() {
                     <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
                     <p className="text-gray-900 whitespace-pre-line">{company.primary_director[0].address ?? '—'}</p>
                   </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+
+          {/* All Directors */}
+          {directors.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center justify-between">
+                  <h2 className="font-medium text-gray-900">Directors</h2>
+                  <Link href={`/admin/companies/${id}/directors/add`}>
+                    <Button variant="primary" size="sm">Add Director</Button>
+                  </Link>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {directors.map((director) => (
+                    <div key={director.id} className="border-b border-gray-200 pb-4 last:border-0 last:pb-0">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-2">
+                            <p className="font-medium text-gray-900">
+                              {director.full_name || 'Unnamed Director'}
+                            </p>
+                            {director.is_primary_director && (
+                              <Badge variant="info">Primary</Badge>
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600">{director.email}</p>
+                          {director.phone && (
+                            <p className="text-sm text-gray-600">{director.phone}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </CardContent>
             </Card>

@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
+import { Card, CardContent, Badge, getStageBadgeVariant, formatStage, Button } from '@/components/ui';
 
 type AdminApp = {
   id: string;
@@ -182,9 +182,14 @@ export default function AdminApplicationsPage() {
   return (
     <DashboardShell>
       {/* Header */}
-      <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
-        <p className="text-gray-600">Managing {apps.length} applications</p>
+      <div className="mb-6 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
+          <p className="text-gray-600">Managing {apps.length} applications</p>
+        </div>
+        <Link href="/admin/applications/create">
+          <Button variant="primary">Create Application</Button>
+        </Link>
       </div>
 
       {error && (
