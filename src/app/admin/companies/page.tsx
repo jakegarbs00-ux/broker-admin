@@ -78,7 +78,7 @@ export default function AdminCompaniesPage() {
           });
 
           // Get unique partner company IDs
-          const partnerCompanyIds = [...new Set(Object.values(userToCompany))];
+          const partnerCompanyIds = Array.from(new Set(Object.values(userToCompany)));
 
           // Get partner companies
           let partnerCompaniesData: any[] = [];
