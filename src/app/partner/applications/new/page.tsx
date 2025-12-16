@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -43,7 +43,7 @@ type Company = {
   name: string;
 };
 
-export default function PartnerNewApplicationPage() {
+function PartnerNewApplicationPageContent() {
   const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
   const router = useRouter();
@@ -350,5 +350,22 @@ export default function PartnerNewApplicationPage() {
         </form>
       </div>
     </DashboardShell>
+  );
+}
+
+export default function PartnerNewApplicationPage() {
+  return (
+    <Suspense fallback={
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    }>
+      <PartnerNewApplicationPageContent />
+    </Suspense>
   );
 }

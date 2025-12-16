@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,7 +15,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-export default function SignupPage() {
+function SignupPageContent() {
   const router = useRouter();
   const supabase = getSupabaseClient();
   const searchParams = useSearchParams();
@@ -125,5 +125,23 @@ export default function SignupPage() {
         </button>
       </form>
     </main>
+  );
+}
+
+export default function SignupPage() {
+  return (
+    <Suspense fallback={
+      <main className="max-w-md mx-auto space-y-6">
+        <h1 className="text-2xl font-semibold">Create your account</h1>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </main>
+    }>
+      <SignupPageContent />
+    </Suspense>
   );
 }

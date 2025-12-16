@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
@@ -27,7 +27,7 @@ const URGENCY_OPTIONS = [
   { value: 'three_plus_months', label: '3+ months' },
 ];
 
-export default function AdminCreateApplicationPage() {
+function AdminCreateApplicationPageContent() {
   const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
   const router = useRouter();
@@ -291,6 +291,23 @@ export default function AdminCreateApplicationPage() {
         </form>
       </div>
     </DashboardShell>
+  );
+}
+
+export default function AdminCreateApplicationPage() {
+  return (
+    <Suspense fallback={
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    }>
+      <AdminCreateApplicationPageContent />
+    </Suspense>
   );
 }
 
