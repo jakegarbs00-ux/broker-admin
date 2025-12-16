@@ -37,7 +37,35 @@ export default function PartnerCompaniesPage() {
     const loadCompanies = async () => {
       setError(null);
 
-      // Get companies referred by this partner
+      // Get user's partner_company_id
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('partner_company_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userProfile?.partner_company_id) {
+        setCompanies([]);
+        setLoadingData(false);
+        return;
+      }
+
+      // Get all partner user IDs in this partner company
+      const { data: partnerUsers } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('partner_company_id', userProfile.partner_company_id)
+        .eq('role', 'PARTNER');
+
+      const partnerUserIds = (partnerUsers || []).map((u) => u.id);
+
+      if (partnerUserIds.length === 0) {
+        setCompanies([]);
+        setLoadingData(false);
+        return;
+      }
+
+      // Get companies referred by any user in this partner company
       const { data: companiesData, error: companiesError } = await supabase
         .from('companies')
         .select(`
@@ -51,7 +79,7 @@ export default function PartnerCompaniesPage() {
           applications(id, stage),
           primary_director:profiles!profiles_company_id_fkey(id, email, full_name)
         `)
-        .eq('referred_by', user.id)
+        .in('referred_by', partnerUserIds)
         .eq('primary_director.is_primary_director', true)
         .order('created_at', { ascending: false });
 

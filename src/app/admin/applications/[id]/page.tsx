@@ -58,10 +58,12 @@ type Lender = {
 
 type InfoRequest = {
   id: string;
-  question: string;
+  title: string;
+  description: string | null;
   status: string;
   created_at: string;
-  response_text: string | null;
+  client_response_text: string | null;
+  client_responded_at: string | null;
 };
 
 type Document = {
@@ -211,7 +213,7 @@ export default function AdminApplicationDetailPage() {
       // Load info requests
       const { data: requestsData } = await supabase
         .from('information_requests')
-        .select('id, question, status, created_at, response_text')
+        .select('id, title, description, status, created_at, client_response_text, client_responded_at')
         .eq('application_id', id)
         .order('created_at', { ascending: false });
       setInfoRequests((requestsData || []) as InfoRequest[]);
@@ -319,7 +321,8 @@ const handleSaveOffer = async () => {
       .from('information_requests')
       .insert({
         application_id: id,
-        question: newQuestion.trim(),
+        title: newQuestion.trim(),
+        description: null,
         status: 'pending',
         created_by: user?.id,
       })
@@ -715,18 +718,26 @@ const handleSaveOffer = async () => {
                     <div key={req.id} className="py-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{req.question}</p>
+                          <p className="font-medium text-gray-900">{req.title}</p>
+                          {req.description && (
+                            <p className="text-sm text-gray-600 mt-1">{req.description}</p>
+                          )}
                           <p className="text-xs text-gray-500 mt-1">
                             {new Date(req.created_at).toLocaleDateString('en-GB')}
                           </p>
                         </div>
-                        <Badge variant={req.status === 'answered' ? 'success' : 'warning'}>
+                        <Badge variant={req.status === 'client_responded' || req.status === 'answered' ? 'success' : 'warning'}>
                           {req.status}
                         </Badge>
                       </div>
-                      {req.response_text && (
+                      {req.client_response_text && (
                         <div className="mt-2 p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm text-gray-700">{req.response_text}</p>
+                          <p className="text-sm text-gray-700">{req.client_response_text}</p>
+                          {req.client_responded_at && (
+                            <p className="text-xs text-gray-500 mt-1">
+                              Responded: {new Date(req.client_responded_at).toLocaleDateString('en-GB')}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>

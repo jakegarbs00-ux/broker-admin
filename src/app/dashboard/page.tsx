@@ -220,11 +220,37 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
 
   useEffect(() => {
     const loadData = async () => {
-      // Load companies referred by this partner
+      // Get user's partner_company_id
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('partner_company_id')
+        .eq('id', userId)
+        .single();
+
+      if (!userProfile?.partner_company_id) {
+        setLoading(false);
+        return;
+      }
+
+      // Get all partner user IDs in this partner company
+      const { data: partnerUsers } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('partner_company_id', userProfile.partner_company_id)
+        .eq('role', 'PARTNER');
+
+      const partnerUserIds = (partnerUsers || []).map((u) => u.id);
+
+      if (partnerUserIds.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // Load companies referred by any user in this partner company
       const { data: companiesData } = await supabase
         .from('companies')
         .select('id, name, primary_director:profiles!profiles_company_id_fkey(id, email, is_primary_director)')
-        .eq('referred_by', userId)
+        .in('referred_by', partnerUserIds)
         .eq('primary_director.is_primary_director', true);
 
       if (!companiesData || companiesData.length === 0) {

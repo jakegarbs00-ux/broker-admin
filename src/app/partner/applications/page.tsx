@@ -45,11 +45,39 @@ export default function PartnerApplicationsPage() {
 
       setError(null);
 
-      // Get companies referred by this partner
+      // Get user's partner_company_id
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('partner_company_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userProfile?.partner_company_id) {
+        setApps([]);
+        setLoadingApps(false);
+        return;
+      }
+
+      // Get all partner user IDs in this partner company
+      const { data: partnerUsers } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('partner_company_id', userProfile.partner_company_id)
+        .eq('role', 'PARTNER');
+
+      const partnerUserIds = (partnerUsers || []).map((u) => u.id);
+
+      if (partnerUserIds.length === 0) {
+        setApps([]);
+        setLoadingApps(false);
+        return;
+      }
+
+      // Get companies referred by any user in this partner company
       const { data: referredCompanies, error: companiesError } = await supabase
         .from('companies')
         .select('id')
-        .eq('referred_by', user.id);
+        .in('referred_by', partnerUserIds);
 
       if (companiesError) {
         console.error('Error loading referred companies', companiesError);
@@ -65,7 +93,7 @@ export default function PartnerApplicationsPage() {
         companyIds.length > 0
           ? `company_id.in.(${companyIds.join(',')})`
           : '',
-        `and(company_id.is.null,created_by.eq.${user.id})`,
+        `and(company_id.is.null,created_by.in.(${partnerUserIds.join(',')}))`,
       ]
         .filter(Boolean)
         .join(',');

@@ -16,7 +16,7 @@ type Company = {
   created_at: string;
   referred_by: string | null;
   primary_director: { id: string; email: string; full_name: string | null }[] | null;
-  partner: { id: string; email: string; full_name: string | null; company_name: string | null }[] | null;
+  partner: { company_name: string | null }[] | null;
   applications: { id: string; stage: string }[];
 };
 
@@ -56,23 +56,49 @@ export default function AdminCompaniesPage() {
         return;
       }
 
-      // Load partner info separately for companies with referred_by
+      // Load partner company info separately for companies with referred_by
       if (data) {
-        const partnerIds = data
+        const partnerUserIds = data
           .map((c: any) => c.referred_by)
           .filter((id: string | null): id is string => id !== null);
         
-        if (partnerIds.length > 0) {
-          const { data: partnersData } = await supabase
+        if (partnerUserIds.length > 0) {
+          // Get partner users with their partner_company_id
+          const { data: partnerUsers } = await supabase
             .from('profiles')
-            .select('id, email, full_name, company_name')
-            .in('id', partnerIds);
+            .select('id, partner_company_id')
+            .in('id', partnerUserIds);
 
-          // Map partners to companies
+          // Create map of user_id -> partner_company_id
+          const userToCompany: Record<string, string> = {};
+          (partnerUsers || []).forEach((u: any) => {
+            if (u.partner_company_id) {
+              userToCompany[u.id] = u.partner_company_id;
+            }
+          });
+
+          // Get unique partner company IDs
+          const partnerCompanyIds = [...new Set(Object.values(userToCompany))];
+
+          // Get partner companies
+          let partnerCompaniesData: any[] = [];
+          if (partnerCompanyIds.length > 0) {
+            const { data: companiesData } = await supabase
+              .from('partner_companies')
+              .select('id, name')
+              .in('id', partnerCompanyIds);
+            partnerCompaniesData = companiesData || [];
+          }
+
+          // Map partner companies to companies
           const companiesWithPartners = data.map((company: any) => {
-            if (company.referred_by && partnersData) {
-              const partner = partnersData.find((p: any) => p.id === company.referred_by);
-              return { ...company, partner: partner ? [partner] : null };
+            if (company.referred_by && userToCompany[company.referred_by]) {
+              const partnerCompanyId = userToCompany[company.referred_by];
+              const partnerCompany = partnerCompaniesData.find((pc: any) => pc.id === partnerCompanyId);
+              return {
+                ...company,
+                partner: partnerCompany ? [{ company_name: partnerCompany.name }] : null
+              };
             }
             return { ...company, partner: null };
           });
@@ -248,7 +274,7 @@ export default function AdminCompaniesPage() {
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-600">
-                            {c.partner?.[0]?.company_name ?? c.partner?.[0]?.full_name ?? '—'}
+                            {c.partner?.[0]?.company_name ?? 'Direct'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
