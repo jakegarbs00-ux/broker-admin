@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Link from 'next/link';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -53,6 +54,12 @@ export default function LoginPage() {
           {...register('password')}
         />
         <p className="text-red-600 text-sm">{errors.password?.message}</p>
+
+        <div className="flex justify-end">
+          <Link href="/auth/forgot-password" className="text-sm text-blue-600 hover:underline">
+            Forgot password?
+          </Link>
+        </div>
 
         {formError && <p className="text-red-600 text-sm">{formError}</p>}
 

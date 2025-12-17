@@ -266,11 +266,13 @@ function AdminCreateApplicationPageContent() {
                 >
                   <option value="created">Created</option>
                   <option value="submitted">Submitted</option>
-                  <option value="under_review">Under Review</option>
+                  <option value="in_credit">In Credit</option>
+                  <option value="information_requested">Information Requested</option>
                   <option value="approved">Approved</option>
                   <option value="declined">Declined</option>
                   <option value="funded">Funded</option>
                   <option value="withdrawn">Withdrawn</option>
+                  <option value="onboarding">Onboarding</option>
                 </select>
               </div>
             </CardContent>

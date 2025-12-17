@@ -36,7 +36,7 @@ const STAGES = [
   'created',
   'submitted',
   'in_credit',
-  'info_required',
+  'information_requested',
   'approved',
   'onboarding',
   'funded',

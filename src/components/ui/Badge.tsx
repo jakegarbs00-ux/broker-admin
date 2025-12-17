@@ -37,6 +37,9 @@ export function getStageBadgeVariant(stage: string): BadgeProps['variant'] {
       return 'info';
     case 'in_credit':
       return 'purple';
+    case 'information_requested':
+      return 'warning';
+    // Legacy stage (kept for backwards compatibility with older data)
     case 'info_required':
       return 'warning';
     case 'approved':
