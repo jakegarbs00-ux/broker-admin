@@ -174,7 +174,7 @@ export default function ApplicationDetailPage() {
   };
 
   const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('documents').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
     return data.publicUrl;
   };
 

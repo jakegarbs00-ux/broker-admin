@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
@@ -60,6 +60,7 @@ export default function AdminCompanyDetailPage() {
   const [directors, setDirectors] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [promoting, setPromoting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -144,8 +145,55 @@ export default function AdminCompanyDetailPage() {
     }
   }, [id, loading, profile?.role, supabase]);
 
+  const primaryDirector = useMemo(() => {
+    return (directors || []).find((d: any) => d.is_primary_director) || directors?.[0] || null;
+  }, [directors]);
+
+  const handlePromoteToPartner = async () => {
+    if (!user || !primaryDirector?.id) return;
+    if (!company) return;
+
+    const ok = window.confirm(
+      `This will convert "${company.name}" into a partner company.\n\nThe user will become a partner and can refer other companies.\n\nContinue?`
+    );
+    if (!ok) return;
+
+    setPromoting(true);
+    try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token;
+      if (!accessToken) {
+        alert('You must be logged in to perform this action.');
+        setPromoting(false);
+        return;
+      }
+
+      const resp = await fetch('/api/admin/promote-to-partner', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ profileId: primaryDirector.id }),
+      });
+      const result = await resp.json();
+      if (!resp.ok) {
+        alert(result.error || 'Failed to promote user to partner');
+        setPromoting(false);
+        return;
+      }
+
+      // Redirect to new partner company page
+      window.location.href = `/admin/partners/${result.partner_company_id}`;
+    } catch (e: any) {
+      alert(e.message || 'Failed to promote user to partner');
+    } finally {
+      setPromoting(false);
+    }
+  };
+
   const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('documents').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
     return data.publicUrl;
   };
 
@@ -193,6 +241,15 @@ export default function AdminCompanyDetailPage() {
         description={`Director: ${company.primary_director?.[0]?.email ?? 'Unknown'}`}
         actions={
           <div className="flex items-center gap-2">
+            {primaryDirector?.id && (
+              <Button
+                variant="secondary"
+                disabled={promoting}
+                onClick={handlePromoteToPartner}
+              >
+                {promoting ? 'Promoting...' : 'Promote to Partner'}
+              </Button>
+            )}
             <Link href={`/admin/applications/create?company_id=${id}`}>
               <Button variant="primary">Create Application</Button>
             </Link>

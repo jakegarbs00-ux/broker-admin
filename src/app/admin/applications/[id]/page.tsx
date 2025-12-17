@@ -74,9 +74,17 @@ type Document = {
   created_at: string;
 };
 
-type Partner = {
+type ReferralPartnerCompany = {
   id: string;
-  email: string;
+  name: string;
+};
+
+type ReferralPartner = {
+  referrer_id: string;
+  referrer_full_name: string | null;
+  referrer_email: string | null;
+  partner_company_id: string | null;
+  partner_company_name: string | null;
 };
 
 const STAGES = [
@@ -108,7 +116,7 @@ export default function AdminApplicationDetailPage() {
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [infoRequests, setInfoRequests] = useState<InfoRequest[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [referralPartner, setReferralPartner] = useState<Partner | null>(null);
+  const [referralPartner, setReferralPartner] = useState<ReferralPartner | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -135,7 +143,30 @@ export default function AdminApplicationDetailPage() {
       // Load application
       const { data: appData, error: appError } = await supabase
         .from('applications')
-        .select('*')
+        .select(
+          `
+          *,
+          company:companies!applications_company_id_fkey(
+            id,
+            name,
+            company_number,
+            industry,
+            website,
+            created_at,
+            referred_by,
+            primary_director:profiles!profiles_company_id_fkey(id, email, full_name, address, dob, property_status, is_primary_director),
+            referrer:referred_by(
+              id,
+              full_name,
+              email,
+              partner_company:partner_company_id(
+                id,
+                name
+              )
+            )
+          )
+        `
+        )
         .eq('id', id)
         .single();
 
@@ -145,63 +176,72 @@ export default function AdminApplicationDetailPage() {
         return;
       }
 
-      setApplication(appData as Application);
+      setApplication(appData as unknown as Application);
       setAdminNotes(appData.admin_notes || '');
       setOfferAmount(appData.offer_amount?.toString() || '');
       setOfferLoanTerm(appData.offer_loan_term || '');
       setOfferCostOfFunding(appData.offer_cost_of_funding || '');
       setOfferRepayments(appData.offer_repayments || '');
 
-      // Load company if exists
-      if (appData.company_id) {
-        const { data: companyData } = await supabase
-          .from('companies')
-          .select(`
-            id, name, company_number, industry, website,
-            referred_by,
-            primary_director:profiles!profiles_company_id_fkey(id, email, full_name, address, dob, property_status, is_primary_director),
-            partner:profiles!companies_referred_by_fkey(id, email, full_name, company_name)
-          `)
-          .eq('id', appData.company_id)
-          .eq('primary_director.is_primary_director', true)
-          .single();
-
-        if (companyData) {
-          setCompany(companyData as any);
-        }
+      // Set company from embedded join (supports both object and array shapes)
+      const embeddedCompany =
+        (appData as any)?.company?.[0] ?? (appData as any)?.company ?? null;
+      if (embeddedCompany) {
+        setCompany(embeddedCompany as any);
+      } else {
+        setCompany(null);
       }
 
-      // Check for referral partner - get from company.referred_by
-      let foundPartner: Partner | null = null;
+      // Referral partner chain: application -> company -> referred_by (profile) -> partner_company
+      let foundReferral: ReferralPartner | null = null;
+      const embeddedReferrer =
+        embeddedCompany?.referrer?.[0] ?? embeddedCompany?.referrer ?? null;
+      if (embeddedReferrer) {
+        const embeddedPartnerCompany =
+          embeddedReferrer?.partner_company?.[0] ?? embeddedReferrer?.partner_company ?? null;
 
-      if (appData.company_id && company?.referred_by) {
-        const { data: partnerData } = await supabase
-          .from('profiles')
-          .select('id, email, full_name, company_name')
-          .eq('id', company.referred_by)
-          .single();
-
-        if (partnerData) {
-          foundPartner = partnerData as Partner;
-        }
+        foundReferral = {
+          referrer_id: embeddedReferrer.id,
+          referrer_full_name: embeddedReferrer.full_name ?? null,
+          referrer_email: embeddedReferrer.email ?? null,
+          partner_company_id: embeddedPartnerCompany?.id ?? null,
+          partner_company_name: embeddedPartnerCompany?.name ?? null,
+        };
       }
 
-      // 2. Check if application was created by a partner (created_by field)
-      if (appData.created_by && !foundPartner) {
+      // Fallback: if company.referrer missing but app created_by is a partner user, show their partner company
+      if (!foundReferral && appData.created_by) {
         const { data: creatorProfile } = await supabase
           .from('profiles')
-          .select('id, email, role')
+          .select(
+            `
+            id,
+            email,
+            full_name,
+            role,
+            partner_company:partner_company_id(
+              id,
+              name
+            )
+          `
+          )
           .eq('id', appData.created_by)
-          .single();
+          .maybeSingle();
 
         if (creatorProfile?.role === 'PARTNER') {
-          foundPartner = { id: creatorProfile.id, email: creatorProfile.email };
+          const embeddedPartnerCompany =
+            (creatorProfile as any)?.partner_company?.[0] ?? (creatorProfile as any)?.partner_company ?? null;
+          foundReferral = {
+            referrer_id: creatorProfile.id,
+            referrer_full_name: creatorProfile.full_name ?? null,
+            referrer_email: creatorProfile.email ?? null,
+            partner_company_id: embeddedPartnerCompany?.id ?? null,
+            partner_company_name: embeddedPartnerCompany?.name ?? null,
+          };
         }
       }
 
-      if (foundPartner) {
-        setReferralPartner(foundPartner);
-      }
+      setReferralPartner(foundReferral);
 
       // Load lenders
       const { data: lendersData } = await supabase
@@ -315,6 +355,17 @@ const handleSaveOffer = async () => {
 
   const handleCreateInfoRequest = async () => {
     if (!newQuestion.trim()) return;
+    // Only allow creating requests when the application is in information_requested stage
+    if (application?.stage !== 'information_requested' && application?.stage !== 'info_required') {
+      alert('Information requests can only be created when the application stage is Information Requested.');
+      return;
+    }
+    // Only allow one active (open/pending) request at a time
+    const alreadyHasActive = infoRequests.some((r) => r.status === 'open' || r.status === 'pending');
+    if (alreadyHasActive) {
+      alert('There is already an open information request for this application.');
+      return;
+    }
     setCreatingRequest(true);
 
     const { data, error } = await supabase
@@ -339,7 +390,7 @@ const handleSaveOffer = async () => {
   };
 
   const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('documents').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
     return data.publicUrl;
   };
 
@@ -371,6 +422,13 @@ const handleSaveOffer = async () => {
 
   const currentLender = lenders.find((l) => l.id === application.lender_id);
   const directorEmail = company?.primary_director?.[0]?.email ?? application.prospective_client_email ?? 'Unknown';
+  const isInfoRequestedStage =
+    application.stage === 'information_requested' || application.stage === 'info_required';
+  const hasActiveInfoRequest = infoRequests.some((r) => r.status === 'open' || r.status === 'pending');
+
+  const offerSectionVisibleStages = new Set(['approved', 'onboarding', 'funded', 'withdrawn', 'declined']);
+  const showOfferSection = offerSectionVisibleStages.has(application.stage);
+  const canEditOffer = application.stage === 'approved';
 
   return (
     <DashboardShell>
@@ -489,119 +547,165 @@ const handleSaveOffer = async () => {
             </CardHeader>
             <CardContent>
               {referralPartner ? (
-                <div>
-                  <p className="font-medium text-gray-900">{referralPartner.email}</p>
-                  <p className="text-xs text-gray-500 mt-1">Partner ID: {referralPartner.id.slice(0, 8)}...</p>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase mb-1">Partner company</p>
+                    {referralPartner.partner_company_id ? (
+                      <Link
+                        href={`/admin/partners/${referralPartner.partner_company_id}`}
+                        className="font-medium text-blue-600 hover:underline"
+                      >
+                        {referralPartner.partner_company_name || 'View partner company →'}
+                      </Link>
+                    ) : (
+                      <p className="text-sm text-gray-700">{referralPartner.partner_company_name || '—'}</p>
+                    )}
+                  </div>
+
+                  <div>
+                    <p className="text-xs text-gray-500 uppercase mb-1">Referrer</p>
+                    <p className="font-medium text-gray-900">
+                      {referralPartner.referrer_full_name || '—'}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {referralPartner.referrer_email || '—'}
+                    </p>
+                  </div>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">No referral partner</p>
+                <p className="text-sm text-gray-500">Direct signup</p>
               )}
             </CardContent>
           </Card>
 
-             {/* Offer Details */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-gray-900">Offer Details</h2>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Offer Amount (£)
-                </label>
-                <input
-                  type="number"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 50000"
-                  value={offerAmount}
-                  onChange={(e) => {
-                    setOfferAmount(e.target.value);
-                    setOfferDirty(true);
-                  }}
-                />
-              </div>
+          {/* Offers */}
+          {!showOfferSection ? (
+            <Card>
+              <CardHeader>
+                <h2 className="font-medium text-gray-900">Offers</h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-sm text-gray-500">
+                  Offers can be added once the application is approved.
+                </p>
+              </CardContent>
+            </Card>
+          ) : (
+            <Card>
+              <CardHeader>
+                <h2 className="font-medium text-gray-900">Offer Details</h2>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {!canEditOffer && (
+                  <p className="text-sm text-gray-500">
+                    Offers are read-only at this stage.
+                  </p>
+                )}
 
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Loan Term
-                </label>
-                <input
-                  type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 12 months"
-                  value={offerLoanTerm}
-                  onChange={(e) => {
-                    setOfferLoanTerm(e.target.value);
-                    setOfferDirty(true);
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Cost of Funding
-                </label>
-                <input
-                  type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., 8% APR"
-                  value={offerCostOfFunding}
-                  onChange={(e) => {
-                    setOfferCostOfFunding(e.target.value);
-                    setOfferDirty(true);
-                  }}
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
-                  Repayments
-                </label>
-                <input
-                  type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g., £4,500/month"
-                  value={offerRepayments}
-                  onChange={(e) => {
-                    setOfferRepayments(e.target.value);
-                    setOfferDirty(true);
-                  }}
-                />
-              </div>
-
-              <div className="pt-2">
-                <Button
-                  variant="primary"
-                  className="w-full"
-                  disabled={!offerDirty || savingOffer}
-                  onClick={handleSaveOffer}
-                >
-                  {savingOffer ? 'Saving...' : 'Save Offer Details'}
-                </Button>
-              </div>
-
-              {/* Show current values as reference */}
-              <div className="pt-3 border-t border-gray-100 space-y-2">
-                <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Requested</span>
-                  <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Offer Amount (£)
+                  </label>
+                  <input
+                    type="number"
+                    disabled={!canEditOffer}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
+                    placeholder="e.g., 50000"
+                    value={offerAmount}
+                    onChange={(e) => {
+                      setOfferAmount(e.target.value);
+                      setOfferDirty(true);
+                    }}
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Type</span>
-                  <span className="text-sm font-medium">{application.loan_type}</span>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Loan Term
+                  </label>
+                  <input
+                    type="text"
+                    disabled={!canEditOffer}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
+                    placeholder="e.g., 12 months"
+                    value={offerLoanTerm}
+                    onChange={(e) => {
+                      setOfferLoanTerm(e.target.value);
+                      setOfferDirty(true);
+                    }}
+                  />
                 </div>
-                {currentLender && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Lender</span>
-                    <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
-                      {currentLender.name}
-                    </Link>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Cost of Funding
+                  </label>
+                  <input
+                    type="text"
+                    disabled={!canEditOffer}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
+                    placeholder="e.g., 8% APR"
+                    value={offerCostOfFunding}
+                    onChange={(e) => {
+                      setOfferCostOfFunding(e.target.value);
+                      setOfferDirty(true);
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Repayments
+                  </label>
+                  <input
+                    type="text"
+                    disabled={!canEditOffer}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
+                    placeholder="e.g., £4,500/month"
+                    value={offerRepayments}
+                    onChange={(e) => {
+                      setOfferRepayments(e.target.value);
+                      setOfferDirty(true);
+                    }}
+                  />
+                </div>
+
+                {canEditOffer && (
+                  <div className="pt-2">
+                    <Button
+                      variant="primary"
+                      className="w-full"
+                      disabled={!offerDirty || savingOffer}
+                      onClick={handleSaveOffer}
+                    >
+                      {savingOffer ? 'Saving...' : 'Save Offer Details'}
+                    </Button>
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
+
+                {/* Show current values as reference */}
+                <div className="pt-3 border-t border-gray-100 space-y-2">
+                  <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Requested</span>
+                    <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Type</span>
+                    <span className="text-sm font-medium">{application.loan_type}</span>
+                  </div>
+                  {currentLender && (
+                    <div className="flex justify-between">
+                      <span className="text-sm text-gray-600">Lender</span>
+                      <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
+                        {currentLender.name}
+                      </Link>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          )}
             </div> 
 
 
@@ -688,26 +792,36 @@ const handleSaveOffer = async () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Create new request */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Ask the client for information..."
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  value={newQuestion}
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateInfoRequest();
-                  }}
-                />
-                <Button
-                  variant="primary"
-                  disabled={creatingRequest || !newQuestion.trim()}
-                  onClick={handleCreateInfoRequest}
-                >
-                  {creatingRequest ? 'Sending...' : 'Send'}
-                </Button>
-              </div>
+              {/* Create new request (only when stage is information_requested and no active request) */}
+              {isInfoRequestedStage ? (
+                hasActiveInfoRequest ? (
+                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-sm text-yellow-800">
+                      There is already an open information request. Only one open request is allowed at a time.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Ask the client for information..."
+                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      value={newQuestion}
+                      onChange={(e) => setNewQuestion(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleCreateInfoRequest();
+                      }}
+                    />
+                    <Button
+                      variant="primary"
+                      disabled={creatingRequest || !newQuestion.trim()}
+                      onClick={handleCreateInfoRequest}
+                    >
+                      {creatingRequest ? 'Sending...' : 'Send'}
+                    </Button>
+                  </div>
+                )
+              ) : null}
 
               {/* Requests list */}
               {infoRequests.length === 0 ? (

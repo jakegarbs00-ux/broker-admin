@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
+import { Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
 
 type PartnerApplication = {
   id: string;
@@ -20,6 +21,11 @@ type PartnerApplication = {
   company?: {
     id: string;
     name: string;
+    referrer?: {
+      id: string;
+      full_name: string | null;
+      email: string | null;
+    }[] | null;
   }[] | null;
   creator?: {
     id: string;
@@ -112,7 +118,11 @@ export default function PartnerApplicationsPage() {
             company_id,
             created_by,
             prospective_client_email,
-            company:companies!applications_company_id_fkey(id, name),
+            company:companies!applications_company_id_fkey(
+              id,
+              name,
+              referrer:referred_by(id, full_name, email)
+            ),
             creator:profiles!applications_created_by_fkey(id, email, full_name)
           `
         )
@@ -206,46 +216,59 @@ export default function PartnerApplicationsPage() {
           You don&apos;t have any applications for your clients yet.
         </p>
       ) : (
-        <div className="space-y-3">
-          {apps.map((a) => {
-            const isDraft = a.is_hidden;
-            const creatorEmail = a.creator?.[0]?.email;
-            const creatorName = a.creator?.[0]?.full_name;
-            const clientLabel = creatorEmail 
-              ? (creatorName ? `${creatorName} (${creatorEmail})` : creatorEmail)
-              : a.prospective_client_email ?? 'Unknown creator';
-            const companyName = a.company?.[0]?.name ?? 'Company pending';
+        <div className="overflow-x-auto rounded-md border bg-white">
+          <table className="min-w-full divide-y divide-gray-100">
+            <thead className="bg-gray-50">
+              <tr>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loan Type</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stage</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Referred By</th>
+                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
+                <th className="px-4 py-3"></th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {apps.map((a) => {
+                const companyName = a.company?.[0]?.name ?? 'Company pending';
+                const referrer = a.company?.[0]?.referrer?.[0];
+                const referredBy =
+                  referrer?.full_name
+                    ? `${referrer.full_name}${referrer.email ? ` (${referrer.email})` : ''}`
+                    : (referrer?.email ?? '—');
 
-            return (
-              <div
-                key={a.id}
-                className="flex items-center justify-between rounded-md border bg-white px-4 py-3"
-              >
-                <div>
-                  <p className="text-sm text-gray-500">
-                    {companyName} • {clientLabel}
-                  </p>
-                  <p className="text-lg font-semibold">
-                    £{a.requested_amount.toLocaleString()} – {a.loan_type}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(a.created_at).toLocaleString()}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                      isDraft
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {isDraft ? 'Draft (hidden)' : a.stage}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+                return (
+                  <tr key={a.id} className="hover:bg-gray-50">
+                    <td className="px-4 py-3 text-sm">
+                      <Link href={`/partner/applications/${a.id}`} className="font-medium text-purple-700 hover:underline">
+                        {companyName}
+                      </Link>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-900">
+                      £{a.requested_amount?.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{a.loan_type}</td>
+                    <td className="px-4 py-3 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getStageBadgeVariant(a.stage)}>{formatStage(a.stage)}</Badge>
+                        {a.is_hidden && <Badge variant="warning">Draft</Badge>}
+                      </div>
+                    </td>
+                    <td className="px-4 py-3 text-sm text-gray-700">{referredBy}</td>
+                    <td className="px-4 py-3 text-sm text-gray-500">
+                      {new Date(a.created_at).toLocaleDateString('en-GB')}
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <Link href={`/partner/applications/${a.id}`} className="text-sm text-purple-700 hover:underline">
+                        View →
+                      </Link>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
       </div>

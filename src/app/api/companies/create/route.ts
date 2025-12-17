@@ -18,9 +18,10 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!name || !partner_id) {
+    // partner_id is OPTIONAL (admin can create direct companies with no referrer)
+    if (!name || !name.trim()) {
       return NextResponse.json(
-        { error: 'Company name and partner ID are required' },
+        { error: 'Company name is required' },
         { status: 400 }
       );
     }
