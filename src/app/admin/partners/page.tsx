@@ -103,7 +103,7 @@ export default function AdminPartnersPage() {
         })
       );
 
-      setPartners(partnersWithCounts as Partner[]);
+      setPartners(partnersWithCounts as unknown as Partner[]);
       setLoadingData(false);
     };
 
@@ -205,7 +205,7 @@ export default function AdminPartnersPage() {
           })
         );
 
-        setPartners(partnersWithCounts as Partner[]);
+        setPartners(partnersWithCounts as unknown as Partner[]);
       }
     };
 
