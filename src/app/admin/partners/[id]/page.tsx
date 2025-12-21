@@ -6,14 +6,31 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, Badge, Button, getStageBadgeVariant, formatStage } from '@/components/ui';
+import { Card, CardContent, CardHeader, Badge, Button } from '@/components/ui';
 
-type Partner = {
+type PartnerCompany = {
   id: string;
+  name: string;
+  registration_number: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
+  website: string | null;
+  bank_name: string | null;
+  bank_account_name: string | null;
+  bank_account_number: string | null;
+  bank_sort_code: string | null;
+  created_at: string;
+};
+
+type PartnerUser = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
   email: string;
-  full_name: string | null;
-  company_name: string | null;
-  phone: string | null;
+  is_primary_contact: boolean | null;
   created_at: string;
 };
 
@@ -21,31 +38,42 @@ type ReferredCompany = {
   id: string;
   name: string;
   company_number: string | null;
-  industry: string | null;
   created_at: string;
-  owner_email: string | null;
-  applications_count: number;
-  open_applications_count: number;
+  referrer?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+  } | null;
 };
 
-export default function AdminPartnerDetailPage() {
+type Application = {
+  id: string;
+  requested_amount: number;
+  loan_type: string;
+  stage: string;
+  created_at: string;
+  company?: {
+    id: string;
+    name: string;
+  } | null;
+};
+
+export default function AdminPartnerCompanyDetailPage() {
   const params = useParams();
-  const id = params.id as string;
+  const partnerCompanyId = params.id as string;
   const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
 
-  const [partner, setPartner] = useState<Partner | null>(null);
+  const [partnerCompany, setPartnerCompany] = useState<PartnerCompany | null>(null);
+  const [users, setUsers] = useState<PartnerUser[]>([]);
   const [referredCompanies, setReferredCompanies] = useState<ReferredCompany[]>([]);
+  const [applications, setApplications] = useState<Application[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [editing, setEditing] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    full_name: '',
-    company_name: '',
-    phone: '',
-  });
+  const [formData, setFormData] = useState<Partial<PartnerCompany>>({});
 
   useEffect(() => {
     if (loading) return;
@@ -57,97 +85,91 @@ export default function AdminPartnerDetailPage() {
     const loadData = async () => {
       setError(null);
 
-      // Load partner profile
-      const { data: partnerData, error: partnerError } = await supabase
-        .from('profiles')
-        .select('id, email, full_name, company_name, phone, created_at')
-        .eq('id', id)
-        .eq('role', 'PARTNER')
+      // Get partner company
+      const { data: companyData, error: companyError } = await supabase
+        .from('partner_companies')
+        .select('*')
+        .eq('id', partnerCompanyId)
         .single();
 
-      if (partnerError || !partnerData) {
-        setError('Partner not found');
+      if (companyError || !companyData) {
+        setError('Partner company not found');
         setLoadingData(false);
         return;
       }
 
-      setPartner(partnerData as Partner);
-      setFormData({
-        full_name: partnerData.full_name || '',
-        company_name: partnerData.company_name || '',
-        phone: partnerData.phone || '',
-      });
+      setPartnerCompany(companyData as PartnerCompany);
+      setFormData(companyData as PartnerCompany);
 
-      // Load clients referred by this partner
-      const { data: referredClients } = await supabase
+      // Get users in this partner company
+      const { data: usersData } = await supabase
         .from('profiles')
-        .select('id, email')
-        .eq('referred_by', id);
+        .select('id, first_name, last_name, email, is_primary_contact, created_at')
+        .eq('partner_company_id', partnerCompanyId)
+        .order('is_primary_contact', { ascending: false });
 
-      if (!referredClients || referredClients.length === 0) {
-        setReferredCompanies([]);
-        setLoadingData(false);
-        return;
-      }
+      setUsers((usersData || []) as PartnerUser[]);
 
-      const clientIds = referredClients.map((c) => c.id);
-      const clientEmailMap: Record<string, string> = {};
-      referredClients.forEach((c) => {
-        clientEmailMap[c.id] = c.email;
-      });
+      const userIds = usersData?.map((u) => u.id) || [];
 
-      // Get companies owned by referred clients
-      const { data: companiesData } = await supabase
+      // Get referred companies
+      const { data: referredCompaniesData } = await supabase
         .from('companies')
         .select(`
-          id, name, company_number, industry, created_at, owner_id,
-          applications(id, stage)
+          id,
+          name,
+          company_number,
+          created_at,
+          referrer:referred_by(id, first_name, last_name)
         `)
-        .in('owner_id', clientIds)
+        .in('referred_by', userIds.length > 0 ? userIds : ['none'])
         .order('created_at', { ascending: false });
 
-      const closedStages = ['funded', 'declined', 'withdrawn'];
+      setReferredCompanies((referredCompaniesData || []) as ReferredCompany[]);
 
-      const processedCompanies: ReferredCompany[] = (companiesData || []).map((c: any) => ({
-        id: c.id,
-        name: c.name,
-        company_number: c.company_number,
-        industry: c.industry,
-        created_at: c.created_at,
-        owner_email: clientEmailMap[c.owner_id] || null,
-        applications_count: c.applications?.length || 0,
-        open_applications_count: c.applications?.filter((a: any) => !closedStages.includes(a.stage)).length || 0,
-      }));
+      // Get applications from referred companies
+      const companyIds = referredCompaniesData?.map((c) => c.id) || [];
+      const { data: applicationsData } = await supabase
+        .from('applications')
+        .select(`
+          id,
+          requested_amount,
+          loan_type,
+          stage,
+          created_at,
+          company:company_id(id, name)
+        `)
+        .in('company_id', companyIds.length > 0 ? companyIds : ['none'])
+        .order('created_at', { ascending: false });
 
-      setReferredCompanies(processedCompanies);
+      setApplications((applicationsData || []) as Application[]);
+
       setLoadingData(false);
     };
 
     loadData();
-  }, [loading, profile?.role, id, supabase]);
+  }, [loading, profile?.role, partnerCompanyId, supabase]);
+
+  const handleChange = (field: keyof PartnerCompany, value: string) => {
+    setFormData((prev) => ({ ...prev, [field]: value }));
+  };
 
   const handleSave = async () => {
+    if (!partnerCompany) return;
     setSaving(true);
-    const { error } = await supabase
-      .from('profiles')
-      .update({
-        full_name: formData.full_name.trim() || null,
-        company_name: formData.company_name.trim() || null,
-        phone: formData.phone.trim() || null,
-      })
-      .eq('id', id);
 
-    if (error) {
-      alert('Error saving: ' + error.message);
+    const { error: updateError } = await supabase
+      .from('partner_companies')
+      .update(formData)
+      .eq('id', partnerCompany.id);
+
+    if (updateError) {
+      alert('Error saving: ' + updateError.message);
     } else {
-      setPartner((prev) => prev ? {
-        ...prev,
-        full_name: formData.full_name.trim() || null,
-        company_name: formData.company_name.trim() || null,
-        phone: formData.phone.trim() || null,
-      } : null);
-      setEditing(false);
+      setPartnerCompany((prev) => (prev ? { ...prev, ...formData } : null));
+      setIsEditing(false);
     }
+
     setSaving(false);
   };
 
@@ -157,242 +179,377 @@ export default function AdminPartnerDetailPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading partner...</p>
+            <p className="text-sm text-gray-500">Loading partner company...</p>
           </div>
         </div>
       </DashboardShell>
     );
   }
 
-  if (profile?.role !== 'ADMIN' || error) {
+  if (profile?.role !== 'ADMIN') {
     return (
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">{error || 'You do not have permission to view this page.'}</p>
+          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
   }
 
-  if (!partner) return null;
+  if (error || !partnerCompany) {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">{error || 'Partner company not found'}</p>
+          <Link href="/admin/partners" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+            ← Back to Partners
+          </Link>
+        </div>
+      </DashboardShell>
+    );
+  }
 
-  const totalApplications = referredCompanies.reduce((sum, c) => sum + c.applications_count, 0);
-  const openApplications = referredCompanies.reduce((sum, c) => sum + c.open_applications_count, 0);
+  const totalFunded = applications.filter((a) => a.stage === 'funded').length;
 
   return (
     <DashboardShell>
-      {/* Back link */}
-      <div className="mb-4">
-        <Link href="/admin/partners" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
-          Back to Partners
-        </Link>
-      </div>
-
-      {/* Header */}
-      <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            {partner.full_name || partner.email}
-          </h1>
-          {partner.company_name && (
-            <p className="text-lg text-gray-600">{partner.company_name}</p>
-          )}
-          <p className="text-sm text-gray-500 mt-1">
-            Partner since {new Date(partner.created_at).toLocaleDateString('en-GB')}
-          </p>
+      <div className="p-6">
+        <div className="flex justify-between items-start mb-6">
+          <div>
+            <Link href="/admin/partners" className="text-sm text-gray-500 hover:underline mb-2 block">
+              ← Back to Partners
+            </Link>
+            <h1 className="text-2xl font-bold">{partnerCompany.name}</h1>
+            <p className="text-gray-500">Partner Company</p>
+          </div>
         </div>
-        <Badge variant="purple">Partner</Badge>
-      </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column - Partner info */}
-        <div className="space-y-6">
-          {/* Contact Information */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Contact Information</h2>
-                {!editing && (
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Main content - 2 columns */}
+          <div className="lg:col-span-2 space-y-6">
+            {/* Company Information - EDITABLE */}
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Company Information</h2>
+                <button
+                  onClick={() => {
+                    if (isEditing) {
+                      setFormData(partnerCompany);
+                    }
+                    setIsEditing(!isEditing);
+                  }}
+                  className="text-blue-600 hover:underline"
+                >
+                  {isEditing ? 'Cancel' : 'Edit'}
+                </button>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Company Name</label>
+                  <input
+                    value={formData.name || ''}
+                    onChange={(e) => handleChange('name', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Registration Number</label>
+                  <input
+                    value={formData.registration_number || ''}
+                    onChange={(e) => handleChange('registration_number', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Address Line 1</label>
+                  <input
+                    value={formData.address_line_1 || ''}
+                    onChange={(e) => handleChange('address_line_1', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">City</label>
+                  <input
+                    value={formData.city || ''}
+                    onChange={(e) => handleChange('city', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Postcode</label>
+                  <input
+                    value={formData.postcode || ''}
+                    onChange={(e) => handleChange('postcode', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Website</label>
+                  <input
+                    value={formData.website || ''}
+                    onChange={(e) => handleChange('website', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+              </div>
+              {isEditing && (
+                <button
+                  onClick={handleSave}
+                  disabled={saving}
+                  className="mt-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : 'Save Changes'}
+                </button>
+              )}
+            </div>
+
+            {/* Referred Companies */}
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Referred Companies</h2>
+                <span className="text-gray-500">{referredCompanies.length}</span>
+              </div>
+              {referredCompanies.length > 0 ? (
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-sm text-gray-500 border-b">
+                      <th className="pb-2">Company</th>
+                      <th className="pb-2">Referred By</th>
+                      <th className="pb-2">Date</th>
+                      <th className="pb-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {referredCompanies.map((company) => (
+                      <tr key={company.id} className="border-b">
+                        <td className="py-3 font-medium">{company.name}</td>
+                        <td className="py-3">
+                          {company.referrer?.first_name} {company.referrer?.last_name}
+                        </td>
+                        <td className="py-3">
+                          {new Date(company.created_at).toLocaleDateString('en-GB')}
+                        </td>
+                        <td className="py-3">
+                          <Link
+                            href={`/admin/companies/${company.id}`}
+                            className="text-blue-600 hover:underline text-sm"
+                          >
+                            View →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500">No referred companies yet</p>
+              )}
+            </div>
+
+            {/* Applications */}
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-lg font-semibold">Applications</h2>
+                <span className="text-gray-500">{applications.length}</span>
+              </div>
+              {applications.length > 0 ? (
+                <table className="w-full">
+                  <thead>
+                    <tr className="text-left text-sm text-gray-500 border-b">
+                      <th className="pb-2">Company</th>
+                      <th className="pb-2">Amount</th>
+                      <th className="pb-2">Type</th>
+                      <th className="pb-2">Stage</th>
+                      <th className="pb-2"></th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {applications.map((app) => (
+                      <tr key={app.id} className="border-b">
+                        <td className="py-3">{app.company?.name}</td>
+                        <td className="py-3">£{Number(app.requested_amount).toLocaleString()}</td>
+                        <td className="py-3">{app.loan_type}</td>
+                        <td className="py-3">
+                          <span
+                            className={`px-2 py-1 rounded text-xs ${
+                              app.stage === 'funded'
+                                ? 'bg-green-100 text-green-800'
+                                : app.stage === 'approved'
+                                  ? 'bg-blue-100 text-blue-800'
+                                  : app.stage === 'declined'
+                                    ? 'bg-red-100 text-red-800'
+                                    : 'bg-gray-100 text-gray-800'
+                            }`}
+                          >
+                            {app.stage}
+                          </span>
+                        </td>
+                        <td className="py-3">
+                          <Link
+                            href={`/admin/applications/${app.id}`}
+                            className="text-blue-600 hover:underline text-sm"
+                          >
+                            View →
+                          </Link>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <p className="text-gray-500">No applications yet</p>
+              )}
+            </div>
+          </div>
+
+          {/* Sidebar - 1 column */}
+          <div className="space-y-6">
+            {/* Summary Stats */}
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="font-semibold mb-4">Summary</h3>
+              <div className="space-y-3">
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Users</span>
+                  <span className="font-medium">{users.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Referrals</span>
+                  <span className="font-medium">{referredCompanies.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Total Applications</span>
+                  <span className="font-medium">{applications.length}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-gray-600">Funded</span>
+                  <span className="font-medium text-green-600">{totalFunded}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Bank Details - EDITABLE */}
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Bank Details</h3>
+                <button
+                  onClick={() => {
+                    if (isEditing) {
+                      setFormData(partnerCompany);
+                    }
+                    setIsEditing(!isEditing);
+                  }}
+                  className="text-blue-600 hover:underline text-sm"
+                >
+                  {isEditing ? 'Cancel' : 'Edit'}
+                </button>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Bank Name</label>
+                  <input
+                    value={formData.bank_name || ''}
+                    onChange={(e) => handleChange('bank_name', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Account Name</label>
+                  <input
+                    value={formData.bank_account_name || ''}
+                    onChange={(e) => handleChange('bank_account_name', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Account Number</label>
+                  <input
+                    value={formData.bank_account_number || ''}
+                    onChange={(e) => handleChange('bank_account_number', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="text-sm text-gray-500 block mb-1">Sort Code</label>
+                  <input
+                    value={formData.bank_sort_code || ''}
+                    onChange={(e) => handleChange('bank_sort_code', e.target.value)}
+                    disabled={!isEditing}
+                    className={`w-full px-3 py-2 border rounded text-sm ${!isEditing ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                {isEditing && (
                   <button
-                    onClick={() => setEditing(true)}
-                    className="text-sm text-blue-600 hover:text-blue-700"
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="w-full mt-2 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50 text-sm"
                   >
-                    Edit
+                    {saving ? 'Saving...' : 'Save Changes'}
                   </button>
                 )}
               </div>
-            </CardHeader>
-            <CardContent>
-              {editing ? (
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Full Name</label>
-                    <input
-                      type="text"
-                      value={formData.full_name}
-                      onChange={(e) => setFormData((p) => ({ ...p, full_name: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                      placeholder="John Smith"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Company Name</label>
-                    <input
-                      type="text"
-                      value={formData.company_name}
-                      onChange={(e) => setFormData((p) => ({ ...p, company_name: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                      placeholder="Partner Co Ltd"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Phone</label>
-                    <input
-                      type="tel"
-                      value={formData.phone}
-                      onChange={(e) => setFormData((p) => ({ ...p, phone: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
-                      placeholder="+44 7700 900000"
-                    />
-                  </div>
-                  <div className="flex gap-2">
-                    <Button variant="primary" onClick={handleSave} disabled={saving}>
-                      {saving ? 'Saving...' : 'Save'}
-                    </Button>
-                    <Button variant="secondary" onClick={() => setEditing(false)}>
-                      Cancel
-                    </Button>
-                  </div>
+            </div>
+
+            {/* Users in this Partner Company */}
+            <div className="bg-white rounded-lg border p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold">Users</h3>
+                <span className="text-gray-500 text-sm">{users.length}</span>
+              </div>
+              {users.length > 0 ? (
+                <div className="space-y-2">
+                  {users.map((user) => (
+                    <div key={user.id} className="border-b pb-2 last:border-0 last:pb-0">
+                      <div className="flex items-center justify-between">
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {user.first_name} {user.last_name}
+                          </p>
+                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                        </div>
+                        {user.is_primary_contact && (
+                          <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded ml-2">
+                            Primary
+                          </span>
+                        )}
+                      </div>
+                      <Link
+                        href={`/admin/users/${user.id}`}
+                        className="text-xs text-blue-600 hover:underline mt-1 inline-block"
+                      >
+                        View →
+                      </Link>
+                    </div>
+                  ))}
                 </div>
               ) : (
-                <dl className="space-y-3">
-                  <div>
-                    <dt className="text-xs text-gray-500 uppercase">Email</dt>
-                    <dd className="text-sm font-medium text-gray-900">{partner.email}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-gray-500 uppercase">Full Name</dt>
-                    <dd className="text-sm font-medium text-gray-900">{partner.full_name || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-gray-500 uppercase">Company</dt>
-                    <dd className="text-sm font-medium text-gray-900">{partner.company_name || '—'}</dd>
-                  </div>
-                  <div>
-                    <dt className="text-xs text-gray-500 uppercase">Phone</dt>
-                    <dd className="text-sm font-medium text-gray-900">{partner.phone || '—'}</dd>
-                  </div>
-                </dl>
+                <p className="text-gray-500 text-sm">No users in this partner company</p>
               )}
-            </CardContent>
-          </Card>
+            </div>
 
-          {/* Stats */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-gray-900">Statistics</h2>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Referred Companies</span>
-                <span className="font-medium text-gray-900">{referredCompanies.length}</span>
+            {/* Quick Actions */}
+            <div className="bg-white rounded-lg border p-6">
+              <h3 className="font-semibold mb-4">Quick Actions</h3>
+              <div className="space-y-2">
+                <Link
+                  href={`/admin/partners/${partnerCompanyId}/users/add`}
+                  className="block w-full px-4 py-2 text-left text-sm border rounded hover:bg-gray-50"
+                >
+                  Add User to Company
+                </Link>
               </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Applications</span>
-                <span className="font-medium text-gray-900">{totalApplications}</span>
-              </div>
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Open Applications</span>
-                <span className="font-medium text-gray-900">{openApplications}</span>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Right column - Referred companies */}
-        <div className="lg:col-span-2">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Referred Companies</h2>
-                <Badge variant="default">{referredCompanies.length}</Badge>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {referredCompanies.length === 0 ? (
-                <div className="p-6 text-center">
-                  <p className="text-sm text-gray-500">No referred companies yet</p>
-                </div>
-              ) : (
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                          Company
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                          Client Email
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                          Applications
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                          Open
-                        </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                          Created
-                        </th>
-                        <th className="px-6 py-3"></th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {referredCompanies.map((c) => (
-                        <tr key={c.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="px-6 py-4">
-                            <div>
-                              <p className="font-medium text-gray-900">{c.name}</p>
-                              {c.industry && (
-                                <p className="text-xs text-gray-500">{c.industry}</p>
-                              )}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">{c.owner_email || '—'}</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-900">{c.applications_count}</span>
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap">
-                            {c.open_applications_count > 0 ? (
-                              <Badge variant="info">{c.open_applications_count}</Badge>
-                            ) : (
-                              <span className="text-sm text-gray-400">0</span>
-                            )}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                            {new Date(c.created_at).toLocaleDateString('en-GB')}
-                          </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-right">
-                            <Link
-                              href={`/admin/companies/${c.id}`}
-                              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                            >
-                              View →
-                            </Link>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </CardContent>
-          </Card>
+            </div>
+          </div>
         </div>
       </div>
     </DashboardShell>

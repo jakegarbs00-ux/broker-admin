@@ -210,9 +210,10 @@ export default function PartnerApplicationsPage() {
               : a.prospective_client_email ?? 'Prospective client';
 
             return (
-              <div
+              <Link
                 key={a.id}
-                className="flex items-center justify-between rounded-md border bg-white px-4 py-3"
+                href={`/partner/applications/${a.id}`}
+                className="flex items-center justify-between rounded-md border bg-white px-4 py-3 hover:bg-gray-50 transition-colors"
               >
                 <div>
                   <p className="text-sm text-gray-500">
@@ -236,7 +237,7 @@ export default function PartnerApplicationsPage() {
                     {isDraft ? 'Draft (hidden)' : a.stage}
                   </span>
                 </div>
-              </div>
+              </Link>
             );
           })}
         </div>

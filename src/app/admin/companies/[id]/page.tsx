@@ -55,6 +55,7 @@ export default function AdminCompanyDetailPage() {
   const supabase = getSupabaseClient();
 
   const [company, setCompany] = useState<Company | null>(null);
+  const [director, setDirector] = useState<any | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [loadingData, setLoadingData] = useState(true);
@@ -95,14 +96,30 @@ export default function AdminCompanyDetailPage() {
         return;
       }
 
-      // Load users associated with the company (separate query)
-      const { data: companyUsers } = await supabase
+      // Get director/client profile for this company
+      const { data: directorData } = await supabase
         .from('profiles')
         .select('*')
-        .eq('company_id', id);
+        .eq('company_id', id)
+        .eq('is_primary_director', true)
+        .single();
+
+      // If no primary director, get any profile linked to company
+      let directorProfile = directorData;
+      if (!directorProfile) {
+        const { data: anyProfile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('company_id', id)
+          .limit(1)
+          .maybeSingle();
+        directorProfile = anyProfile;
+      }
+
+      setDirector(directorProfile);
 
       // Get primary director for owner display
-      const primaryDirector = (companyUsers || []).find((u: any) => u.is_primary_director === true);
+      const primaryDirector = directorProfile;
 
       const enrichedCompany = {
         ...companyData,
@@ -149,7 +166,7 @@ export default function AdminCompanyDetailPage() {
   }, [id, loading, profile?.role, supabase]);
 
   const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('documents').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
     return data.publicUrl;
   };
 
@@ -250,28 +267,48 @@ export default function AdminCompanyDetailPage() {
               <h2 className="font-medium text-gray-900">Director Information</h2>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Full Name</p>
-                  <p className="text-gray-900">{company.director_full_name ?? '—'}</p>
+              {director ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Full Name</p>
+                    <p className="text-gray-900">
+                      {director.first_name} {director.last_name}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Email</p>
+                    <p className="text-gray-900">{director.email || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Phone</p>
+                    <p className="text-gray-900">{director.phone || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs font-medium text-gray-500 uppercase">Date of Birth</p>
+                    <p className="text-gray-900">
+                      {director.date_of_birth
+                        ? new Date(director.date_of_birth).toLocaleDateString('en-GB')
+                        : '—'}
+                    </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
+                    <p className="text-gray-900">
+                      {[
+                        director.address_line_1,
+                        director.address_line_2,
+                        director.city,
+                        director.postcode,
+                        director.country,
+                      ]
+                        .filter(Boolean)
+                        .join(', ') || '—'}
+                    </p>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Date of Birth</p>
-                  <p className="text-gray-900">
-                    {company.director_dob 
-                      ? new Date(company.director_dob).toLocaleDateString('en-GB') 
-                      : '—'}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Property Status</p>
-                  <p className="text-gray-900 capitalize">{company.property_status ?? '—'}</p>
-                </div>
-                <div className="sm:col-span-2">
-                  <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
-                  <p className="text-gray-900 whitespace-pre-line">{company.director_address ?? '—'}</p>
-                </div>
-              </div>
+              ) : (
+                <p className="text-gray-500">No director information available</p>
+              )}
             </CardContent>
           </Card>
 

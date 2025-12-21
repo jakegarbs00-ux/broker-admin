@@ -18,8 +18,8 @@ type User = {
   company_id: string | null;
   partner_company_id: string | null;
   is_primary_contact: boolean | null;
-  company?: { id: string; name: string }[] | null;
-  partner_company?: { id: string; name: string }[] | null;
+  company?: { id: string; name: string } | null;
+  partner_company?: { id: string; name: string } | null;
 };
 
 export default function AdminUsersPage() {
@@ -190,8 +190,16 @@ export default function AdminUsersPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-200">
                   {filteredUsers.map((user) => {
-                    const associationName =
-                      user.company?.[0]?.name || user.partner_company?.[0]?.name || '—';
+                    // Get association name based on role
+                    let associationName = '—';
+                    if (user.role === 'CLIENT' && user.company?.name) {
+                      associationName = user.company.name;
+                    } else if (user.role === 'PARTNER' && user.partner_company?.name) {
+                      associationName = user.partner_company.name;
+                    } else if (user.role === 'ADMIN') {
+                      associationName = '—';
+                    }
+
                     return (
                       <tr
                         key={user.id}
