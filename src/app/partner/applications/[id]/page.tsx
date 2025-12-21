@@ -497,7 +497,7 @@ export default function PartnerApplicationDetailPage() {
                             offer.status === 'accepted'
                               ? 'success'
                               : offer.status === 'declined'
-                                ? 'danger'
+                                ? 'error'
                                 : 'default'
                           }
                         >
