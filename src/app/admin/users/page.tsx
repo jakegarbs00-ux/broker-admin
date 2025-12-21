@@ -219,9 +219,11 @@ export default function AdminUsersPage() {
                             {user.role}
                           </Badge>
                           {user.is_primary_contact && (
-                            <Badge variant="success" className="ml-2">
-                              Primary Contact
-                            </Badge>
+                            <span className="ml-2">
+                              <Badge variant="success">
+                                Primary Contact
+                              </Badge>
+                            </span>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
