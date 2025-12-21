@@ -125,7 +125,7 @@ export default function AdminPartnerCompanyDetailPage() {
         .in('referred_by', userIds.length > 0 ? userIds : ['none'])
         .order('created_at', { ascending: false });
 
-      setReferredCompanies((referredCompaniesData || []) as ReferredCompany[]);
+      setReferredCompanies((referredCompaniesData || []) as unknown as ReferredCompany[]);
 
       // Get applications from referred companies
       const companyIds = referredCompaniesData?.map((c) => c.id) || [];
