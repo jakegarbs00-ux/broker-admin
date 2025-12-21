@@ -142,7 +142,7 @@ export default function AdminPartnerCompanyDetailPage() {
         .in('company_id', companyIds.length > 0 ? companyIds : ['none'])
         .order('created_at', { ascending: false });
 
-      setApplications((applicationsData || []) as Application[]);
+      setApplications((applicationsData || []) as unknown as Application[]);
 
       setLoadingData(false);
     };
