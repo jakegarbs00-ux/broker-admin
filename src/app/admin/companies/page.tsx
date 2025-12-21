@@ -14,10 +14,18 @@ type Company = {
   industry: string | null;
   website: string | null;
   created_at: string;
-  referred_by: string | null;
-  primary_director: { id: string; email: string; full_name: string | null }[] | null;
-  partner: { company_name: string | null }[] | null;
+  owner: { id: string; email: string }[] | null;
   applications: { id: string; stage: string }[];
+  referrer?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    partner_company?: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
 };
 
 export default function AdminCompaniesPage() {
@@ -36,17 +44,16 @@ export default function AdminCompaniesPage() {
       const { data, error } = await supabase
         .from('companies')
         .select(`
-          id,
-          name,
-          company_number,
-          industry,
-          website,
-          created_at,
-          referred_by,
-          primary_director:profiles!profiles_company_id_fkey(id, email, full_name, is_primary_director),
+          *,
+          referrer:referred_by(
+            id,
+            first_name,
+            last_name,
+            email,
+            partner_company:partner_company_id(id, name)
+          ),
           applications(id, stage)
         `)
-        .eq('primary_director.is_primary_director', true)
         .order('created_at', { ascending: false });
 
       if (error) {
@@ -56,66 +63,35 @@ export default function AdminCompaniesPage() {
         return;
       }
 
-      // Load partner company info separately for companies with referred_by
-      if (data) {
-        const partnerUserIds = data
-          .map((c: any) => c.referred_by)
-          .filter((id: string | null): id is string => id !== null);
-        
-        if (partnerUserIds.length > 0) {
-          // Get partner users with their partner_company_id
-          const { data: partnerUsers } = await supabase
-            .from('profiles')
-            .select('id, partner_company_id')
-            .in('id', partnerUserIds);
-
-          // Create map of user_id -> partner_company_id
-          const userToCompany: Record<string, string> = {};
-          (partnerUsers || []).forEach((u: any) => {
-            if (u.partner_company_id) {
-              userToCompany[u.id] = u.partner_company_id;
-            }
-          });
-
-          // Get unique partner company IDs
-          const partnerCompanyIds = Array.from(new Set(Object.values(userToCompany)));
-
-          // Get partner companies
-          let partnerCompaniesData: any[] = [];
-          if (partnerCompanyIds.length > 0) {
-            const { data: companiesData } = await supabase
-              .from('partner_companies')
-              .select('id, name')
-              .in('id', partnerCompanyIds);
-            partnerCompaniesData = companiesData || [];
-          }
-
-          // Map partner companies to companies
-          const companiesWithPartners = data.map((company: any) => {
-            if (company.referred_by && userToCompany[company.referred_by]) {
-              const partnerCompanyId = userToCompany[company.referred_by];
-              const partnerCompany = partnerCompaniesData.find((pc: any) => pc.id === partnerCompanyId);
-              return {
-                ...company,
-                partner: partnerCompany ? [{ company_name: partnerCompany.name }] : null
-              };
-            }
-            return { ...company, partner: null };
-          });
-
-          setCompanies(companiesWithPartners as Company[]);
-        } else {
-          // No partners to load, just set companies with null partner
-          const companiesWithNullPartner = data.map((company: any) => ({
-            ...company,
-            partner: null
-          }));
-          setCompanies(companiesWithNullPartner as Company[]);
-        }
-      } else {
+      if (!data) {
         setCompanies([]);
+        setLoadingData(false);
+        return;
       }
-      
+
+      // Get primary directors for each company
+      const companyIds = data.map((c) => c.id);
+      const { data: directorsData } = await supabase
+        .from('profiles')
+        .select('id, email, company_id')
+        .in('company_id', companyIds)
+        .eq('is_primary_director', true);
+
+      // Create a map of company_id -> director
+      const directorMap: Record<string, { id: string; email: string }> = {};
+      (directorsData || []).forEach((d: any) => {
+        if (d.company_id) {
+          directorMap[d.company_id] = { id: d.id, email: d.email || '' };
+        }
+      });
+
+      // Enrich companies with owner data
+      const enrichedCompanies = data.map((c: any) => ({
+        ...c,
+        owner: directorMap[c.id] ? [directorMap[c.id]] : null,
+      }));
+
+      setCompanies(enrichedCompanies as Company[]);
       setLoadingData(false);
     };
 
@@ -153,12 +129,9 @@ export default function AdminCompaniesPage() {
   const filteredCompanies = companies.filter((c) => {
     if (!searchTerm) return true;
     const search = searchTerm.toLowerCase();
-    const directorEmail = c.primary_director?.[0]?.email?.toLowerCase() || '';
-    const directorName = c.primary_director?.[0]?.full_name?.toLowerCase() || '';
     return (
       c.name.toLowerCase().includes(search) ||
-      directorEmail.includes(search) ||
-      directorName.includes(search) ||
+      c.owner?.[0]?.email?.toLowerCase().includes(search) ||
       c.company_number?.toLowerCase().includes(search)
     );
   });
@@ -173,11 +146,6 @@ export default function AdminCompaniesPage() {
       <PageHeader
         title="Companies"
         description={`${companies.length} companies registered`}
-        actions={
-          <Link href="/admin/companies/create">
-            <Button variant="primary">Create Company</Button>
-          </Link>
-        }
       />
 
       {error && (
@@ -232,7 +200,7 @@ export default function AdminCompaniesPage() {
                       Client Email
                     </th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
-                      Partner
+                      Referred By
                     </th>
                     <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
                       Website
@@ -263,18 +231,13 @@ export default function AdminCompaniesPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <div className="space-y-1">
-                            {c.primary_director?.[0]?.full_name && (
-                              <p className="text-sm font-medium text-gray-900">{c.primary_director[0].full_name}</p>
-                            )}
-                            <span className="text-sm text-gray-600">
-                              {c.primary_director?.[0]?.email ?? '—'}
-                            </span>
-                          </div>
+                          <span className="text-sm text-gray-600">
+                            {c.owner?.[0]?.email ?? '—'}
+                          </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-gray-600">
-                            {c.partner?.[0]?.company_name ?? 'Direct'}
+                            {c.referrer?.partner_company?.name || '—'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">

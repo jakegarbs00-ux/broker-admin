@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -15,7 +15,7 @@ const schema = z.object({
 
 type FormValues = z.infer<typeof schema>;
 
-function SignupPageContent() {
+export default function SignupPage() {
   const router = useRouter();
   const supabase = getSupabaseClient();
   const searchParams = useSearchParams();
@@ -42,47 +42,37 @@ function SignupPageContent() {
     setFormError(null);
     const { email, password, companyName } = values;
 
-    try {
-      // Call API route to create user, profile, and company
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          email,
-          password,
-          companyName,
-          referrerId,
-        }),
-      });
+    const { data, error } = await supabase.auth.signUp({
+      email,
+      password,
+    });
 
-      const result = await response.json();
-
-      if (!response.ok) {
-        setFormError(result.error || 'Failed to create account');
-        return;
-      }
-
-      // Sign in the user with the credentials they just created
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (signInError) {
-        console.error('Error signing in after signup:', signInError);
-        // Still redirect to login - account was created
-        router.push('/auth/login?message=Account created. Please sign in.');
-        return;
-      }
-
-      // Redirect to company onboarding/edit page
-      router.push('/onboarding/company');
-    } catch (error: any) {
-      console.error('Signup error:', error);
-      setFormError('An unexpected error occurred. Please try again.');
+    if (error) {
+      setFormError(error.message);
+      return;
     }
+
+    // Store company name locally for onboarding
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem('initialCompanyName', companyName);
+    }
+
+    // If we have a referrerId and a created user, attach the referral
+    const newUser = data.user;
+    if (referrerId && newUser) {
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ referred_by: referrerId })
+        .eq('id', newUser.id);
+
+      if (profileError) {
+        console.error('Error attaching referral', profileError);
+        // not fatal for signup, so we don't block the user
+      }
+    }
+
+    // For now we still send them to login
+    router.push('/auth/login');
   };
 
   return (
@@ -125,23 +115,5 @@ function SignupPageContent() {
         </button>
       </form>
     </main>
-  );
-}
-
-export default function SignupPage() {
-  return (
-    <Suspense fallback={
-      <main className="max-w-md mx-auto space-y-6">
-        <h1 className="text-2xl font-semibold">Create your account</h1>
-        <div className="flex items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading...</p>
-          </div>
-        </div>
-      </main>
-    }>
-      <SignupPageContent />
-    </Suspense>
   );
 }

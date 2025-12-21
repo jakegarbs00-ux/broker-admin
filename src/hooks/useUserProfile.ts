@@ -9,7 +9,8 @@ type Profile = {
   role: 'CLIENT' | 'PARTNER' | 'ADMIN';
   email?: string | null;
   company_id?: string | null;
-  is_primary_director?: boolean | null;
+  partner_company_id?: string | null;
+  is_primary_contact?: boolean | null;
 };
 
 export function useUserProfile() {
@@ -38,12 +39,15 @@ export function useUserProfile() {
       // Simple, robust lookup: find profile row by email
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, role, email, company_id, is_primary_director')
+        .select('id, role, email, company_id, partner_company_id, is_primary_contact')
         .eq('email', email)
         .maybeSingle();
 
       if (error) {
         console.error('[useUserProfile] Error loading profile by email:', error);
+        setProfile(null);
+        setLoading(false);
+        return;
       }
 
       if (!data) {

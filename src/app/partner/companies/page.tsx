@@ -37,35 +37,32 @@ export default function PartnerCompaniesPage() {
     const loadCompanies = async () => {
       setError(null);
 
-      // Get user's partner_company_id
-      const { data: userProfile } = await supabase
+      // Get clients referred by this partner
+      const { data: referredClients, error: clientsError } = await supabase
         .from('profiles')
-        .select('partner_company_id')
-        .eq('id', user.id)
-        .single();
+        .select('id, email')
+        .eq('referred_by', user.id);
 
-      if (!userProfile?.partner_company_id) {
+      if (clientsError) {
+        console.error('Error loading referred clients', clientsError);
+        setError('Error loading referred clients: ' + clientsError.message);
+        setLoadingData(false);
+        return;
+      }
+
+      if (!referredClients || referredClients.length === 0) {
         setCompanies([]);
         setLoadingData(false);
         return;
       }
 
-      // Get all partner user IDs in this partner company
-      const { data: partnerUsers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('partner_company_id', userProfile.partner_company_id)
-        .eq('role', 'PARTNER');
+      const clientIds = referredClients.map((c) => c.id);
+      const clientEmailMap: Record<string, string> = {};
+      referredClients.forEach((c) => {
+        clientEmailMap[c.id] = c.email;
+      });
 
-      const partnerUserIds = (partnerUsers || []).map((u) => u.id);
-
-      if (partnerUserIds.length === 0) {
-        setCompanies([]);
-        setLoadingData(false);
-        return;
-      }
-
-      // Get companies referred by any user in this partner company
+      // Get companies owned by these clients
       const { data: companiesData, error: companiesError } = await supabase
         .from('companies')
         .select(`
@@ -75,12 +72,10 @@ export default function PartnerCompaniesPage() {
           industry,
           website,
           created_at,
-          referred_by,
-          applications(id, stage),
-          primary_director:profiles!profiles_company_id_fkey(id, email, full_name)
+          owner_id,
+          applications(id, stage)
         `)
-        .in('referred_by', partnerUserIds)
-        .eq('primary_director.is_primary_director', true)
+        .in('owner_id', clientIds)
         .order('created_at', { ascending: false });
 
       if (companiesError) {
@@ -99,7 +94,7 @@ export default function PartnerCompaniesPage() {
         industry: c.industry,
         website: c.website,
         created_at: c.created_at,
-        owner_email: c.primary_director?.[0]?.email || null,
+        owner_email: clientEmailMap[c.owner_id] || null,
         applications_count: c.applications?.length || 0,
         open_applications_count: c.applications?.filter((a: any) => !closedStages.includes(a.stage)).length || 0,
       }));

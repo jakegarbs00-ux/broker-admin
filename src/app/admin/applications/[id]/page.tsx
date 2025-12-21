@@ -20,12 +20,39 @@ type Application = {
   lender_id: string | null;
   created_at: string;
   company_id: string | null;
+  owner_id: string | null;
   prospective_client_email: string | null;
   created_by: string | null;
   offer_amount: number | null;
   offer_loan_term: string | null;
   offer_cost_of_funding: string | null;
   offer_repayments: string | null;
+  company?: {
+    id: string;
+    name: string;
+    company_number: string | null;
+    address_line_1?: string | null;
+    address_line_2?: string | null;
+    city?: string | null;
+    postcode?: string | null;
+    country?: string | null;
+    website?: string | null;
+    referred_by?: string | null;
+    referrer?: {
+      id: string;
+      first_name: string | null;
+      last_name: string | null;
+      email: string | null;
+      partner_company?: {
+        id: string;
+        name: string;
+      } | null;
+    } | null;
+  } | null;
+  lender?: {
+    id: string;
+    name: string;
+  } | null;
 };
 
 type Company = {
@@ -34,21 +61,11 @@ type Company = {
   company_number: string | null;
   industry: string | null;
   website: string | null;
-  referred_by: string | null;
-  primary_director: { 
-    id: string; 
-    email: string; 
-    full_name: string | null; 
-    address: string | null; 
-    dob: string | null; 
-    property_status: string | null;
-  }[] | null;
-  partner: { 
-    id: string; 
-    email: string; 
-    full_name: string | null; 
-    company_name: string | null;
-  }[] | null;
+  director_full_name: string | null;
+  director_address: string | null;
+  director_dob: string | null;
+  property_status: string | null;
+  owner: { email: string }[] | null;
 };
 
 type Lender = {
@@ -58,12 +75,10 @@ type Lender = {
 
 type InfoRequest = {
   id: string;
-  title: string;
-  description: string | null;
+  question: string;
   status: string;
   created_at: string;
-  client_response_text: string | null;
-  client_responded_at: string | null;
+  response_text: string | null;
 };
 
 type Document = {
@@ -74,24 +89,16 @@ type Document = {
   created_at: string;
 };
 
-type ReferralPartnerCompany = {
+type Partner = {
   id: string;
-  name: string;
-};
-
-type ReferralPartner = {
-  referrer_id: string;
-  referrer_full_name: string | null;
-  referrer_email: string | null;
-  partner_company_id: string | null;
-  partner_company_name: string | null;
+  email: string;
 };
 
 const STAGES = [
   'created',
   'submitted',
   'in_credit',
-  'information_requested',
+  'info_required',
   'approved',
   'onboarding',
   'funded',
@@ -116,7 +123,7 @@ export default function AdminApplicationDetailPage() {
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [infoRequests, setInfoRequests] = useState<InfoRequest[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [referralPartner, setReferralPartner] = useState<ReferralPartner | null>(null);
+  const [referralPartner, setReferralPartner] = useState<Partner | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -140,108 +147,91 @@ export default function AdminApplicationDetailPage() {
     const loadData = async () => {
       setError(null);
 
-      // Load application
+      // Load application with company data and referral chain
       const { data: appData, error: appError } = await supabase
         .from('applications')
-        .select(
-          `
+        .select(`
           *,
-          company:companies!applications_company_id_fkey(
+          company:company_id(
             id,
             name,
             company_number,
-            industry,
+            address_line_1,
+            address_line_2,
+            city,
+            postcode,
+            country,
             website,
-            created_at,
             referred_by,
-            primary_director:profiles!profiles_company_id_fkey(id, email, full_name, address, dob, property_status, is_primary_director),
             referrer:referred_by(
               id,
-              full_name,
+              first_name,
+              last_name,
               email,
-              partner_company:partner_company_id(
-                id,
-                name
-              )
+              partner_company:partner_company_id(id, name)
             )
-          )
-        `
-        )
+          ),
+          lender:lender_id(id, name)
+        `)
         .eq('id', id)
         .single();
 
       if (appError) {
+        console.error('Error fetching application:', appError);
+        setError(appError.message || 'Application not found');
+        setLoadingData(false);
+        return;
+      }
+
+      if (!appData) {
         setError('Application not found');
         setLoadingData(false);
         return;
       }
 
-      setApplication(appData as unknown as Application);
+      setApplication(appData as Application);
       setAdminNotes(appData.admin_notes || '');
       setOfferAmount(appData.offer_amount?.toString() || '');
       setOfferLoanTerm(appData.offer_loan_term || '');
       setOfferCostOfFunding(appData.offer_cost_of_funding || '');
       setOfferRepayments(appData.offer_repayments || '');
 
-      // Set company from embedded join (supports both object and array shapes)
-      const embeddedCompany =
-        (appData as any)?.company?.[0] ?? (appData as any)?.company ?? null;
-      if (embeddedCompany) {
-        setCompany(embeddedCompany as any);
-      } else {
-        setCompany(null);
-      }
+      // Load company separately for additional fields if needed
+      if (appData.company_id) {
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select(`
+            id, name, company_number, industry, website,
+            director_full_name, director_address, director_dob, property_status
+          `)
+          .eq('id', appData.company_id)
+          .single();
 
-      // Referral partner chain: application -> company -> referred_by (profile) -> partner_company
-      let foundReferral: ReferralPartner | null = null;
-      const embeddedReferrer =
-        embeddedCompany?.referrer?.[0] ?? embeddedCompany?.referrer ?? null;
-      if (embeddedReferrer) {
-        const embeddedPartnerCompany =
-          embeddedReferrer?.partner_company?.[0] ?? embeddedReferrer?.partner_company ?? null;
+        if (companyData) {
+          // Load primary director
+          const { data: directorData } = await supabase
+            .from('profiles')
+            .select('id, email')
+            .eq('company_id', appData.company_id)
+            .eq('is_primary_director', true)
+            .maybeSingle();
 
-        foundReferral = {
-          referrer_id: embeddedReferrer.id,
-          referrer_full_name: embeddedReferrer.full_name ?? null,
-          referrer_email: embeddedReferrer.email ?? null,
-          partner_company_id: embeddedPartnerCompany?.id ?? null,
-          partner_company_name: embeddedPartnerCompany?.name ?? null,
-        };
-      }
-
-      // Fallback: if company.referrer missing but app created_by is a partner user, show their partner company
-      if (!foundReferral && appData.created_by) {
-        const { data: creatorProfile } = await supabase
-          .from('profiles')
-          .select(
-            `
-            id,
-            email,
-            full_name,
-            role,
-            partner_company:partner_company_id(
-              id,
-              name
-            )
-          `
-          )
-          .eq('id', appData.created_by)
-          .maybeSingle();
-
-        if (creatorProfile?.role === 'PARTNER') {
-          const embeddedPartnerCompany =
-            (creatorProfile as any)?.partner_company?.[0] ?? (creatorProfile as any)?.partner_company ?? null;
-          foundReferral = {
-            referrer_id: creatorProfile.id,
-            referrer_full_name: creatorProfile.full_name ?? null,
-            referrer_email: creatorProfile.email ?? null,
-            partner_company_id: embeddedPartnerCompany?.id ?? null,
-            partner_company_name: embeddedPartnerCompany?.name ?? null,
+          const enrichedCompany = {
+            ...companyData,
+            owner: directorData ? [{ id: directorData.id, email: directorData.email || '' }] : null,
           };
+
+          setCompany(enrichedCompany as Company);
         }
       }
 
-      setReferralPartner(foundReferral);
+      // Referral partner is now loaded via the query join
+      if (appData.company?.referrer) {
+        setReferralPartner({
+          id: appData.company.referrer.id,
+          email: appData.company.referrer.email || '',
+        });
+      }
 
       // Load lenders
       const { data: lendersData } = await supabase
@@ -253,7 +243,7 @@ export default function AdminApplicationDetailPage() {
       // Load info requests
       const { data: requestsData } = await supabase
         .from('information_requests')
-        .select('id, title, description, status, created_at, client_response_text, client_responded_at')
+        .select('id, question, status, created_at, response_text')
         .eq('application_id', id)
         .order('created_at', { ascending: false });
       setInfoRequests((requestsData || []) as InfoRequest[]);
@@ -355,25 +345,13 @@ const handleSaveOffer = async () => {
 
   const handleCreateInfoRequest = async () => {
     if (!newQuestion.trim()) return;
-    // Only allow creating requests when the application is in information_requested stage
-    if (application?.stage !== 'information_requested' && application?.stage !== 'info_required') {
-      alert('Information requests can only be created when the application stage is Information Requested.');
-      return;
-    }
-    // Only allow one active (open/pending) request at a time
-    const alreadyHasActive = infoRequests.some((r) => r.status === 'open' || r.status === 'pending');
-    if (alreadyHasActive) {
-      alert('There is already an open information request for this application.');
-      return;
-    }
     setCreatingRequest(true);
 
     const { data, error } = await supabase
       .from('information_requests')
       .insert({
         application_id: id,
-        title: newQuestion.trim(),
-        description: null,
+        question: newQuestion.trim(),
         status: 'pending',
         created_by: user?.id,
       })
@@ -390,7 +368,7 @@ const handleSaveOffer = async () => {
   };
 
   const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from('documents').getPublicUrl(storagePath);
     return data.publicUrl;
   };
 
@@ -407,41 +385,59 @@ const handleSaveOffer = async () => {
     );
   }
 
-  if (profile?.role !== 'ADMIN' || error) {
+  // Check role first - separate from error handling
+  if (profile?.role !== 'ADMIN') {
     return (
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">{error || 'You do not have permission to view this page.'}</p>
+          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
   }
 
-  if (!application) return null;
+  // Show error if there is one (but user is admin, so it's a data issue, not permission)
+  if (error) {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Error</p>
+          <p className="text-sm text-gray-500 mt-1">{error}</p>
+          <Link href="/admin/applications" className="text-blue-600 hover:underline text-sm mt-4 inline-block">
+            ← Back to Applications
+          </Link>
+        </div>
+      </DashboardShell>
+    );
+  }
 
-  const currentLender = lenders.find((l) => l.id === application.lender_id);
-  const directorEmail = company?.primary_director?.[0]?.email ?? application.prospective_client_email ?? 'Unknown';
-  const isInfoRequestedStage =
-    application.stage === 'information_requested' || application.stage === 'info_required';
-  const hasActiveInfoRequest = infoRequests.some((r) => r.status === 'open' || r.status === 'pending');
+  // Show loading if no application yet
+  if (!application) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading application...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
 
-  const offerSectionVisibleStages = new Set(['approved', 'onboarding', 'funded', 'withdrawn', 'declined']);
-  const showOfferSection = offerSectionVisibleStages.has(application.stage);
-  const canEditOffer = application.stage === 'approved';
+  const currentLender = application.lender || lenders.find((l) => l.id === application.lender_id);
+  const ownerEmail = company?.owner?.[0]?.email ?? application.prospective_client_email ?? 'Unknown';
 
   return (
     <DashboardShell>
-      {/* Back link and Edit button */}
-      <div className="mb-4 flex items-center justify-between">
+      {/* Back link */}
+      <div className="mb-4">
         <Link href="/admin/applications" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back to Applications
-        </Link>
-        <Link href={`/admin/applications/${id}/edit`}>
-          <Button variant="outline">Edit</Button>
         </Link>
       </div>
 
@@ -546,166 +542,127 @@ const handleSaveOffer = async () => {
               <h2 className="font-medium text-gray-900">Referral Partner</h2>
             </CardHeader>
             <CardContent>
-              {referralPartner ? (
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase mb-1">Partner company</p>
-                    {referralPartner.partner_company_id ? (
-                      <Link
-                        href={`/admin/partners/${referralPartner.partner_company_id}`}
-                        className="font-medium text-blue-600 hover:underline"
-                      >
-                        {referralPartner.partner_company_name || 'View partner company →'}
-                      </Link>
-                    ) : (
-                      <p className="text-sm text-gray-700">{referralPartner.partner_company_name || '—'}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase mb-1">Referrer</p>
+              {application?.company?.referrer ? (
+                <div>
+                  {application.company.referrer.partner_company?.name && (
                     <p className="font-medium text-gray-900">
-                      {referralPartner.referrer_full_name || '—'}
+                      {application.company.referrer.partner_company.name}
                     </p>
-                    <p className="text-sm text-gray-600">
-                      {referralPartner.referrer_email || '—'}
-                    </p>
-                  </div>
+                  )}
+                  <p className="text-sm text-gray-700">
+                    {application.company.referrer.first_name} {application.company.referrer.last_name}
+                  </p>
+                  <p className="text-sm text-gray-600">{application.company.referrer.email}</p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">Direct signup</p>
+                <p className="text-sm text-gray-500">No referral partner</p>
               )}
             </CardContent>
           </Card>
 
-          {/* Offers */}
-          {!showOfferSection ? (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-gray-900">Offers</h2>
-              </CardHeader>
-              <CardContent>
-                <p className="text-sm text-gray-500">
-                  Offers can be added once the application is approved.
-                </p>
-              </CardContent>
-            </Card>
-          ) : (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-gray-900">Offer Details</h2>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {!canEditOffer && (
-                  <p className="text-sm text-gray-500">
-                    Offers are read-only at this stage.
-                  </p>
-                )}
+             {/* Offer Details */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Offer Details</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Offer Amount (£)
+                </label>
+                <input
+                  type="number"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 50000"
+                  value={offerAmount}
+                  onChange={(e) => {
+                    setOfferAmount(e.target.value);
+                    setOfferDirty(true);
+                  }}
+                />
+              </div>
 
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Offer Amount (£)
-                  </label>
-                  <input
-                    type="number"
-                    disabled={!canEditOffer}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
-                    placeholder="e.g., 50000"
-                    value={offerAmount}
-                    onChange={(e) => {
-                      setOfferAmount(e.target.value);
-                      setOfferDirty(true);
-                    }}
-                  />
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Loan Term
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 12 months"
+                  value={offerLoanTerm}
+                  onChange={(e) => {
+                    setOfferLoanTerm(e.target.value);
+                    setOfferDirty(true);
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Cost of Funding
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., 8% APR"
+                  value={offerCostOfFunding}
+                  onChange={(e) => {
+                    setOfferCostOfFunding(e.target.value);
+                    setOfferDirty(true);
+                  }}
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Repayments
+                </label>
+                <input
+                  type="text"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="e.g., £4,500/month"
+                  value={offerRepayments}
+                  onChange={(e) => {
+                    setOfferRepayments(e.target.value);
+                    setOfferDirty(true);
+                  }}
+                />
+              </div>
+
+              <div className="pt-2">
+                <Button
+                  variant="primary"
+                  className="w-full"
+                  disabled={!offerDirty || savingOffer}
+                  onClick={handleSaveOffer}
+                >
+                  {savingOffer ? 'Saving...' : 'Save Offer Details'}
+                </Button>
+              </div>
+
+              {/* Show current values as reference */}
+              <div className="pt-3 border-t border-gray-100 space-y-2">
+                <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Requested</span>
+                  <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Loan Term
-                  </label>
-                  <input
-                    type="text"
-                    disabled={!canEditOffer}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
-                    placeholder="e.g., 12 months"
-                    value={offerLoanTerm}
-                    onChange={(e) => {
-                      setOfferLoanTerm(e.target.value);
-                      setOfferDirty(true);
-                    }}
-                  />
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-600">Type</span>
+                  <span className="text-sm font-medium">{application.loan_type}</span>
                 </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Cost of Funding
-                  </label>
-                  <input
-                    type="text"
-                    disabled={!canEditOffer}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
-                    placeholder="e.g., 8% APR"
-                    value={offerCostOfFunding}
-                    onChange={(e) => {
-                      setOfferCostOfFunding(e.target.value);
-                      setOfferDirty(true);
-                    }}
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-gray-600 mb-1">
-                    Repayments
-                  </label>
-                  <input
-                    type="text"
-                    disabled={!canEditOffer}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-60"
-                    placeholder="e.g., £4,500/month"
-                    value={offerRepayments}
-                    onChange={(e) => {
-                      setOfferRepayments(e.target.value);
-                      setOfferDirty(true);
-                    }}
-                  />
-                </div>
-
-                {canEditOffer && (
-                  <div className="pt-2">
-                    <Button
-                      variant="primary"
-                      className="w-full"
-                      disabled={!offerDirty || savingOffer}
-                      onClick={handleSaveOffer}
-                    >
-                      {savingOffer ? 'Saving...' : 'Save Offer Details'}
-                    </Button>
+                {currentLender && (
+                  <div className="flex justify-between">
+                    <span className="text-sm text-gray-600">Lender</span>
+                    <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
+                      {currentLender.name}
+                    </Link>
                   </div>
                 )}
-
-                {/* Show current values as reference */}
-                <div className="pt-3 border-t border-gray-100 space-y-2">
-                  <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Requested</span>
-                    <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Type</span>
-                    <span className="text-sm font-medium">{application.loan_type}</span>
-                  </div>
-                  {currentLender && (
-                    <div className="flex justify-between">
-                      <span className="text-sm text-gray-600">Lender</span>
-                      <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
-                        {currentLender.name}
-                      </Link>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
+              </div>
+            </CardContent>
+          </Card>
             </div> 
 
 
@@ -716,53 +673,71 @@ const handleSaveOffer = async () => {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <h2 className="font-medium text-gray-900">Company Information</h2>
-                {company && (
-                  <Link href={`/admin/companies/${company.id}`} className="text-sm text-blue-600 hover:underline">
+                {application?.company && (
+                  <Link href={`/admin/companies/${application.company.id}`} className="text-sm text-blue-600 hover:underline">
                     View Company →
                   </Link>
                 )}
               </div>
             </CardHeader>
             <CardContent>
-              {company ? (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase mb-1">Company Name</p>
-                    <p className="font-medium text-gray-900">{company.name}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase mb-1">Company Number</p>
-                    <p className="font-medium text-gray-900">{company.company_number || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase mb-1">Industry</p>
-                    <p className="font-medium text-gray-900">{company.industry || '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase mb-1">Website</p>
-                    {company.website ? (
-                      <a href={company.website} target="_blank" rel="noopener noreferrer" className="font-medium text-blue-600 hover:underline">
-                        {company.website.replace(/^https?:\/\//, '')}
+              {application?.company ? (
+                <div className="space-y-2">
+                  <p>
+                    <span className="font-medium">Name:</span> {application.company.name}
+                  </p>
+                  <p>
+                    <span className="font-medium">Company Number:</span> {application.company.company_number || '—'}
+                  </p>
+                  <p>
+                    <span className="font-medium">Address:</span>{' '}
+                    {[
+                      application.company.address_line_1,
+                      application.company.address_line_2,
+                      application.company.city,
+                      application.company.postcode,
+                      application.company.country,
+                    ]
+                      .filter(Boolean)
+                      .join(', ') || '—'}
+                  </p>
+                  {application.company.website && (
+                    <p>
+                      <span className="font-medium">Website:</span>{' '}
+                      <a
+                        href={application.company.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:underline"
+                      >
+                        {application.company.website.replace(/^https?:\/\//, '')}
                       </a>
-                    ) : (
-                      <p className="font-medium text-gray-900">—</p>
-                    )}
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500 uppercase mb-1">Client Email</p>
-                    <p className="font-medium text-gray-900">{directorEmail}</p>
-                  </div>
-                  {company.primary_director?.[0]?.full_name && (
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase mb-1">Director</p>
-                      <p className="font-medium text-gray-900">{company.primary_director[0].full_name}</p>
-                    </div>
+                    </p>
                   )}
-                  {company.primary_director?.[0]?.property_status && (
-                    <div>
-                      <p className="text-xs text-gray-500 uppercase mb-1">Property Status</p>
-                      <p className="font-medium text-gray-900 capitalize">{company.primary_director[0].property_status.replace(/_/g, ' ')}</p>
-                    </div>
+                  {company && (
+                    <>
+                      {company.industry && (
+                        <p>
+                          <span className="font-medium">Industry:</span> {company.industry}
+                        </p>
+                      )}
+                      {company.director_full_name && (
+                        <p>
+                          <span className="font-medium">Director:</span> {company.director_full_name}
+                        </p>
+                      )}
+                      {company.property_status && (
+                        <p>
+                          <span className="font-medium">Property Status:</span>{' '}
+                          {company.property_status.replace(/_/g, ' ')}
+                        </p>
+                      )}
+                    </>
+                  )}
+                  {company?.owner?.[0]?.email && (
+                    <p>
+                      <span className="font-medium">Client Email:</span> {company.owner[0].email}
+                    </p>
                   )}
                 </div>
               ) : (
@@ -792,36 +767,26 @@ const handleSaveOffer = async () => {
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
-              {/* Create new request (only when stage is information_requested and no active request) */}
-              {isInfoRequestedStage ? (
-                hasActiveInfoRequest ? (
-                  <div className="p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-sm text-yellow-800">
-                      There is already an open information request. Only one open request is allowed at a time.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="flex gap-2">
-                    <input
-                      type="text"
-                      placeholder="Ask the client for information..."
-                      className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                      value={newQuestion}
-                      onChange={(e) => setNewQuestion(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter') handleCreateInfoRequest();
-                      }}
-                    />
-                    <Button
-                      variant="primary"
-                      disabled={creatingRequest || !newQuestion.trim()}
-                      onClick={handleCreateInfoRequest}
-                    >
-                      {creatingRequest ? 'Sending...' : 'Send'}
-                    </Button>
-                  </div>
-                )
-              ) : null}
+              {/* Create new request */}
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder="Ask the client for information..."
+                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  value={newQuestion}
+                  onChange={(e) => setNewQuestion(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') handleCreateInfoRequest();
+                  }}
+                />
+                <Button
+                  variant="primary"
+                  disabled={creatingRequest || !newQuestion.trim()}
+                  onClick={handleCreateInfoRequest}
+                >
+                  {creatingRequest ? 'Sending...' : 'Send'}
+                </Button>
+              </div>
 
               {/* Requests list */}
               {infoRequests.length === 0 ? (
@@ -832,26 +797,18 @@ const handleSaveOffer = async () => {
                     <div key={req.id} className="py-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{req.title}</p>
-                          {req.description && (
-                            <p className="text-sm text-gray-600 mt-1">{req.description}</p>
-                          )}
+                          <p className="font-medium text-gray-900">{req.question}</p>
                           <p className="text-xs text-gray-500 mt-1">
                             {new Date(req.created_at).toLocaleDateString('en-GB')}
                           </p>
                         </div>
-                        <Badge variant={req.status === 'client_responded' || req.status === 'answered' ? 'success' : 'warning'}>
+                        <Badge variant={req.status === 'answered' ? 'success' : 'warning'}>
                           {req.status}
                         </Badge>
                       </div>
-                      {req.client_response_text && (
+                      {req.response_text && (
                         <div className="mt-2 p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm text-gray-700">{req.client_response_text}</p>
-                          {req.client_responded_at && (
-                            <p className="text-xs text-gray-500 mt-1">
-                              Responded: {new Date(req.client_responded_at).toLocaleDateString('en-GB')}
-                            </p>
-                          )}
+                          <p className="text-sm text-gray-700">{req.response_text}</p>
                         </div>
                       )}
                     </div>

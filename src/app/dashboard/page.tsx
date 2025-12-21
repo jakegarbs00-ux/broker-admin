@@ -33,33 +33,36 @@ function ClientDashboardContent({ userId }: { userId: string }) {
 
   useEffect(() => {
     const loadData = async () => {
-      // Get user's company_id from profile
-      const { data: userProfile } = await supabase
+      // Get user's profile to find company_id
+      const { data: profileData } = await supabase
         .from('profiles')
         .select('company_id')
         .eq('id', userId)
         .single();
 
-      if (userProfile?.company_id) {
-        // Load company
-        const { data: companyData } = await supabase
-          .from('companies')
-          .select('id, name')
-          .eq('id', userProfile.company_id)
-          .maybeSingle();
-
-        if (companyData) setCompany(companyData);
-
-        // Load recent applications for this company
-        const { data: appsData } = await supabase
-          .from('applications')
-          .select('id, requested_amount, loan_type, stage, created_at')
-          .eq('company_id', userProfile.company_id)
-          .order('created_at', { ascending: false })
-          .limit(5);
-
-        if (appsData) setApplications(appsData);
+      if (!profileData?.company_id) {
+        setLoading(false);
+        return;
       }
+
+      // Load company
+      const { data: companyData } = await supabase
+        .from('companies')
+        .select('id, name')
+        .eq('id', profileData.company_id)
+        .maybeSingle();
+
+      if (companyData) setCompany(companyData);
+
+      // Load recent applications for this company
+      const { data: appsData } = await supabase
+        .from('applications')
+        .select('id, requested_amount, loan_type, stage, created_at')
+        .eq('company_id', profileData.company_id)
+        .order('created_at', { ascending: false })
+        .limit(5);
+
+      if (appsData) setApplications(appsData);
       setLoading(false);
     };
 
@@ -246,36 +249,55 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
         return;
       }
 
-      // Load companies referred by any user in this partner company
-      const { data: companiesData } = await supabase
+      // Get companies referred by any user in this partner company
+      const { data: referredCompanies, error: companiesError } = await supabase
         .from('companies')
-        .select('id, name, primary_director:profiles!profiles_company_id_fkey(id, email, is_primary_director)')
+        .select('id, name, referred_by')
         .in('referred_by', partnerUserIds)
-        .eq('primary_director.is_primary_director', true);
+        .order('created_at', { ascending: false });
 
-      if (!companiesData || companiesData.length === 0) {
+      if (companiesError) {
+        console.error('Error loading referred companies', companiesError);
         setLoading(false);
         return;
       }
 
-      // Build company map and client list
+      if (!referredCompanies || referredCompanies.length === 0) {
+        setLoading(false);
+        return;
+      }
+
+      // Build company map and get client emails
       const companyMap: Record<string, string> = {};
-      const clientsList: ReferredClient[] = [];
-      companiesData.forEach((c: any) => {
-        companyMap[c.id] = c.name;
-        const director = c.primary_director?.[0];
-        if (director) {
-          clientsList.push({
-            id: director.id,
-            email: director.email,
-            companies: [{ id: c.id, name: c.name }],
-          });
+      const companyToClientMap: Record<string, string> = {};
+
+      for (const company of referredCompanies) {
+        companyMap[company.id] = company.name;
+        if (company.referred_by) {
+          companyToClientMap[company.id] = company.referred_by;
         }
+      }
+
+      // Get client emails for display
+      const clientIds = Array.from(new Set(Object.values(companyToClientMap)));
+      const { data: clientsData } = await supabase
+        .from('profiles')
+        .select('id, email, company_id')
+        .in('id', clientIds);
+
+      const clientEmailMap: Record<string, string> = {};
+      (clientsData || []).forEach((c: any) => {
+        clientEmailMap[c.id] = c.email || '';
       });
 
-      if (clientsList.length > 0) {
-        setClients(clientsList);
-      }
+      // Build clients list for sidebar
+      const clientsList: ReferredClient[] = referredCompanies.map((c) => ({
+        id: companyToClientMap[c.id] || '',
+        email: clientEmailMap[companyToClientMap[c.id] || ''] || null,
+        companies: [{ id: c.id, name: c.name }],
+      }));
+
+      setClients(clientsList);
 
       const companyIds = Object.keys(companyMap);
 
@@ -517,8 +539,40 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
 export default function DashboardPage() {
   const { user, profile, loading } = useUserProfile();
 
-  if (loading) return null;
-  if (!user || !profile) return null;
+  if (loading) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (!user) {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Authentication Required</p>
+          <p className="text-sm text-gray-500 mt-1">Please log in to access the dashboard.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Profile Not Found</p>
+          <p className="text-sm text-gray-500 mt-1">Your user profile could not be loaded. Please contact support.</p>
+        </div>
+      </DashboardShell>
+    );
+  }
 
   const role = profile.role as 'CLIENT' | 'PARTNER' | 'ADMIN';
 
@@ -527,7 +581,16 @@ export default function DashboardPage() {
     if (typeof window !== 'undefined') {
       window.location.href = '/admin/applications';
     }
-    return null;
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Redirecting to admin dashboard...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
 
   return (

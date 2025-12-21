@@ -52,23 +52,22 @@ export default function NewApplicationPage() {
   useEffect(() => {
     if (!user) return;
     const loadCompany = async () => {
-      // Get user's company_id from profile
-      const { data: userProfile, error: profileError } = await supabase
-        .from('profiles')
-        .select('company_id')
-        .eq('id', user.id)
-        .single();
+      const { data, error } = await supabase
+        .from('companies')
+        .select('id')
+        .eq('owner_id', user.id)
+        .maybeSingle();
 
-      if (profileError) {
-        console.error('Error loading profile', profileError);
+      if (error) {
+        console.error('Error loading company', error);
       }
 
-      if (!userProfile?.company_id) {
+      if (!data) {
         router.replace('/onboarding/company');
         return;
       }
 
-      setCompanyId(userProfile.company_id);
+      setCompanyId(data.id);
       setLoadingCompany(false);
     };
 
@@ -82,6 +81,7 @@ export default function NewApplicationPage() {
       .from('applications')
       .insert({
         company_id: companyId,
+        owner_id: user.id,
         created_by: user.id,
         requested_amount: values.requested_amount,
         loan_type: values.loan_type,

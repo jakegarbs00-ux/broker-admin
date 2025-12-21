@@ -8,10 +8,15 @@ import { Card, CardContent, CardHeader, Button } from '@/components/ui';
 
 type PartnerCompanyInfo = {
   // Business info
-  name: string | null;
-  address: string | null;
-  website: string | null;
-  registration_number: string | null;
+  company_name: string | null;
+  company_address: string | null;
+  company_website: string | null;
+  company_registration_number: string | null;
+  // Director info
+  director_name: string | null;
+  director_email: string | null;
+  director_phone: string | null;
+  director_address: string | null;
   // Payment info
   bank_name: string | null;
   bank_account_name: string | null;
@@ -29,17 +34,19 @@ export default function PartnerCompanyPage() {
   const [success, setSuccess] = useState<string | null>(null);
 
   const [formData, setFormData] = useState<PartnerCompanyInfo>({
-    name: null,
-    address: null,
-    website: null,
-    registration_number: null,
+    company_name: null,
+    company_address: null,
+    company_website: null,
+    company_registration_number: null,
+    director_name: null,
+    director_email: null,
+    director_phone: null,
+    director_address: null,
     bank_name: null,
     bank_account_name: null,
     bank_account_number: null,
     bank_sort_code: null,
   });
-  const [isPrimaryContact, setIsPrimaryContact] = useState(false);
-  const [partnerCompanyId, setPartnerCompanyId] = useState<string | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -49,41 +56,32 @@ export default function PartnerCompanyPage() {
     }
 
     const loadData = async () => {
-      // Get user's partner_company_id and is_primary_contact
-      const { data: userProfile, error: profileError } = await supabase
+      const { data, error } = await supabase
         .from('profiles')
-        .select('partner_company_id, is_primary_contact')
+        .select(`
+          company_name, company_address, company_website, company_registration_number,
+          director_name, director_email, director_phone, director_address,
+          bank_name, bank_account_name, bank_account_number, bank_sort_code
+        `)
         .eq('id', user.id)
         .single();
 
-      if (profileError || !userProfile?.partner_company_id) {
-        console.error('Error loading partner profile:', profileError);
-        setLoadingData(false);
-        return;
-      }
-
-      setIsPrimaryContact(userProfile.is_primary_contact || false);
-      setPartnerCompanyId(userProfile.partner_company_id);
-
-      // Load partner company details
-      const { data: companyData, error: companyError } = await supabase
-        .from('partner_companies')
-        .select('*')
-        .eq('id', userProfile.partner_company_id)
-        .single();
-
-      if (companyError) {
-        console.error('Error loading partner company:', companyError);
-      } else if (companyData) {
+      if (error) {
+        console.error('Error loading partner info:', error);
+      } else if (data) {
         setFormData({
-          name: companyData.name || null,
-          address: companyData.address || null,
-          website: companyData.website || null,
-          registration_number: companyData.registration_number || null,
-          bank_name: companyData.bank_name || null,
-          bank_account_name: companyData.bank_account_name || null,
-          bank_account_number: companyData.bank_account_number || null,
-          bank_sort_code: companyData.bank_sort_code || null,
+          company_name: data.company_name || null,
+          company_address: data.company_address || null,
+          company_website: data.company_website || null,
+          company_registration_number: data.company_registration_number || null,
+          director_name: data.director_name || null,
+          director_email: data.director_email || null,
+          director_phone: data.director_phone || null,
+          director_address: data.director_address || null,
+          bank_name: data.bank_name || null,
+          bank_account_name: data.bank_account_name || null,
+          bank_account_number: data.bank_account_number || null,
+          bank_sort_code: data.bank_sort_code || null,
         });
       }
       setLoadingData(false);
@@ -98,30 +96,28 @@ export default function PartnerCompanyPage() {
   };
 
   const handleSave = async () => {
-    if (!user || !partnerCompanyId) return;
-
-    if (!isPrimaryContact) {
-      setError('Only the primary contact can edit company details.');
-      return;
-    }
-
+    if (!user) return;
     setSaving(true);
     setError(null);
     setSuccess(null);
 
     const { error } = await supabase
-      .from('partner_companies')
+      .from('profiles')
       .update({
-        name: formData.name,
-        address: formData.address,
-        website: formData.website,
-        registration_number: formData.registration_number,
+        company_name: formData.company_name,
+        company_address: formData.company_address,
+        company_website: formData.company_website,
+        company_registration_number: formData.company_registration_number,
+        director_name: formData.director_name,
+        director_email: formData.director_email,
+        director_phone: formData.director_phone,
+        director_address: formData.director_address,
         bank_name: formData.bank_name,
         bank_account_name: formData.bank_account_name,
         bank_account_number: formData.bank_account_number,
         bank_sort_code: formData.bank_sort_code,
       })
-      .eq('id', partnerCompanyId);
+      .eq('id', user.id);
 
     if (error) {
       setError('Error saving: ' + error.message);
@@ -161,11 +157,6 @@ export default function PartnerCompanyPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Your Company</h1>
         <p className="text-gray-600">Manage your business information and payment details</p>
-        {!isPrimaryContact && (
-          <p className="text-sm text-amber-600 mt-2">
-            Only the primary contact can edit company details. Contact your administrator to make changes.
-          </p>
-        )}
       </div>
 
       {error && (
@@ -193,11 +184,10 @@ export default function PartnerCompanyPage() {
               </label>
               <input
                 type="text"
-                name="name"
-                value={formData.name || ''}
+                name="company_name"
+                value={formData.company_name || ''}
                 onChange={handleChange}
-                disabled={!isPrimaryContact}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 placeholder="Your Company Ltd"
               />
             </div>
@@ -208,11 +198,10 @@ export default function PartnerCompanyPage() {
               </label>
               <input
                 type="text"
-                name="registration_number"
-                value={formData.registration_number || ''}
+                name="company_registration_number"
+                value={formData.company_registration_number || ''}
                 onChange={handleChange}
-                disabled={!isPrimaryContact}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 placeholder="12345678"
               />
             </div>
@@ -222,12 +211,11 @@ export default function PartnerCompanyPage() {
                 Business Address
               </label>
               <textarea
-                name="address"
-                value={formData.address || ''}
+                name="company_address"
+                value={formData.company_address || ''}
                 onChange={handleChange}
                 rows={3}
-                disabled={!isPrimaryContact}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 placeholder="123 Business Street&#10;London&#10;EC1A 1AA"
               />
             </div>
@@ -238,17 +226,79 @@ export default function PartnerCompanyPage() {
               </label>
               <input
                 type="url"
-                name="website"
-                value={formData.website || ''}
+                name="company_website"
+                value={formData.company_website || ''}
                 onChange={handleChange}
-                disabled={!isPrimaryContact}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                 placeholder="https://yourcompany.com"
               />
             </div>
           </CardContent>
         </Card>
 
+        {/* Director Information */}
+        <Card>
+          <CardHeader>
+            <h2 className="font-medium text-gray-900">Director Information</h2>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Director Name
+              </label>
+              <input
+                type="text"
+                name="director_name"
+                value={formData.director_name || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="John Smith"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Director Email
+              </label>
+              <input
+                type="email"
+                name="director_email"
+                value={formData.director_email || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="director@company.com"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Director Phone
+              </label>
+              <input
+                type="tel"
+                name="director_phone"
+                value={formData.director_phone || ''}
+                onChange={handleChange}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="+44 7700 900000"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Director Address
+              </label>
+              <textarea
+                name="director_address"
+                value={formData.director_address || ''}
+                onChange={handleChange}
+                rows={3}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                placeholder="123 Home Street&#10;London&#10;SW1A 1AA"
+              />
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Payment Information */}
         <Card className="lg:col-span-2">
@@ -267,8 +317,7 @@ export default function PartnerCompanyPage() {
                   name="bank_name"
                   value={formData.bank_name || ''}
                   onChange={handleChange}
-                  disabled={!isPrimaryContact}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   placeholder="Barclays"
                 />
               </div>
@@ -282,8 +331,7 @@ export default function PartnerCompanyPage() {
                   name="bank_account_name"
                   value={formData.bank_account_name || ''}
                   onChange={handleChange}
-                  disabled={!isPrimaryContact}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   placeholder="Your Company Ltd"
                 />
               </div>
@@ -297,8 +345,7 @@ export default function PartnerCompanyPage() {
                   name="bank_account_number"
                   value={formData.bank_account_number || ''}
                   onChange={handleChange}
-                  disabled={!isPrimaryContact}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   placeholder="12345678"
                 />
               </div>
@@ -312,8 +359,7 @@ export default function PartnerCompanyPage() {
                   name="bank_sort_code"
                   value={formData.bank_sort_code || ''}
                   onChange={handleChange}
-                  disabled={!isPrimaryContact}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
                   placeholder="12-34-56"
                 />
               </div>
@@ -324,7 +370,7 @@ export default function PartnerCompanyPage() {
 
       {/* Save button */}
       <div className="mt-6 flex justify-end">
-        <Button variant="primary" onClick={handleSave} disabled={saving || !isPrimaryContact}>
+        <Button variant="primary" onClick={handleSave} disabled={saving}>
           {saving ? 'Saving...' : 'Save Changes'}
         </Button>
       </div>

@@ -49,37 +49,64 @@ export default function PartnerNewCompanyPage() {
     setSaving(true);
     setError(null);
 
-    // Use API route to create company (bypasses RLS)
-    const response = await fetch('/api/companies/create', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        name: formData.name.trim(),
-        company_number: formData.company_number.trim() || null,
-        industry: formData.industry.trim() || null,
-        website: formData.website.trim() || null,
-        director_full_name: formData.director_full_name.trim() || null,
-        director_address: formData.director_address.trim() || null,
-        director_dob: formData.director_dob || null,
-        property_status: formData.property_status || null,
-        client_email: formData.client_email.trim(),
-        partner_id: user.id,
-      }),
-    });
+    // Check if client exists, if not we'll create a placeholder profile
+    let clientId: string | null = null;
 
-    const result = await response.json();
+    const { data: existingClient } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('email', formData.client_email.trim())
+      .maybeSingle();
 
-    if (!response.ok) {
-      console.error('Error creating company', result);
-      setError(result.error || 'Error creating company');
+    if (existingClient) {
+      clientId = existingClient.id;
+
+      // Update referred_by if not already set
+      await supabase
+        .from('profiles')
+        .update({ referred_by: user.id })
+        .eq('id', clientId)
+        .is('referred_by', null);
+    } else {
+      // Create invitation record - the client will claim this when they sign up
+      // For now, we'll create the company without an owner and link later
+      // Or we can use prospective_client_email pattern
+    }
+
+    // Create the company
+    const companyPayload: any = {
+      name: formData.name.trim(),
+      company_number: formData.company_number.trim() || null,
+      industry: formData.industry.trim() || null,
+      website: formData.website.trim() || null,
+      director_full_name: formData.director_full_name.trim() || null,
+      director_address: formData.director_address.trim() || null,
+      director_dob: formData.director_dob || null,
+      property_status: formData.property_status || null,
+      created_by: user.id,
+    };
+
+    // If client exists, set them as owner
+    if (clientId) {
+      companyPayload.owner_id = clientId;
+    }
+
+    const { data: newCompany, error: createError } = await supabase
+      .from('companies')
+      .insert(companyPayload)
+      .select('id')
+      .single();
+
+    if (createError) {
+      console.error('Error creating company', createError);
+      setError('Error creating company: ' + createError.message);
       setSaving(false);
       return;
     }
 
-    // Redirect to create application page with the new company pre-selected
-    router.push(`/partner/applications/create?company_id=${result.company.id}`);
+    // If no existing client, store the email somewhere for later linking
+    // For now, redirect to the company page
+    router.push(`/partner/companies/${newCompany.id}`);
   };
 
   if (loading) {

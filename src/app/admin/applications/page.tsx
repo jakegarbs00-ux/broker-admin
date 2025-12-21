@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, Badge, getStageBadgeVariant, formatStage, Button } from '@/components/ui';
+import { Card, CardContent, Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
 
 type AdminApp = {
   id: string;
@@ -17,10 +17,9 @@ type AdminApp = {
   is_hidden: boolean;
   lender_id: string | null;
   company_id: string | null;
-  created_by: string | null;
   prospective_client_email: string | null;
-  company: { id: string; name: string }[] | null;
-  creator: { email: string | null; full_name: string | null }[] | null;
+  company?: { id: string; name: string } | null;
+  lender?: { id: string; name: string } | null;
 };
 
 type Lender = {
@@ -33,7 +32,7 @@ const STAGES = [
   'created',
   'submitted',
   'in_credit',
-  'information_requested',
+  'info_required',
   'approved',
   'onboarding',
   'funded',
@@ -79,23 +78,13 @@ export default function AdminApplicationsPage() {
     const loadApps = async () => {
       setError(null);
       
-      // Get all applications with company and creator info
+      // Get all applications with company and lender info
       const { data: appsData, error: appsError } = await supabase
         .from('applications')
         .select(`
-          id,
-          requested_amount,
-          stage,
-          loan_type,
-          urgency,
-          created_at,
-          is_hidden,
-          lender_id,
-          company_id,
-          created_by,
-          prospective_client_email,
-          company:companies!applications_company_id_fkey(id, name),
-          creator:profiles!applications_created_by_fkey(id, email, full_name)
+          *,
+          company:company_id(id, name),
+          lender:lender_id(id, name)
         `)
         .order('created_at', { ascending: false });
 
@@ -112,24 +101,7 @@ export default function AdminApplicationsPage() {
         return;
       }
 
-      // Map to AdminApp type
-      const enrichedApps: AdminApp[] = appsData.map((a: any) => ({
-        id: a.id,
-        requested_amount: a.requested_amount,
-        stage: a.stage,
-        loan_type: a.loan_type,
-        urgency: a.urgency,
-        created_at: a.created_at,
-        is_hidden: a.is_hidden,
-        lender_id: a.lender_id,
-        company_id: a.company_id,
-        created_by: a.created_by,
-        prospective_client_email: a.prospective_client_email,
-        company: a.company ? [a.company] : null,
-        creator: a.creator ? [a.creator] : null,
-      }));
-
-      setApps(enrichedApps);
+      setApps(appsData as AdminApp[]);
       setLoadingApps(false);
     };
 
@@ -182,14 +154,9 @@ export default function AdminApplicationsPage() {
   return (
     <DashboardShell>
       {/* Header */}
-      <div className="mb-6 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
-          <p className="text-gray-600">Managing {apps.length} applications</p>
-        </div>
-        <Link href="/admin/applications/create">
-          <Button variant="primary">Create Application</Button>
-        </Link>
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">Applications</h1>
+        <p className="text-gray-600">Managing {apps.length} applications</p>
       </div>
 
       {error && (
@@ -251,15 +218,14 @@ export default function AdminApplicationsPage() {
           </div>
         ) : (
           filteredApps.map((a) => {
-            const lender = a.lender_id ? lenderMap[a.lender_id] : undefined;
-            const companyName = a.company?.[0]?.name;
-            const companyId = a.company?.[0]?.id;
-            const creatorEmail = a.creator?.[0]?.email || a.prospective_client_email;
-            const creatorName = a.creator?.[0]?.full_name;
+            const lender = a.lender_id ? (a.lender as { id: string; name: string } | undefined) : undefined;
+            const companyName = a.company?.name;
+            const companyId = a.company?.id;
+            const clientEmail = a.prospective_client_email;
             
             // Display logic: show what we have
-            const primaryDisplay = companyName || creatorEmail || creatorName || `Application ${a.id.slice(0, 8)}`;
-            const secondaryDisplay = companyName && creatorEmail ? creatorEmail : null;
+            const primaryDisplay = companyName || clientEmail || `Application ${a.id.slice(0, 8)}`;
+            const secondaryDisplay = companyName && clientEmail ? clientEmail : null;
 
             return (
               <Link key={a.id} href={`/admin/applications/${a.id}`} className="block">
@@ -268,14 +234,16 @@ export default function AdminApplicationsPage() {
                     {/* Left side - main info */}
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
-                        <span className="font-medium text-gray-900">{primaryDisplay}</span>
-                        {secondaryDisplay && (
+                        <span className="font-medium text-gray-900">
+                          {companyName || 'No client linked'}
+                        </span>
+                        {clientEmail && companyName && (
                           <>
                             <span className="text-gray-400">•</span>
-                            <span className="text-sm text-gray-500 truncate">{secondaryDisplay}</span>
+                            <span className="text-sm text-gray-500 truncate">{clientEmail}</span>
                           </>
                         )}
-                        {!companyName && !creatorEmail && (
+                        {!companyName && !clientEmail && (
                           <Badge variant="warning">No client linked</Badge>
                         )}
                       </div>

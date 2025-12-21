@@ -4,8 +4,6 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
-import { DashboardShell } from '@/components/layout';
-import { Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
 
 type PartnerApplication = {
   id: string;
@@ -15,23 +13,14 @@ type PartnerApplication = {
   urgency: string | null;
   created_at: string;
   is_hidden: boolean;
-  company_id: string | null;
-  created_by: string | null;
   prospective_client_email: string | null;
   company?: {
-    id: string;
     name: string;
-    referrer?: {
-      id: string;
-      full_name: string | null;
-      email: string | null;
-    }[] | null;
-  }[] | null;
-  creator?: {
+  } | null;
+  owner?: {
     id: string;
     email: string | null;
-    full_name: string | null;
-  }[] | null;
+  } | null;
 };
 
 export default function PartnerApplicationsPage() {
@@ -94,16 +83,13 @@ export default function PartnerApplicationsPage() {
 
       const companyIds = (referredCompanies ?? []).map((c) => c.id) as string[];
 
-      // Load applications for referred companies OR draft apps created by this partner
-      const orFilters = [
-        companyIds.length > 0
-          ? `company_id.in.(${companyIds.join(',')})`
-          : '',
-        `and(company_id.is.null,created_by.in.(${partnerUserIds.join(',')}))`,
-      ]
-        .filter(Boolean)
-        .join(',');
+      if (companyIds.length === 0) {
+        setApps([]);
+        setLoadingApps(false);
+        return;
+      }
 
+      // Load applications for these companies
       const { data: appsData, error: appsError } = await supabase
         .from('applications')
         .select(
@@ -115,18 +101,12 @@ export default function PartnerApplicationsPage() {
             urgency,
             created_at,
             is_hidden,
-            company_id,
-            created_by,
             prospective_client_email,
-            company:companies!applications_company_id_fkey(
-              id,
-              name,
-              referrer:referred_by(id, full_name, email)
-            ),
-            creator:profiles!applications_created_by_fkey(id, email, full_name)
+            company_id,
+            company:companies(name)
           `
         )
-        .or(orFilters)
+        .in('company_id', companyIds)
         .order('created_at', { ascending: false });
 
       if (appsError) {
@@ -136,7 +116,29 @@ export default function PartnerApplicationsPage() {
         return;
       }
 
-      setApps((appsData ?? []) as any);
+      // Get primary directors for companies to show client email
+      const { data: directorsData } = await supabase
+        .from('profiles')
+        .select('id, email, company_id')
+        .in('company_id', companyIds)
+        .eq('is_primary_director', true);
+
+      const directorMap: Record<string, { id: string; email: string | null }> = {};
+      (directorsData || []).forEach((d: any) => {
+        if (d.company_id) {
+          directorMap[d.company_id] = { id: d.id, email: d.email };
+        }
+      });
+
+      // Enrich applications with owner data
+      const enrichedApps = (appsData || []).map((app: any) => ({
+        ...app,
+        owner: app.company_id && directorMap[app.company_id]
+          ? [directorMap[app.company_id]]
+          : null,
+      }));
+
+      setApps(enrichedApps as PartnerApplication[]);
       setLoadingApps(false);
     };
 
@@ -146,45 +148,27 @@ export default function PartnerApplicationsPage() {
   }, [user, profile?.role, loading, supabase]);
 
   if (loading || loadingApps) {
-    return (
-      <DashboardShell>
-        <div className="flex items-center justify-center py-12">
-          <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading applications...</p>
-          </div>
-        </div>
-      </DashboardShell>
-    );
+    return <p className="p-4">Loading…</p>;
   }
 
   if (!user) {
-    return (
-      <DashboardShell>
-        <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Authentication Required</p>
-          <p className="text-sm text-gray-500 mt-1">You need to be logged in to view this page.</p>
-        </div>
-      </DashboardShell>
-    );
+    return <p className="p-4">You need to be logged in.</p>;
   }
 
   if (profile?.role !== 'PARTNER') {
     return (
-      <DashboardShell>
-        <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">
-            You are not a partner. This page is only available to users with the PARTNER role.
-          </p>
-        </div>
-      </DashboardShell>
+      <main className="max-w-3xl mx-auto space-y-4 p-4">
+        <h1 className="text-2xl font-semibold">Partner applications</h1>
+        <p className="text-sm text-red-600">
+          You are not a partner. This page is only available to users with the PARTNER
+          role.
+        </p>
+      </main>
     );
   }
 
   return (
-    <DashboardShell>
-      <div className="max-w-4xl mx-auto space-y-6">
+    <main className="max-w-4xl mx-auto space-y-6 p-4">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-xs uppercase tracking-wide text-purple-600">
@@ -216,62 +200,47 @@ export default function PartnerApplicationsPage() {
           You don&apos;t have any applications for your clients yet.
         </p>
       ) : (
-        <div className="overflow-x-auto rounded-md border bg-white">
-          <table className="min-w-full divide-y divide-gray-100">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Company</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Loan Type</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Stage</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Referred By</th>
-                <th className="px-4 py-3 text-left text-xs font-medium text-gray-500 uppercase">Created</th>
-                <th className="px-4 py-3"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {apps.map((a) => {
-                const companyName = a.company?.[0]?.name ?? 'Company pending';
-                const referrer = a.company?.[0]?.referrer?.[0];
-                const referredBy =
-                  referrer?.full_name
-                    ? `${referrer.full_name}${referrer.email ? ` (${referrer.email})` : ''}`
-                    : (referrer?.email ?? '—');
+        <div className="space-y-3">
+          {apps.map((a) => {
+            const isDraft = a.is_hidden;
+            const hasOwner = !!a.owner?.id;
 
-                return (
-                  <tr key={a.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm">
-                      <Link href={`/partner/applications/${a.id}`} className="font-medium text-purple-700 hover:underline">
-                        {companyName}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-900">
-                      £{a.requested_amount?.toLocaleString()}
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{a.loan_type}</td>
-                    <td className="px-4 py-3 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Badge variant={getStageBadgeVariant(a.stage)}>{formatStage(a.stage)}</Badge>
-                        {a.is_hidden && <Badge variant="warning">Draft</Badge>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{referredBy}</td>
-                    <td className="px-4 py-3 text-sm text-gray-500">
-                      {new Date(a.created_at).toLocaleDateString('en-GB')}
-                    </td>
-                    <td className="px-4 py-3 text-right">
-                      <Link href={`/partner/applications/${a.id}`} className="text-sm text-purple-700 hover:underline">
-                        View →
-                      </Link>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+            const clientLabel = hasOwner
+              ? a.owner?.email ?? 'Known client'
+              : a.prospective_client_email ?? 'Prospective client';
+
+            return (
+              <div
+                key={a.id}
+                className="flex items-center justify-between rounded-md border bg-white px-4 py-3"
+              >
+                <div>
+                  <p className="text-sm text-gray-500">
+                    {a.company?.name ?? 'Company pending'} • {clientLabel}
+                  </p>
+                  <p className="text-lg font-semibold">
+                    £{a.requested_amount.toLocaleString()} – {a.loan_type}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    {new Date(a.created_at).toLocaleString()}
+                  </p>
+                </div>
+                <div className="flex flex-col items-end gap-1">
+                  <span
+                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                      isDraft
+                        ? 'bg-yellow-100 text-yellow-800'
+                        : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {isDraft ? 'Draft (hidden)' : a.stage}
+                  </span>
+                </div>
+              </div>
+            );
+          })}
         </div>
       )}
-      </div>
-    </DashboardShell>
+    </main>
   );
 }

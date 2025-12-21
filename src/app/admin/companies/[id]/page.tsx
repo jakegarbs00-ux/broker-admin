@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
@@ -14,22 +14,22 @@ type Company = {
   company_number: string | null;
   industry: string | null;
   website: string | null;
+  director_full_name: string | null;
+  director_address: string | null;
+  director_dob: string | null;
+  property_status: string | null;
   created_at: string;
-  referred_by: string | null;
-  primary_director: { 
-    id: string; 
-    email: string; 
-    full_name: string | null; 
-    address: string | null; 
-    dob: string | null; 
-    property_status: string | null;
-  }[] | null;
-  partner: { 
-    id: string; 
-    email: string; 
-    full_name: string | null; 
-    company_name: string | null;
-  }[] | null;
+  owner: { email: string }[] | null;
+  referrer?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+    partner_company?: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
 };
 
 type Application = {
@@ -57,10 +57,8 @@ export default function AdminCompanyDetailPage() {
   const [company, setCompany] = useState<Company | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
-  const [directors, setDirectors] = useState<any[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [promoting, setPromoting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -68,23 +66,21 @@ export default function AdminCompanyDetailPage() {
     const load = async () => {
       setError(null);
 
-      // Load company with primary director and partner info
+      // Load company with referrer
       const { data: companyData, error: companyError } = await supabase
         .from('companies')
         .select(`
-          id,
-          name,
-          company_number,
-          industry,
-          website,
-          created_at,
-          referred_by,
-          primary_director:profiles!profiles_company_id_fkey(id, email, full_name, address, dob, property_status, is_primary_director),
-          partner:profiles!companies_referred_by_fkey(id, email, full_name, company_name)
+          *,
+          referrer:referred_by(
+            id,
+            first_name,
+            last_name,
+            email,
+            partner_company:partner_company_id(id, name)
+          )
         `)
         .eq('id', id)
-        .eq('primary_director.is_primary_director', true)
-        .maybeSingle();
+        .single();
 
       if (companyError) {
         console.error('Error loading company', companyError);
@@ -93,7 +89,27 @@ export default function AdminCompanyDetailPage() {
         return;
       }
 
-      setCompany(companyData as Company);
+      if (!companyData) {
+        setError('Company not found');
+        setLoadingData(false);
+        return;
+      }
+
+      // Load users associated with the company (separate query)
+      const { data: companyUsers } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('company_id', id);
+
+      // Get primary director for owner display
+      const primaryDirector = (companyUsers || []).find((u: any) => u.is_primary_director === true);
+
+      const enrichedCompany = {
+        ...companyData,
+        owner: primaryDirector ? [{ id: primaryDirector.id, email: primaryDirector.email || '' }] : null,
+      };
+
+      setCompany(enrichedCompany as Company);
 
       // Load applications for this company
       const { data: appsData, error: appsError } = await supabase
@@ -102,23 +118,10 @@ export default function AdminCompanyDetailPage() {
         .eq('company_id', id)
         .order('created_at', { ascending: false });
 
-      // Load all directors for this company
-      const { data: directorsData } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('company_id', id)
-        .eq('role', 'CLIENT')
-        .order('is_primary_director', { ascending: false })
-        .order('full_name', { ascending: true });
-
       if (appsError) {
         console.error('Error loading applications', appsError);
       } else {
-        setApplications((appsData || []) as Application[]);
-      }
-
-      if (directorsData) {
-        setDirectors(directorsData);
+        setApplications(appsData as Application[]);
 
         // Load documents for all applications
         if (appsData && appsData.length > 0) {
@@ -145,55 +148,8 @@ export default function AdminCompanyDetailPage() {
     }
   }, [id, loading, profile?.role, supabase]);
 
-  const primaryDirector = useMemo(() => {
-    return (directors || []).find((d: any) => d.is_primary_director) || directors?.[0] || null;
-  }, [directors]);
-
-  const handlePromoteToPartner = async () => {
-    if (!user || !primaryDirector?.id) return;
-    if (!company) return;
-
-    const ok = window.confirm(
-      `This will convert "${company.name}" into a partner company.\n\nThe user will become a partner and can refer other companies.\n\nContinue?`
-    );
-    if (!ok) return;
-
-    setPromoting(true);
-    try {
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData.session?.access_token;
-      if (!accessToken) {
-        alert('You must be logged in to perform this action.');
-        setPromoting(false);
-        return;
-      }
-
-      const resp = await fetch('/api/admin/promote-to-partner', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ profileId: primaryDirector.id }),
-      });
-      const result = await resp.json();
-      if (!resp.ok) {
-        alert(result.error || 'Failed to promote user to partner');
-        setPromoting(false);
-        return;
-      }
-
-      // Redirect to new partner company page
-      window.location.href = `/admin/partners/${result.partner_company_id}`;
-    } catch (e: any) {
-      alert(e.message || 'Failed to promote user to partner');
-    } finally {
-      setPromoting(false);
-    }
-  };
-
   const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from('documents').getPublicUrl(storagePath);
     return data.publicUrl;
   };
 
@@ -238,28 +194,11 @@ export default function AdminCompanyDetailPage() {
     <DashboardShell>
       <PageHeader
         title={company.name}
-        description={`Director: ${company.primary_director?.[0]?.email ?? 'Unknown'}`}
+        description={`Client: ${company.owner?.[0]?.email ?? 'Unknown'}`}
         actions={
-          <div className="flex items-center gap-2">
-            {primaryDirector?.id && (
-              <Button
-                variant="secondary"
-                disabled={promoting}
-                onClick={handlePromoteToPartner}
-              >
-                {promoting ? 'Promoting...' : 'Promote to Partner'}
-              </Button>
-            )}
-            <Link href={`/admin/applications/create?company_id=${id}`}>
-              <Button variant="primary">Create Application</Button>
-            </Link>
-            <Link href={`/admin/companies/${id}/edit`}>
-              <Button variant="outline">Edit</Button>
-            </Link>
-            <Link href="/admin/companies">
-              <Button variant="outline">← Back</Button>
-            </Link>
-          </div>
+          <Link href="/admin/applications">
+            <Button variant="outline">← Back to Applications</Button>
+          </Link>
         }
       />
 
@@ -306,103 +245,35 @@ export default function AdminCompanyDetailPage() {
           </Card>
 
           {/* Director Information */}
-          {company.primary_director?.[0] && (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-gray-900">Director Information</h2>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase">Email</p>
-                    <p className="text-gray-900">{company.primary_director[0].email ?? '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase">Full Name</p>
-                    <p className="text-gray-900">{company.primary_director[0].full_name ?? '—'}</p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase">Date of Birth</p>
-                    <p className="text-gray-900">
-                      {company.primary_director[0].dob 
-                        ? new Date(company.primary_director[0].dob).toLocaleDateString('en-GB') 
-                        : '—'}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase">Property Status</p>
-                    <p className="text-gray-900 capitalize">{company.primary_director[0].property_status ?? '—'}</p>
-                  </div>
-                  <div className="sm:col-span-2">
-                    <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
-                    <p className="text-gray-900 whitespace-pre-line">{company.primary_director[0].address ?? '—'}</p>
-                  </div>
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-gray-900">Director Information</h2>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase">Full Name</p>
+                  <p className="text-gray-900">{company.director_full_name ?? '—'}</p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* All Directors */}
-          {directors.length > 0 && (
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <h2 className="font-medium text-gray-900">Directors</h2>
-                  <Link href={`/admin/companies/${id}/directors/add`}>
-                    <Button variant="primary" size="sm">Add Director</Button>
-                  </Link>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {directors.map((director) => (
-                    <div key={director.id} className="border-b border-gray-200 pb-4 last:border-0 last:pb-0">
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
-                            <p className="font-medium text-gray-900">
-                              {director.full_name || 'Unnamed Director'}
-                            </p>
-                            {director.is_primary_director && (
-                              <Badge variant="info">Primary</Badge>
-                            )}
-                          </div>
-                          <p className="text-sm text-gray-600">{director.email}</p>
-                          {director.phone && (
-                            <p className="text-sm text-gray-600">{director.phone}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Referred By Partner */}
-          {company.partner?.[0] && (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-gray-900">Referred By</h2>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <p className="text-sm">
-                    <span className="font-medium text-gray-900">
-                      {company.partner[0].full_name || company.partner[0].company_name || 'Partner'}
-                    </span>
-                    {company.partner[0].email && (
-                      <>
-                        {' '}
-                        <span className="text-gray-500">({company.partner[0].email})</span>
-                      </>
-                    )}
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase">Date of Birth</p>
+                  <p className="text-gray-900">
+                    {company.director_dob 
+                      ? new Date(company.director_dob).toLocaleDateString('en-GB') 
+                      : '—'}
                   </p>
                 </div>
-              </CardContent>
-            </Card>
-          )}
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase">Property Status</p>
+                  <p className="text-gray-900 capitalize">{company.property_status ?? '—'}</p>
+                </div>
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
+                  <p className="text-gray-900 whitespace-pre-line">{company.director_address ?? '—'}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
 
           {/* Documents */}
           <Card>
@@ -481,6 +352,26 @@ export default function AdminCompanyDetailPage() {
             </CardContent>
           </Card>
 
+          {/* Referral Partner */}
+          {company?.referrer && (
+            <Card>
+              <CardHeader>
+                <h2 className="font-medium text-gray-900">Referred By</h2>
+              </CardHeader>
+              <CardContent>
+                {company.referrer.partner_company?.name && (
+                  <p className="font-medium text-gray-900 mb-2">
+                    {company.referrer.partner_company.name}
+                  </p>
+                )}
+                <p className="text-sm text-gray-700">
+                  {company.referrer.first_name} {company.referrer.last_name}
+                </p>
+                <p className="text-sm text-gray-600">{company.referrer.email}</p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Meta info */}
           <Card>
             <CardHeader>
@@ -489,7 +380,7 @@ export default function AdminCompanyDetailPage() {
             <CardContent className="space-y-3">
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase">Client Email</p>
-                <p className="text-sm text-gray-900">{company.primary_director?.[0]?.email ?? 'Unknown'}</p>
+                <p className="text-sm text-gray-900">{company.owner?.[0]?.email ?? 'Unknown'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-gray-500 uppercase">Created</p>
