@@ -85,7 +85,7 @@ export default function ApplicationsListPage() {
         console.error('Error fetching applications:', error);
       } else {
         console.log('Found applications:', data);
-        setApplications((data || []) as Application[]);
+        setApplications((data || []) as unknown as Application[]);
       }
       setLoading(false);
     };
