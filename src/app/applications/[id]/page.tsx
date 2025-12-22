@@ -93,7 +93,7 @@ export default function ApplicationDetailPage() {
         setLoadingData(false);
         return;
       }
-      setApp(appData as AppDetail);
+      setApp(appData as unknown as AppDetail);
 
       const { data: docsData, error: docsError } = await supabase
         .from('documents')
