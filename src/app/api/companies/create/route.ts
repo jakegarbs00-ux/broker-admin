@@ -48,13 +48,7 @@ export async function POST(request: NextRequest) {
 
     if (existingProfile) {
       directorProfileId = existingProfile.id;
-      // Update referred_by if not already set and partner_id provided
-      if (partner_id && !existingProfile.referred_by) {
-        await supabaseAdmin
-          .from('profiles')
-          .update({ referred_by: partner_id })
-          .eq('id', directorProfileId);
-      }
+      // Note: referred_by is set on the company, not the profile
     } else {
       // Create auth user and profile
       const { data: authUser, error: authError } = await supabaseAdmin.auth.admin.createUser({
@@ -73,6 +67,7 @@ export async function POST(request: NextRequest) {
       directorProfileId = authUser.user.id;
 
       // Update profile with director details
+      // Note: referred_by is set on the company, not the profile
       const profileUpdate: any = {
         role: 'CLIENT',
         first_name: director_first_name || null,
@@ -85,10 +80,6 @@ export async function POST(request: NextRequest) {
         date_of_birth: director_dob || null,
         property_status: property_status || null,
       };
-
-      if (partner_id) {
-        profileUpdate.referred_by = partner_id;
-      }
 
       await supabaseAdmin
         .from('profiles')
