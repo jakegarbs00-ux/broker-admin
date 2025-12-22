@@ -265,7 +265,7 @@ export default function AdminCompanyDetailPage() {
       if (companyData) {
         const enrichedCompany = {
           ...companyData,
-          owner: company.owner,
+          owner: company?.owner || null,
         };
         setCompany(enrichedCompany as Company);
         setCompanyData(enrichedCompany);
