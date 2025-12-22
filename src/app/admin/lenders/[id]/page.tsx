@@ -149,8 +149,8 @@ export default function AdminLenderDetailPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading lender...</p>
+            <div className="w-8 h-8 border-2 border-[#22d3ee] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[#a3a3a3]">Loading lender...</p>
           </div>
         </div>
       </DashboardShell>
@@ -161,8 +161,8 @@ export default function AdminLenderDetailPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">{error || 'You do not have permission to view this page.'}</p>
+          <p className="text-[#f87171] font-medium">Access Denied</p>
+          <p className="text-sm text-[#a3a3a3] mt-1">{error || 'You do not have permission to view this page.'}</p>
         </div>
       </DashboardShell>
     );
@@ -189,7 +189,7 @@ export default function AdminLenderDetailPage() {
                 Edit
               </Button>
             )}
-            <Button variant="secondary" onClick={handleDelete} className="text-red-600 hover:bg-red-50">
+            <Button variant="secondary" onClick={handleDelete} className="text-[#f87171] hover:bg-[#7f1d1d]">
               Delete
             </Button>
           </div>
@@ -202,45 +202,45 @@ export default function AdminLenderDetailPage() {
           {/* Lender Info */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Lender Information</h2>
+              <h2 className="font-medium text-[#fafafa]">Lender Information</h2>
             </CardHeader>
             <CardContent>
               {editing ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Name</label>
+                    <label className="block text-sm font-medium text-[#a3a3a3] mb-1">Name</label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-[#404040] px-3 py-2 text-sm focus:ring-2 focus:ring-[#22d3ee] bg-[#171717] text-[#fafafa]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Email</label>
+                    <label className="block text-sm font-medium text-[#a3a3a3] mb-1">Contact Email</label>
                     <input
                       type="email"
                       value={formData.contact_email}
                       onChange={(e) => setFormData((p) => ({ ...p, contact_email: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-[#404040] px-3 py-2 text-sm focus:ring-2 focus:ring-[#22d3ee] bg-[#171717] text-[#fafafa]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Contact Phone</label>
+                    <label className="block text-sm font-medium text-[#a3a3a3] mb-1">Contact Phone</label>
                     <input
                       type="tel"
                       value={formData.contact_phone}
                       onChange={(e) => setFormData((p) => ({ ...p, contact_phone: e.target.value }))}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-[#404040] px-3 py-2 text-sm focus:ring-2 focus:ring-[#22d3ee] bg-[#171717] text-[#fafafa]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                    <label className="block text-sm font-medium text-[#a3a3a3] mb-1">Notes</label>
                     <textarea
                       value={formData.notes}
                       onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
                       rows={3}
-                      className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500"
+                      className="w-full rounded-lg border border-[#404040] px-3 py-2 text-sm focus:ring-2 focus:ring-[#22d3ee] bg-[#171717] text-[#fafafa]"
                     />
                   </div>
                   <div className="flex gap-2">
@@ -255,27 +255,27 @@ export default function AdminLenderDetailPage() {
               ) : (
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Name</dt>
-                    <dd className="text-sm font-medium text-gray-900">{lender.name}</dd>
+                    <dt className="text-xs text-[#a3a3a3] uppercase">Name</dt>
+                    <dd className="text-sm font-medium text-[#fafafa]">{lender.name}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Contact Email</dt>
-                    <dd className="text-sm font-medium text-gray-900">{lender.contact_email || '—'}</dd>
+                    <dt className="text-xs text-[#a3a3a3] uppercase">Contact Email</dt>
+                    <dd className="text-sm font-medium text-[#fafafa]">{lender.contact_email || '—'}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Contact Phone</dt>
-                    <dd className="text-sm font-medium text-gray-900">{lender.contact_phone || '—'}</dd>
+                    <dt className="text-xs text-[#a3a3a3] uppercase">Contact Phone</dt>
+                    <dd className="text-sm font-medium text-[#fafafa]">{lender.contact_phone || '—'}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Added</dt>
-                    <dd className="text-sm font-medium text-gray-900">
+                    <dt className="text-xs text-[#a3a3a3] uppercase">Added</dt>
+                    <dd className="text-sm font-medium text-[#fafafa]">
                       {new Date(lender.created_at).toLocaleDateString('en-GB')}
                     </dd>
                   </div>
                   {lender.notes && (
                     <div className="sm:col-span-2">
-                      <dt className="text-xs text-gray-500 uppercase">Notes</dt>
-                      <dd className="text-sm text-gray-900 whitespace-pre-line">{lender.notes}</dd>
+                      <dt className="text-xs text-[#a3a3a3] uppercase">Notes</dt>
+                      <dd className="text-sm text-[#fafafa] whitespace-pre-line">{lender.notes}</dd>
                     </div>
                   )}
                 </dl>
@@ -287,14 +287,14 @@ export default function AdminLenderDetailPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Assigned Applications</h2>
+                <h2 className="font-medium text-[#fafafa]">Assigned Applications</h2>
                 <Badge variant="default">{applications.length}</Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {applications.length === 0 ? (
                 <div className="p-6 text-center">
-                  <p className="text-sm text-gray-500">No applications assigned to this lender yet.</p>
+                  <p className="text-sm text-[#a3a3a3]">No applications assigned to this lender yet.</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-200">
@@ -302,18 +302,18 @@ export default function AdminLenderDetailPage() {
                     <Link
                       key={app.id}
                       href={`/admin/applications/${app.id}`}
-                      className="block p-4 hover:bg-gray-50 transition-colors"
+                      className="block p-4 hover:bg-[#262626] transition-colors"
                     >
                       <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-gray-900">
+                        <span className="font-medium text-[#fafafa]">
                           £{app.requested_amount.toLocaleString()} – {app.loan_type}
                         </span>
                         <Badge variant={getStageBadgeVariant(app.stage)}>
                           {formatStage(app.stage)}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600">{app.company?.[0]?.name || 'No company'}</p>
-                      <p className="text-xs text-gray-400 mt-1">
+                      <p className="text-sm text-[#a3a3a3]">{app.company?.[0]?.name || 'No company'}</p>
+                      <p className="text-xs text-[#737373] mt-1">
                         {new Date(app.created_at).toLocaleDateString('en-GB')}
                       </p>
                     </Link>
@@ -328,7 +328,7 @@ export default function AdminLenderDetailPage() {
         <div>
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">By Stage</h2>
+              <h2 className="font-medium text-[#fafafa]">By Stage</h2>
             </CardHeader>
             <CardContent className="space-y-2">
               {Object.entries(stageGroups).map(([stage, apps]) => (
@@ -336,11 +336,11 @@ export default function AdminLenderDetailPage() {
                   <Badge variant={getStageBadgeVariant(stage)}>
                     {formatStage(stage)}
                   </Badge>
-                  <span className="text-sm font-medium text-gray-900">{apps.length}</span>
+                  <span className="text-sm font-medium text-[#fafafa]">{apps.length}</span>
                 </div>
               ))}
               {applications.length === 0 && (
-                <p className="text-sm text-gray-500 text-center py-2">No applications</p>
+                <p className="text-sm text-[#a3a3a3] text-center py-2">No applications</p>
               )}
             </CardContent>
           </Card>
