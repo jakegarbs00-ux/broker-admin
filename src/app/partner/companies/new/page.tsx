@@ -20,8 +20,13 @@ export default function PartnerNewCompanyPage() {
     company_number: '',
     industry: '',
     website: '',
-    director_full_name: '',
-    director_address: '',
+    director_first_name: '',
+    director_last_name: '',
+    director_address_line_1: '',
+    director_address_line_2: '',
+    director_city: '',
+    director_postcode: '',
+    director_country: 'United Kingdom',
     director_dob: '',
     property_status: '',
     client_email: '',
@@ -73,40 +78,41 @@ export default function PartnerNewCompanyPage() {
       // Or we can use prospective_client_email pattern
     }
 
-    // Create the company
-    const companyPayload: any = {
-      name: formData.name.trim(),
-      company_number: formData.company_number.trim() || null,
-      industry: formData.industry.trim() || null,
-      website: formData.website.trim() || null,
-      director_full_name: formData.director_full_name.trim() || null,
-      director_address: formData.director_address.trim() || null,
-      director_dob: formData.director_dob || null,
-      property_status: formData.property_status || null,
-      created_by: user.id,
-    };
+    // Use API route to create company with director info
+    const response = await fetch('/api/companies/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: formData.name.trim(),
+        company_number: formData.company_number.trim() || null,
+        industry: formData.industry.trim() || null,
+        website: formData.website.trim() || null,
+        director_first_name: formData.director_first_name.trim() || null,
+        director_last_name: formData.director_last_name.trim() || null,
+        director_address_line_1: formData.director_address_line_1.trim() || null,
+        director_address_line_2: formData.director_address_line_2.trim() || null,
+        director_city: formData.director_city.trim() || null,
+        director_postcode: formData.director_postcode.trim() || null,
+        director_country: formData.director_country || 'United Kingdom',
+        director_dob: formData.director_dob || null,
+        property_status: formData.property_status || null,
+        client_email: formData.client_email.trim(),
+        partner_id: user.id,
+      }),
+    });
 
-    // If client exists, set them as owner
-    if (clientId) {
-      companyPayload.owner_id = clientId;
-    }
-
-    const { data: newCompany, error: createError } = await supabase
-      .from('companies')
-      .insert(companyPayload)
-      .select('id')
-      .single();
-
-    if (createError) {
-      console.error('Error creating company', createError);
-      setError('Error creating company: ' + createError.message);
+    const result = await response.json();
+    
+    if (!response.ok || result.error) {
+      setError(result.error || 'Error creating company');
       setSaving(false);
       return;
     }
 
-    // If no existing client, store the email somewhere for later linking
-    // For now, redirect to the company page
-    router.push(`/partner/companies/${newCompany.id}`);
+    const newCompany = { id: result.companyId };
+
+    // Redirect to create application page with company pre-selected
+    router.push(`/partner/applications/create?company_id=${newCompany.id}`);
   };
 
   if (loading) {
@@ -237,18 +243,33 @@ export default function PartnerNewCompanyPage() {
                 </p>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Director Full Name
-                </label>
-                <input
-                  type="text"
-                  name="director_full_name"
-                  value={formData.director_full_name}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="John Smith"
-                />
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Director First Name
+                  </label>
+                  <input
+                    type="text"
+                    name="director_first_name"
+                    value={formData.director_first_name}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="John"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Director Last Name
+                  </label>
+                  <input
+                    type="text"
+                    name="director_last_name"
+                    value={formData.director_last_name}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="Smith"
+                  />
+                </div>
               </div>
 
               <div>
@@ -266,15 +287,72 @@ export default function PartnerNewCompanyPage() {
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Director Address
+                  Address Line 1
                 </label>
                 <input
                   type="text"
-                  name="director_address"
-                  value={formData.director_address}
+                  name="director_address_line_1"
+                  value={formData.director_address_line_1}
                   onChange={handleChange}
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
-                  placeholder="123 Main St, London"
+                  placeholder="123 Main Street"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Address Line 2
+                </label>
+                <input
+                  type="text"
+                  name="director_address_line_2"
+                  value={formData.director_address_line_2}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="Apartment, Suite, etc. (optional)"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    City
+                  </label>
+                  <input
+                    type="text"
+                    name="director_city"
+                    value={formData.director_city}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="London"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Postcode
+                  </label>
+                  <input
+                    type="text"
+                    name="director_postcode"
+                    value={formData.director_postcode}
+                    onChange={handleChange}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                    placeholder="SW1A 1AA"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Country
+                </label>
+                <input
+                  type="text"
+                  name="director_country"
+                  value={formData.director_country}
+                  onChange={handleChange}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  placeholder="United Kingdom"
                 />
               </div>
 

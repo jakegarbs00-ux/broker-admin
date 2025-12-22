@@ -277,7 +277,29 @@ export default function PartnerApplicationDetailPage() {
                 </div>
                 <div>
                   <p className="text-xs font-medium text-gray-500 uppercase">Stage</p>
-                  <Badge variant="default">{application.stage}</Badge>
+                  <span
+                    className={`inline-block px-2 py-1 rounded text-sm ${
+                      application.stage === 'funded'
+                        ? 'bg-green-100 text-green-800'
+                        : application.stage === 'approved'
+                          ? 'bg-green-100 text-green-800'
+                          : application.stage === 'onboarding'
+                            ? 'bg-blue-100 text-blue-800'
+                            : application.stage === 'declined'
+                              ? 'bg-red-100 text-red-800'
+                              : application.stage === 'withdrawn'
+                                ? 'bg-red-100 text-red-800'
+                                : application.stage === 'in_credit'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : application.stage === 'information_requested'
+                                    ? 'bg-orange-100 text-orange-800'
+                                    : application.stage === 'submitted'
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : 'bg-gray-100 text-gray-800'
+                    }`}
+                  >
+                    {application.stage?.replace('_', ' ')}
+                  </span>
                 </div>
                 {application.urgency && (
                   <div>
@@ -480,6 +502,21 @@ export default function PartnerApplicationDetailPage() {
             </Card>
           )}
 
+        </div>
+
+        {/* Sidebar */}
+        <div className="space-y-6">
+          {application.lender && (
+            <Card>
+              <CardHeader>
+                <h2 className="font-medium text-gray-900">Assigned Lender</h2>
+              </CardHeader>
+              <CardContent>
+                <p className="text-gray-900">{application.lender.name}</p>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Offers */}
           {offers.length > 0 && (
             <Card>
@@ -491,7 +528,7 @@ export default function PartnerApplicationDetailPage() {
                   {offers.map((offer) => (
                     <div key={offer.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-medium text-gray-900">{offer.lender?.name || 'Unknown Lender'}</h3>
+                        <h3 className="font-medium text-gray-900 text-sm">{offer.lender?.name || 'Unknown Lender'}</h3>
                         <Badge
                           variant={
                             offer.status === 'accepted'
@@ -504,41 +541,27 @@ export default function PartnerApplicationDetailPage() {
                           {offer.status}
                         </Badge>
                       </div>
-                      <div className="grid grid-cols-2 gap-4 text-sm">
+                      <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <p className="text-gray-500">Amount</p>
+                          <p className="text-gray-500 text-xs">Amount</p>
                           <p className="font-medium text-gray-900">£{offer.amount?.toLocaleString()}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500">Loan Term</p>
+                          <p className="text-gray-500 text-xs">Loan Term</p>
                           <p className="font-medium text-gray-900">{offer.loan_term}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500">Cost of Funding</p>
+                          <p className="text-gray-500 text-xs">Cost of Funding</p>
                           <p className="font-medium text-gray-900">{offer.cost_of_funding}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500">Repayments</p>
+                          <p className="text-gray-500 text-xs">Repayments</p>
                           <p className="font-medium text-gray-900">{offer.repayments}</p>
                         </div>
                       </div>
                     </div>
                   ))}
                 </div>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {application.lender && (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-gray-900">Assigned Lender</h2>
-              </CardHeader>
-              <CardContent>
-                <p className="text-gray-900">{application.lender.name}</p>
               </CardContent>
             </Card>
           )}

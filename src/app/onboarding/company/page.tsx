@@ -16,8 +16,13 @@ const schema = z.object({
   company_number: z.string().optional(),
   industry: z.string().optional(),
   website: z.string().optional(),
-  director_full_name: z.string().optional(),
-  director_address: z.string().optional(),
+  director_first_name: z.string().optional(),
+  director_last_name: z.string().optional(),
+  director_address_line_1: z.string().optional(),
+  director_address_line_2: z.string().optional(),
+  director_city: z.string().optional(),
+  director_postcode: z.string().optional(),
+  director_country: z.string().optional(),
   director_dob: z.string().optional(),
   property_status: z.enum(['owner', 'renter', '']).optional(),
 });
@@ -44,35 +49,51 @@ export default function CompanyOnboardingPage() {
     if (!user) return;
 
     const fetchCompany = async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('*')
-        .eq('owner_id', user.id)
-        .limit(1)
-        .maybeSingle();
+      // Get profile with company_id
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('*, company:company_id(*)')
+        .eq('id', user.id)
+        .single();
 
-      if (error) {
-        console.error('Error loading company', error);
+      if (profileError) {
+        console.error('Error loading profile', profileError);
         setLoadingCompany(false);
         return;
       }
 
-      if (data) {
-        setCompanyId(data.id);
+      if (profileData?.company) {
+        // Company exists - load both company and director (profile) data
+        const company = profileData.company;
+        setCompanyId(company.id);
+        
         reset({
-          name: data.name ?? '',
-          company_number: data.company_number ?? '',
-          industry: data.industry ?? '',
-          website: data.website ?? '',
-          director_full_name: data.director_full_name ?? '',
-          director_address: data.director_address ?? '',
-          director_dob: data.director_dob ?? undefined,
-          property_status: data.property_status ?? undefined,
+          name: company.name ?? '',
+          company_number: company.company_number ?? '',
+          industry: company.industry ?? '',
+          website: company.website ?? '',
+          director_first_name: profileData.first_name ?? '',
+          director_last_name: profileData.last_name ?? '',
+          director_address_line_1: profileData.address_line_1 ?? '',
+          director_address_line_2: profileData.address_line_2 ?? '',
+          director_city: profileData.city ?? '',
+          director_postcode: profileData.postcode ?? '',
+          director_country: profileData.country ?? 'United Kingdom',
+          director_dob: profileData.date_of_birth ? profileData.date_of_birth.split('T')[0] : undefined,
+          property_status: profileData.property_status ?? undefined,
         });
       } else {
+        // No company yet - check for stored name
         if (typeof window !== 'undefined') {
           const storedName = window.localStorage.getItem('initialCompanyName') ?? '';
-          reset({ name: storedName });
+          reset({ 
+            name: storedName,
+            director_country: 'United Kingdom',
+          });
+        } else {
+          reset({
+            director_country: 'United Kingdom',
+          });
         }
       }
       setLoadingCompany(false);
@@ -84,39 +105,66 @@ export default function CompanyOnboardingPage() {
   const onSubmit = async (values: FormValues) => {
     if (!user) return;
 
-    const payload: any = {
-      owner_id: user.id,
+    // Update company
+    const companyPayload: any = {
       name: values.name,
       company_number: values.company_number || null,
       industry: values.industry || null,
       website: values.website || null,
-      director_full_name: values.director_full_name || null,
-      director_address: values.director_address || null,
-      director_dob: values.director_dob || null,
-      property_status: values.property_status || null,
     };
 
     let error;
+    let finalCompanyId = companyId;
 
     if (companyId) {
       const res = await supabase
         .from('companies')
-        .update(payload)
+        .update(companyPayload)
         .eq('id', companyId);
       error = res.error;
     } else {
       const res = await supabase
         .from('companies')
-        .insert(payload)
+        .insert(companyPayload)
         .select('id')
         .single();
       error = res.error;
-      if (!error && res.data) setCompanyId(res.data.id);
+      if (!error && res.data) {
+        finalCompanyId = res.data.id;
+        setCompanyId(res.data.id);
+      }
     }
 
     if (error) {
       alert('Error saving company: ' + error.message);
       return;
+    }
+
+    // Update profile with director info
+    if (finalCompanyId) {
+      const profilePayload: any = {
+        company_id: finalCompanyId,
+        is_primary_director: true,
+        first_name: values.director_first_name || null,
+        last_name: values.director_last_name || null,
+        address_line_1: values.director_address_line_1 || null,
+        address_line_2: values.director_address_line_2 || null,
+        city: values.director_city || null,
+        postcode: values.director_postcode || null,
+        country: values.director_country || 'United Kingdom',
+        date_of_birth: values.director_dob || null,
+        property_status: values.property_status || null,
+      };
+
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update(profilePayload)
+        .eq('id', user.id);
+
+      if (profileError) {
+        alert('Error saving director information: ' + profileError.message);
+        return;
+      }
     }
 
     router.push('/dashboard');
@@ -211,26 +259,83 @@ export default function CompanyOnboardingPage() {
               <h2 className="font-medium text-gray-900">Director Information</h2>
             </CardHeader>
             <CardContent className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    First Name
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="John"
+                    {...register('director_first_name')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Last Name
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="Smith"
+                    {...register('director_last_name')}
+                  />
+                </div>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Director Full Name
+                  Address Line 1
                 </label>
                 <input
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="e.g. John Smith"
-                  {...register('director_full_name')}
+                  placeholder="123 Main Street"
+                  {...register('director_address_line_1')}
                 />
               </div>
 
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Director Address
+                  Address Line 2
                 </label>
-                <textarea
+                <input
                   className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  rows={3}
-                  placeholder="Full residential address"
-                  {...register('director_address')}
+                  placeholder="Apartment, Suite, etc. (optional)"
+                  {...register('director_address_line_2')}
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    City
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="London"
+                    {...register('director_city')}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Postcode
+                  </label>
+                  <input
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    placeholder="SW1A 1AA"
+                    {...register('director_postcode')}
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Country
+                </label>
+                <input
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="United Kingdom"
+                  defaultValue="United Kingdom"
+                  {...register('director_country')}
                 />
               </div>
 

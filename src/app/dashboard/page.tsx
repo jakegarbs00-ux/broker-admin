@@ -469,67 +469,6 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
               </div>
             </CardContent>
           </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-gray-900">Quick Actions</h2>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Link href="/partner/companies/new" className="block">
-                <Button variant="primary" className="w-full">
-                  + Add New Company
-                </Button>
-              </Link>
-              <Link href="/partner/companies" className="block">
-                <Button variant="secondary" className="w-full">
-                  View All Companies
-                </Button>
-              </Link>
-              <Link href="/partner/company" className="block">
-                <Button variant="secondary" className="w-full">
-                  Your Company Info
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Companies summary */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Your Companies</h2>
-                <Link href="/partner/companies" className="text-sm text-purple-600 hover:text-purple-700">
-                  View all →
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {clients.length === 0 ? (
-                <div className="p-4">
-                  <p className="text-sm text-gray-500">No companies referred yet</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {clients.slice(0, 5).map((client) => (
-                    <div key={client.id} className="px-4 py-3">
-                      {client.companies && client.companies[0] ? (
-                        <Link
-                          href={`/partner/companies/${client.companies[0].id}`}
-                          className="font-medium text-gray-900 hover:text-purple-600"
-                        >
-                          {client.companies[0].name}
-                        </Link>
-                      ) : (
-                        <p className="text-gray-500">No company</p>
-                      )}
-                      <p className="text-xs text-gray-500">{client.email}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
         </div>
       </div>
     </>

@@ -14,12 +14,19 @@ type Company = {
   company_number: string | null;
   industry: string | null;
   website: string | null;
-  director_full_name: string | null;
-  director_address: string | null;
-  director_dob: string | null;
-  property_status: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
   created_at: string;
-  owner_id: string;
+  referred_by: string | null;
+  referrer?: {
+    id: string;
+    first_name: string | null;
+    last_name: string | null;
+    email: string | null;
+  } | null;
 };
 
 type Application = {
@@ -30,8 +37,18 @@ type Application = {
   created_at: string;
 };
 
-type Owner = {
-  email: string;
+type Director = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  date_of_birth: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
 };
 
 export default function PartnerCompanyDetailPage() {
@@ -41,61 +58,37 @@ export default function PartnerCompanyDetailPage() {
   const supabase = getSupabaseClient();
 
   const [company, setCompany] = useState<Company | null>(null);
-  const [owner, setOwner] = useState<Owner | null>(null);
+  const [director, setDirector] = useState<Director | null>(null);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (loading || !user) return;
-    if (profile?.role !== 'PARTNER') {
-      setLoadingData(false);
-      return;
-    }
+    if (loading || !id) return;
 
     const loadData = async () => {
       setError(null);
 
-      // Load company
+      // Fetch company - RLS will handle permission check
       const { data: companyData, error: companyError } = await supabase
         .from('companies')
         .select(`
-          id, name, company_number, industry, website,
-          director_full_name, director_address, director_dob, property_status,
-          created_at, owner_id
+          *,
+          referrer:referred_by(id, first_name, last_name, email)
         `)
         .eq('id', id)
         .single();
 
       if (companyError || !companyData) {
+        console.error('Error fetching company:', companyError);
         setError('Company not found');
         setLoadingData(false);
         return;
       }
 
-      // Verify this company belongs to a client referred by this partner
-      const { data: ownerData, error: ownerError } = await supabase
-        .from('profiles')
-        .select('email, referred_by')
-        .eq('id', companyData.owner_id)
-        .single();
-
-      if (ownerError || !ownerData) {
-        setError('Company owner not found');
-        setLoadingData(false);
-        return;
-      }
-
-      if (ownerData.referred_by !== user.id) {
-        setError('You do not have access to this company');
-        setLoadingData(false);
-        return;
-      }
-
       setCompany(companyData as Company);
-      setOwner({ email: ownerData.email });
 
-      // Load applications for this company
+      // Fetch applications for this company
       const { data: appsData } = await supabase
         .from('applications')
         .select('id, requested_amount, loan_type, stage, created_at')
@@ -103,11 +96,24 @@ export default function PartnerCompanyDetailPage() {
         .order('created_at', { ascending: false });
 
       setApplications((appsData || []) as Application[]);
+
+      // Fetch client/director
+      const { data: directorData } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('company_id', id)
+        .eq('is_primary_director', true)
+        .maybeSingle();
+
+      if (directorData) {
+        setDirector(directorData as Director);
+      }
+
       setLoadingData(false);
     };
 
     loadData();
-  }, [loading, user, profile?.role, id, supabase]);
+  }, [loading, id, supabase]);
 
   if (loading || loadingData) {
     return (
@@ -122,12 +128,11 @@ export default function PartnerCompanyDetailPage() {
     );
   }
 
-  if (profile?.role !== 'PARTNER' || error) {
+  if (error || !company) {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">{error || 'You do not have permission to view this page.'}</p>
+          <p className="text-red-600 font-medium">{error || 'Company not found'}</p>
           <Link href="/partner/companies" className="text-purple-600 hover:text-purple-700 text-sm mt-4 inline-block">
             ← Back to Companies
           </Link>
@@ -135,8 +140,6 @@ export default function PartnerCompanyDetailPage() {
       </DashboardShell>
     );
   }
-
-  if (!company) return null;
 
   const closedStages = ['funded', 'declined', 'withdrawn'];
   const openApplications = applications.filter((a) => !closedStages.includes(a.stage));
@@ -201,10 +204,10 @@ export default function PartnerCompanyDetailPage() {
                     </dd>
                   </div>
                 )}
-                {owner && (
+                {director && (
                   <div>
                     <dt className="text-xs text-gray-500 uppercase">Client Email</dt>
-                    <dd className="text-sm font-medium text-gray-900">{owner.email}</dd>
+                    <dd className="text-sm font-medium text-gray-900">{director.email || '—'}</dd>
                   </div>
                 )}
               </dl>
@@ -212,37 +215,53 @@ export default function PartnerCompanyDetailPage() {
           </Card>
 
           {/* Director Information */}
-          {(company.director_full_name || company.director_dob || company.property_status) && (
+          {director && (
             <Card>
               <CardHeader>
                 <h2 className="font-medium text-gray-900">Director Information</h2>
               </CardHeader>
               <CardContent>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {company.director_full_name && (
+                  <div>
+                    <dt className="text-xs text-gray-500 uppercase">Name</dt>
+                    <dd className="text-sm font-medium text-gray-900">
+                      {director.first_name} {director.last_name}
+                    </dd>
+                  </div>
+                  {director.email && (
                     <div>
-                      <dt className="text-xs text-gray-500 uppercase">Director Name</dt>
-                      <dd className="text-sm font-medium text-gray-900">{company.director_full_name}</dd>
+                      <dt className="text-xs text-gray-500 uppercase">Email</dt>
+                      <dd className="text-sm font-medium text-gray-900">{director.email}</dd>
                     </div>
                   )}
-                  {company.director_dob && (
+                  {director.phone && (
+                    <div>
+                      <dt className="text-xs text-gray-500 uppercase">Phone</dt>
+                      <dd className="text-sm font-medium text-gray-900">{director.phone}</dd>
+                    </div>
+                  )}
+                  {director.date_of_birth && (
                     <div>
                       <dt className="text-xs text-gray-500 uppercase">Date of Birth</dt>
                       <dd className="text-sm font-medium text-gray-900">
-                        {new Date(company.director_dob).toLocaleDateString('en-GB')}
+                        {new Date(director.date_of_birth).toLocaleDateString('en-GB')}
                       </dd>
                     </div>
                   )}
-                  {company.director_address && (
+                  {director.address_line_1 && (
                     <div className="sm:col-span-2">
                       <dt className="text-xs text-gray-500 uppercase">Address</dt>
-                      <dd className="text-sm font-medium text-gray-900">{company.director_address}</dd>
-                    </div>
-                  )}
-                  {company.property_status && (
-                    <div>
-                      <dt className="text-xs text-gray-500 uppercase">Property Status</dt>
-                      <dd className="text-sm font-medium text-gray-900 capitalize">{company.property_status.replace(/_/g, ' ')}</dd>
+                      <dd className="text-sm font-medium text-gray-900">
+                        {[
+                          director.address_line_1,
+                          director.address_line_2,
+                          director.city,
+                          director.postcode,
+                          director.country,
+                        ]
+                          .filter(Boolean)
+                          .join(', ')}
+                      </dd>
                     </div>
                   )}
                 </dl>

@@ -25,7 +25,8 @@ type Application = {
   stage: string;
   created_at: string;
   submitted_at: string | null;
-  company: { name: string }[] | null;
+  company: { id: string; name: string } | null;
+  lender: { id: string; name: string } | null;
 };
 
 export default function ApplicationsListPage() {
@@ -38,6 +39,31 @@ export default function ApplicationsListPage() {
     if (!user) return;
 
     const loadApplications = async () => {
+      console.log('Loading applications for user:', user.id);
+
+      // Get user's profile to find their company_id
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
+
+      if (profileError) {
+        console.error('Error fetching profile:', profileError);
+        setLoading(false);
+        return;
+      }
+
+      if (!profile?.company_id) {
+        console.log('No company_id found for user');
+        setApplications([]);
+        setLoading(false);
+        return;
+      }
+
+      console.log('Fetching applications for company:', profile.company_id);
+
+      // Fetch applications for this company
       const { data, error } = await supabase
         .from('applications')
         .select(`
@@ -49,15 +75,17 @@ export default function ApplicationsListPage() {
           stage,
           created_at,
           submitted_at,
-          company:companies(name)
+          company:company_id(id, name),
+          lender:lender_id(id, name)
         `)
-        .eq('owner_id', user.id)
+        .eq('company_id', profile.company_id)
         .order('created_at', { ascending: false });
 
       if (error) {
-        console.error('Error loading applications:', error);
-      } else if (data) {
-        setApplications(data as Application[]);
+        console.error('Error fetching applications:', error);
+      } else {
+        console.log('Found applications:', data);
+        setApplications((data || []) as Application[]);
       }
       setLoading(false);
     };
@@ -145,7 +173,7 @@ export default function ApplicationsListPage() {
                     <tr key={app.id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
                         <span className="font-medium text-gray-900">
-                          {app.company?.[0]?.name ?? 'No company'}
+                          {app.company?.name ?? 'No company'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">

@@ -16,7 +16,7 @@ type AppDetail = {
   urgency: string | null;
   purpose: string | null;
   created_at: string;
-  company: { name: string }[] | null;
+  company: { id: string; name: string } | null;
 };
 
 type Document = {
@@ -52,6 +52,8 @@ export default function ApplicationDetailPage() {
   const [app, setApp] = useState<AppDetail | null>(null);
   const [docs, setDocs] = useState<Document[]>([]);
   const [infoRequests, setInfoRequests] = useState<InfoRequest[]>([]);
+  const [offers, setOffers] = useState<any[]>([]);
+  const [celebrating, setCelebrating] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +81,7 @@ export default function ApplicationDetailPage() {
           urgency,
           purpose,
           created_at,
-          company:companies(name)
+          company:company_id(id, name)
         `
         )
         .eq('id', id)
@@ -133,6 +135,31 @@ export default function ApplicationDetailPage() {
     load();
   }, [id, user, supabase]);
 
+  // Fetch offers when stage allows
+  useEffect(() => {
+    const fetchOffers = async () => {
+      if (!id || !app) return;
+      
+      if (['approved', 'onboarding', 'funded', 'withdrawn', 'declined'].includes(app.stage)) {
+        const { data } = await supabase
+          .from('offers')
+          .select('*, lender:lender_id(id, name)')
+          .eq('application_id', id)
+          .order('created_at', { ascending: false });
+        
+        setOffers(data || []);
+        
+        // Trigger celebration if there are pending offers
+        if (data && data.some((o: any) => o.status === 'pending')) {
+          setCelebrating(true);
+          setTimeout(() => setCelebrating(false), 5000);
+        }
+      }
+    };
+    
+    if (app) fetchOffers();
+  }, [app, id, supabase]);
+
   const handleUpload = async () => {
     if (!user || !id || !uploadFile) return;
     setUploading(true);
@@ -141,7 +168,7 @@ export default function ApplicationDetailPage() {
       const path = `${user.id}/${id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
-        .from('documents')
+        .from('application-documents')
         .upload(path, uploadFile);
 
       if (uploadError) {
@@ -174,8 +201,48 @@ export default function ApplicationDetailPage() {
   };
 
   const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('documents').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
     return data.publicUrl;
+  };
+
+  const handleAcceptOffer = async (offerId: string) => {
+    if (!id) return;
+    
+    const { error } = await supabase
+      .from('offers')
+      .update({ 
+        status: 'accepted', 
+        accepted_at: new Date().toISOString() 
+      })
+      .eq('id', offerId);
+
+    if (!error) {
+      // Move application to onboarding
+      await supabase
+        .from('applications')
+        .update({ stage: 'onboarding' })
+        .eq('id', id);
+      
+      // Refresh data
+      window.location.reload();
+    } else {
+      alert('Error accepting offer: ' + error.message);
+    }
+  };
+
+  const handleDeclineOffer = async (offerId: string) => {
+    const { error } = await supabase
+      .from('offers')
+      .update({ status: 'declined' })
+      .eq('id', offerId);
+
+    if (!error) {
+      setOffers(offers.map((o: any) => 
+        o.id === offerId ? { ...o, status: 'declined' } : o
+      ));
+    } else {
+      alert('Error declining offer: ' + error.message);
+    }
   };
 
   const handleRespond = async (requestId: string) => {
@@ -258,7 +325,7 @@ export default function ApplicationDetailPage() {
     <DashboardShell>
       <PageHeader
         title={`£${app.requested_amount?.toLocaleString()} – ${app.loan_type}`}
-        description={app.company?.[0]?.name ?? 'No company'}
+        description={app.company?.name ?? 'No company'}
         actions={
           <Link href="/applications">
             <Button variant="outline">← Back to Applications</Button>
@@ -269,6 +336,129 @@ export default function ApplicationDetailPage() {
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Celebration Banner - show when there are new offers */}
+      {offers.some((o: any) => o.status === 'pending') && (
+        <div className="mb-6 relative overflow-hidden">
+          <div className="bg-gradient-to-r from-green-500 via-emerald-500 to-teal-500 rounded-xl p-6 text-white">
+            <div className="flex items-center gap-4">
+              <div className="text-4xl">🎉</div>
+              <div>
+                <h2 className="text-2xl font-bold">Great News!</h2>
+                <p className="text-green-100">You have {offers.filter((o: any) => o.status === 'pending').length} funding offer{offers.filter((o: any) => o.status === 'pending').length > 1 ? 's' : ''} waiting for you!</p>
+              </div>
+              <div className="text-4xl ml-auto">🎊</div>
+            </div>
+          </div>
+          
+          {/* Animated sparkles */}
+          {celebrating && (
+            <div className="absolute inset-0 pointer-events-none">
+              <div className="absolute top-2 left-10 text-2xl animate-bounce" style={{ animationDelay: '100ms' }}>✨</div>
+              <div className="absolute top-4 right-20 text-xl animate-bounce" style={{ animationDelay: '200ms' }}>⭐</div>
+              <div className="absolute bottom-2 left-1/3 text-2xl animate-bounce" style={{ animationDelay: '300ms' }}>🌟</div>
+              <div className="absolute top-1 right-1/4 text-xl animate-bounce" style={{ animationDelay: '400ms' }}>✨</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Offers Cards */}
+      {offers.length > 0 && (
+        <div className="mb-6">
+          <h2 className="text-lg font-semibold mb-4">Your Offers</h2>
+          <div className="grid gap-4">
+            {offers.map((offer: any) => (
+              <div 
+                key={offer.id} 
+                className={`bg-white rounded-xl border-2 p-6 transition-all ${
+                  offer.status === 'pending' 
+                    ? 'border-green-400 shadow-lg shadow-green-100' 
+                    : offer.status === 'accepted'
+                    ? 'border-blue-400 bg-blue-50'
+                    : 'border-gray-200 opacity-60'
+                }`}
+              >
+                <div className="flex justify-between items-start">
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-lg font-semibold text-gray-700">
+                        {offer.lender?.name || 'Lender'}
+                      </span>
+                      {offer.status === 'accepted' && (
+                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                          ✓ Accepted
+                        </span>
+                      )}
+                      {offer.status === 'declined' && (
+                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
+                          Declined
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="text-3xl font-bold text-gray-900 mb-4">
+                      £{Number(offer.amount).toLocaleString()}
+                    </div>
+                    
+                    <div className="grid grid-cols-3 gap-6 text-sm">
+                      <div>
+                        <p className="text-gray-500">Term</p>
+                        <p className="font-medium text-gray-900">{offer.loan_term || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Cost of Funding</p>
+                        <p className="font-medium text-gray-900">{offer.cost_of_funding || '—'}</p>
+                      </div>
+                      <div>
+                        <p className="text-gray-500">Repayments</p>
+                        <p className="font-medium text-gray-900">{offer.repayments || '—'}</p>
+                      </div>
+                    </div>
+                  </div>
+                  
+                  {offer.status === 'pending' && (
+                    <div className="flex flex-col gap-2">
+                      <button
+                        onClick={() => handleAcceptOffer(offer.id)}
+                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
+                      >
+                        Accept Offer
+                      </button>
+                      <button
+                        onClick={() => handleDeclineOffer(offer.id)}
+                        className="px-6 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                      >
+                        Decline
+                      </button>
+                    </div>
+                  )}
+                  
+                  {offer.status === 'accepted' && (
+                    <div className="text-right">
+                      <p className="text-sm text-gray-500">Accepted on</p>
+                      <p className="font-medium">{offer.accepted_at ? new Date(offer.accepted_at).toLocaleDateString('en-GB') : '—'}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* If approved but no offers yet */}
+      {app?.stage === 'approved' && offers.length === 0 && (
+        <div className="mb-6 bg-yellow-50 border border-yellow-200 rounded-xl p-6">
+          <div className="flex items-center gap-3">
+            <div className="text-2xl">⏳</div>
+            <div>
+              <h3 className="font-semibold text-yellow-800">Application Approved!</h3>
+              <p className="text-yellow-700">We're working on getting you the best offers. Check back soon!</p>
+            </div>
+          </div>
         </div>
       )}
 

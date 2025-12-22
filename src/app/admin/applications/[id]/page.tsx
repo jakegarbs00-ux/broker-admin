@@ -61,10 +61,6 @@ type Company = {
   company_number: string | null;
   industry: string | null;
   website: string | null;
-  director_full_name: string | null;
-  director_address: string | null;
-  director_dob: string | null;
-  property_status: string | null;
   owner: { email: string }[] | null;
 };
 
@@ -201,8 +197,7 @@ export default function AdminApplicationDetailPage() {
         const { data: companyData } = await supabase
           .from('companies')
           .select(`
-            id, name, company_number, industry, website,
-            director_full_name, director_address, director_dob, property_status
+            id, name, company_number, industry, website
           `)
           .eq('id', appData.company_id)
           .single();
@@ -719,17 +714,6 @@ const handleSaveOffer = async () => {
                       {company.industry && (
                         <p>
                           <span className="font-medium">Industry:</span> {company.industry}
-                        </p>
-                      )}
-                      {company.director_full_name && (
-                        <p>
-                          <span className="font-medium">Director:</span> {company.director_full_name}
-                        </p>
-                      )}
-                      {company.property_status && (
-                        <p>
-                          <span className="font-medium">Property Status:</span>{' '}
-                          {company.property_status.replace(/_/g, ' ')}
                         </p>
                       )}
                     </>

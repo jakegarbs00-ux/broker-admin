@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
+import { DashboardShell } from '@/components/layout';
 
 type PartnerApplication = {
   id: string;
@@ -148,100 +149,112 @@ export default function PartnerApplicationsPage() {
   }, [user, profile?.role, loading, supabase]);
 
   if (loading || loadingApps) {
-    return <p className="p-4">Loading…</p>;
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-gray-500">Loading applications...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
 
   if (!user) {
-    return <p className="p-4">You need to be logged in.</p>;
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">You need to be logged in.</p>
+        </div>
+      </DashboardShell>
+    );
   }
 
   if (profile?.role !== 'PARTNER') {
     return (
-      <main className="max-w-3xl mx-auto space-y-4 p-4">
-        <h1 className="text-2xl font-semibold">Partner applications</h1>
-        <p className="text-sm text-red-600">
-          You are not a partner. This page is only available to users with the PARTNER
-          role.
-        </p>
-      </main>
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-red-600 font-medium">Access Denied</p>
+          <p className="text-sm text-gray-500 mt-1">
+            You are not a partner. This page is only available to users with the PARTNER role.
+          </p>
+        </div>
+      </DashboardShell>
     );
   }
 
   return (
-    <main className="max-w-4xl mx-auto space-y-6 p-4">
-      <div className="flex items-center justify-between">
-        <div>
-          <p className="text-xs uppercase tracking-wide text-purple-600">
-            Partner / broker
-          </p>
-          <h1 className="text-2xl font-semibold">Referred client applications</h1>
+    <DashboardShell>
+      <div className="space-y-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Referred Client Applications</h1>
+            <p className="text-gray-600">{apps.length} applications</p>
+          </div>
+          <Link href="/partner/applications/new">
+            <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+              New Application
+            </button>
+          </Link>
         </div>
-        <Link
-          href="/dashboard"
-          className="text-sm text-blue-600 hover:underline"
-        >
-          Back to dashboard
-        </Link>
+
+        {error && (
+          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
+
+        {apps.length === 0 ? (
+          <div className="text-center py-12">
+            <p className="text-gray-600 text-sm">
+              You don&apos;t have any applications for your clients yet.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {apps.map((a) => {
+              const isDraft = a.is_hidden;
+              const hasOwner = !!a.owner?.id;
+
+              const clientLabel = hasOwner
+                ? a.owner?.email ?? 'Known client'
+                : a.prospective_client_email ?? 'Prospective client';
+
+              return (
+                <Link
+                  key={a.id}
+                  href={`/partner/applications/${a.id}`}
+                  className="flex items-center justify-between rounded-md border bg-white px-4 py-3 hover:bg-gray-50 transition-colors"
+                >
+                  <div>
+                    <p className="text-sm text-gray-500">
+                      {a.company?.name ?? 'Company pending'} • {clientLabel}
+                    </p>
+                    <p className="text-lg font-semibold">
+                      £{a.requested_amount.toLocaleString()} – {a.loan_type}
+                    </p>
+                    <p className="text-xs text-gray-500">
+                      {new Date(a.created_at).toLocaleString()}
+                    </p>
+                  </div>
+                  <div className="flex flex-col items-end gap-1">
+                    <span
+                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
+                        isDraft
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-gray-100 text-gray-800'
+                      }`}
+                    >
+                      {isDraft ? 'Draft (hidden)' : a.stage}
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
-
-      {error && <p className="text-sm text-red-600">{error}</p>}
-
-      <div className="flex justify-end">
-        <Link
-          href="/partner/applications/new"
-          className="inline-block rounded-md bg-purple-600 px-3 py-1 text-sm text-white hover:bg-purple-700"
-        >
-          New client application
-        </Link>
-      </div>
-
-      {apps.length === 0 ? (
-        <p className="text-gray-600 text-sm">
-          You don&apos;t have any applications for your clients yet.
-        </p>
-      ) : (
-        <div className="space-y-3">
-          {apps.map((a) => {
-            const isDraft = a.is_hidden;
-            const hasOwner = !!a.owner?.id;
-
-            const clientLabel = hasOwner
-              ? a.owner?.email ?? 'Known client'
-              : a.prospective_client_email ?? 'Prospective client';
-
-            return (
-              <Link
-                key={a.id}
-                href={`/partner/applications/${a.id}`}
-                className="flex items-center justify-between rounded-md border bg-white px-4 py-3 hover:bg-gray-50 transition-colors"
-              >
-                <div>
-                  <p className="text-sm text-gray-500">
-                    {a.company?.name ?? 'Company pending'} • {clientLabel}
-                  </p>
-                  <p className="text-lg font-semibold">
-                    £{a.requested_amount.toLocaleString()} – {a.loan_type}
-                  </p>
-                  <p className="text-xs text-gray-500">
-                    {new Date(a.created_at).toLocaleString()}
-                  </p>
-                </div>
-                <div className="flex flex-col items-end gap-1">
-                  <span
-                    className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                      isDraft
-                        ? 'bg-yellow-100 text-yellow-800'
-                        : 'bg-gray-100 text-gray-800'
-                    }`}
-                  >
-                    {isDraft ? 'Draft (hidden)' : a.stage}
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
-      )}
-    </main>
+    </DashboardShell>
   );
 }
