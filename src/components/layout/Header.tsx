@@ -2,6 +2,7 @@
 
 import { useRouter } from 'next/navigation';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 interface HeaderProps {
   email: string;
@@ -10,9 +11,9 @@ interface HeaderProps {
 }
 
 const roleLabels = {
-  CLIENT: { label: 'Client', color: 'bg-blue-100 text-blue-800' },
-  PARTNER: { label: 'Partner', color: 'bg-purple-100 text-purple-800' },
-  ADMIN: { label: 'Admin', color: 'bg-red-100 text-red-800' },
+  CLIENT: { label: 'Client', color: 'bg-[var(--color-info-light)] text-[var(--color-info)]' },
+  PARTNER: { label: 'Partner', color: 'bg-[var(--color-accent-light)] text-[var(--color-accent)]' },
+  ADMIN: { label: 'Admin', color: 'bg-[var(--color-error-light)] text-[var(--color-error)]' },
 };
 
 export default function Header({ email, role, onMenuClick }: HeaderProps) {
@@ -27,13 +28,13 @@ export default function Header({ email, role, onMenuClick }: HeaderProps) {
   const { label, color } = roleLabels[role];
 
   return (
-    <header className="bg-white border-b border-gray-200 px-4 sm:px-6 py-3">
-      <div className="flex items-center justify-between">
+    <header className="bg-[var(--color-surface)] border-b border-[var(--color-border)] py-3">
+      <div className="flex items-center justify-between px-4 sm:px-6 lg:pl-6">
         {/* Left side - menu button on mobile */}
         <div className="flex items-center gap-3">
           <button
             onClick={onMenuClick}
-            className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg"
+            className="lg:hidden p-2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-lg transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
@@ -42,22 +43,20 @@ export default function Header({ email, role, onMenuClick }: HeaderProps) {
           
           {/* Mobile logo */}
           <div className="lg:hidden flex items-center gap-2">
-            <div className="w-7 h-7 bg-blue-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-xs">F</span>
-            </div>
-            <span className="text-lg font-semibold text-gray-900">Flôka</span>
+            <span className="text-lg font-semibold text-[var(--color-text-primary)]">Floka</span>
           </div>
         </div>
 
         {/* Right side - user info */}
         <div className="flex items-center gap-2 sm:gap-4">
-          <span className={`hidden sm:inline-block px-2 py-1 text-xs font-medium rounded-full ${color}`}>
+          <ThemeToggle />
+          <span className={`hidden sm:inline-block px-2 py-0.5 text-xs font-medium rounded bg-[var(--color-accent-light)] text-[var(--color-accent)]`}>
             {label}
           </span>
-          <span className="text-sm text-gray-600 hidden sm:inline truncate max-w-[200px]">{email}</span>
+          <span className="text-sm text-[var(--color-text-secondary)] hidden sm:inline truncate max-w-[200px]">{email}</span>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-sm text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg transition-colors"
+            className="flex items-center gap-1 sm:gap-2 px-2 sm:px-3 py-1.5 text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-lg transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />

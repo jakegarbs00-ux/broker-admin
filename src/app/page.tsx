@@ -4,19 +4,19 @@ export default function HomePage() {
   return (
     <main className="space-y-6">
       <h1 className="text-3xl font-semibold">Business Loan Broker Portal</h1>
-      <p className="text-gray-600">
+      <p className="text-[var(--color-text-secondary)]">
         Apply for funding, upload documents, and track your application status.
       </p>
       <div className="flex gap-4">
         <Link
           href="/auth/signup"
-          className="rounded-md bg-blue-600 px-4 py-2 text-white hover:bg-blue-700"
+          className="rounded-lg bg-[var(--color-accent)] px-4 py-2 text-white hover:bg-[var(--color-accent-hover)] transition-colors"
         >
           Sign up
         </Link>
         <Link
           href="/auth/login"
-          className="rounded-md border border-gray-300 px-4 py-2 text-gray-800 hover:bg-gray-100"
+          className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] transition-colors"
         >
           Log in
         </Link>

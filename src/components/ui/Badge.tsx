@@ -5,12 +5,12 @@ interface BadgeProps {
 }
 
 const variantStyles = {
-  default: 'bg-gray-100 text-gray-700',
-  success: 'bg-green-100 text-green-700',
-  warning: 'bg-yellow-100 text-yellow-700',
-  error: 'bg-red-100 text-red-700',
-  info: 'bg-blue-100 text-blue-700',
-  purple: 'bg-purple-100 text-purple-700',
+  default: 'bg-[var(--color-info-light)] text-[var(--color-info)]',
+  success: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
+  warning: 'bg-[var(--color-warning-light)] text-[var(--color-warning)]',
+  error: 'bg-[var(--color-error-light)] text-[var(--color-error)]',
+  info: 'bg-[var(--color-info-light)] text-[var(--color-info)]',
+  purple: 'bg-[var(--color-accent-light)] text-[var(--color-accent)]',
 };
 
 const sizeStyles = {

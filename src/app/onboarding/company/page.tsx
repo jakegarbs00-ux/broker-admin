@@ -176,7 +176,7 @@ export default function CompanyOnboardingPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
           </div>
         </div>
       </DashboardShell>
@@ -204,7 +204,7 @@ export default function CompanyOnboardingPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Company Name <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -219,7 +219,7 @@ export default function CompanyOnboardingPage() {
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Company Number
                   </label>
                   <input
@@ -229,7 +229,7 @@ export default function CompanyOnboardingPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Industry
                   </label>
                   <input
@@ -241,7 +241,7 @@ export default function CompanyOnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Website
                 </label>
                 <input
@@ -261,7 +261,7 @@ export default function CompanyOnboardingPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     First Name
                   </label>
                   <input
@@ -271,7 +271,7 @@ export default function CompanyOnboardingPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Last Name
                   </label>
                   <input
@@ -283,7 +283,7 @@ export default function CompanyOnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Address Line 1
                 </label>
                 <input
@@ -294,7 +294,7 @@ export default function CompanyOnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Address Line 2
                 </label>
                 <input
@@ -306,7 +306,7 @@ export default function CompanyOnboardingPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     City
                   </label>
                   <input
@@ -316,7 +316,7 @@ export default function CompanyOnboardingPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Postcode
                   </label>
                   <input
@@ -328,7 +328,7 @@ export default function CompanyOnboardingPage() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Country
                 </label>
                 <input
@@ -341,7 +341,7 @@ export default function CompanyOnboardingPage() {
 
               <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Director Date of Birth
                   </label>
                   <input
@@ -352,7 +352,7 @@ export default function CompanyOnboardingPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Property Status
                   </label>
                   <select

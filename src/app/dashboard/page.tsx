@@ -70,7 +70,7 @@ function ClientDashboardContent({ userId }: { userId: string }) {
   }, [supabase, userId]);
 
   if (loading) {
-    return <p className="text-gray-500">Loading...</p>;
+    return <p className="text-[var(--color-text-tertiary)]">Loading...</p>;
   }
 
   return (
@@ -82,11 +82,11 @@ function ClientDashboardContent({ userId }: { userId: string }) {
 
       {/* Company profile alert */}
       {!company && (
-        <Card className="mb-6 border-yellow-200 bg-yellow-50">
+        <Card className="mb-6 border-[var(--color-warning)] bg-[var(--color-warning-light)]">
           <CardContent className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <p className="font-medium text-yellow-800">Complete your company profile</p>
-              <p className="text-sm text-yellow-700">
+              <p className="font-medium text-[var(--color-warning)]">Complete your company profile</p>
+              <p className="text-sm text-[var(--color-warning)]">
                 We need your company details before you can submit a funding application.
               </p>
             </div>
@@ -104,13 +104,13 @@ function ClientDashboardContent({ userId }: { userId: string }) {
         {company && (
           <Card>
             <CardHeader>
-              <h2 className="text-sm font-medium text-gray-500">Company</h2>
+              <h2 className="text-sm font-medium text-[var(--color-text-tertiary)]">Company</h2>
             </CardHeader>
             <CardContent>
-              <p className="text-xl font-semibold text-gray-900">{company.name}</p>
+              <p className="text-xl font-semibold text-[var(--color-text-primary)]">{company.name}</p>
               <Link
                 href="/onboarding/company"
-                className="text-sm text-blue-600 hover:text-blue-700 mt-2 inline-block"
+                className="text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] mt-2 inline-block"
               >
                 Edit details →
               </Link>
@@ -121,18 +121,18 @@ function ClientDashboardContent({ userId }: { userId: string }) {
         {/* Applications Summary */}
         <Card>
           <CardHeader>
-            <h2 className="text-sm font-medium text-gray-500">Applications</h2>
+            <h2 className="text-sm font-medium text-[var(--color-text-tertiary)]">Applications</h2>
           </CardHeader>
           <CardContent>
-            <p className="text-3xl font-semibold text-gray-900">{applications.length}</p>
-            <p className="text-sm text-gray-500 mt-1">Total applications</p>
+            <p className="text-3xl font-semibold text-[var(--color-text-primary)]">{applications.length}</p>
+            <p className="text-sm text-[var(--color-text-tertiary)] mt-1">Total applications</p>
           </CardContent>
         </Card>
 
         {/* Quick Action */}
         <Card>
           <CardHeader>
-            <h2 className="text-sm font-medium text-gray-500">Quick Action</h2>
+            <h2 className="text-sm font-medium text-[var(--color-text-tertiary)]">Quick Action</h2>
           </CardHeader>
           <CardContent>
             {company ? (
@@ -154,8 +154,8 @@ function ClientDashboardContent({ userId }: { userId: string }) {
       <Card className="mt-6">
         <CardHeader>
           <div className="flex items-center justify-between">
-            <h2 className="font-medium text-gray-900">Recent Applications</h2>
-            <Link href="/applications" className="text-sm text-blue-600 hover:text-blue-700">
+            <h2 className="font-medium text-[var(--color-text-primary)]">Recent Applications</h2>
+            <Link href="/applications" className="text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]">
               View all →
             </Link>
           </div>
@@ -181,13 +181,13 @@ function ClientDashboardContent({ userId }: { userId: string }) {
                 <Link
                   key={app.id}
                   href={`/applications/${app.id}`}
-                  className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between px-6 py-4 hover:bg-[var(--color-bg-tertiary)] transition-colors"
                 >
                   <div>
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-[var(--color-text-primary)]">
                       £{app.requested_amount?.toLocaleString() ?? '—'}
                     </p>
-                    <p className="text-sm text-gray-500">{app.loan_type}</p>
+                    <p className="text-sm text-[var(--color-text-tertiary)]">{app.loan_type}</p>
                   </div>
                   <Badge variant={getStageBadgeVariant(app.stage)}>
                     {formatStage(app.stage)}
@@ -337,7 +337,7 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
   }, [supabase, userId]);
 
   if (loading) {
-    return <p className="text-gray-500">Loading...</p>;
+    return <p className="text-[var(--color-text-tertiary)]">Loading...</p>;
   }
 
   return (
@@ -358,26 +358,26 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Referred Companies</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.totalCompanies}</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Referred Companies</p>
+            <p className="text-2xl font-bold text-[var(--color-text-primary)]">{stats.totalCompanies}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Total Applications</p>
-            <p className="text-2xl font-bold text-gray-900">{stats.totalApplications}</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Total Applications</p>
+            <p className="text-2xl font-bold text-[var(--color-text-primary)]">{stats.totalApplications}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Open Applications</p>
-            <p className="text-2xl font-bold text-purple-600">{stats.openApplications}</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Open Applications</p>
+            <p className="text-2xl font-bold text-[var(--color-accent)]">{stats.openApplications}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-sm text-gray-500">Total Funded</p>
-            <p className="text-2xl font-bold text-green-600">£{stats.fundedAmount.toLocaleString()}</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Total Funded</p>
+            <p className="text-2xl font-bold text-[var(--color-success)]">£{stats.fundedAmount.toLocaleString()}</p>
           </CardContent>
         </Card>
       </div>
@@ -388,7 +388,7 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">All Applications</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">All Applications</h2>
                 <Badge variant="default">{applications.length}</Badge>
               </div>
             </CardHeader>
@@ -399,21 +399,21 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
                   description="Applications from your referred companies will appear here."
                 />
               ) : (
-                <div className="divide-y divide-gray-100">
+                <div className="divide-y divide-[var(--color-border)]">
                   {applications.slice(0, 10).map((app) => (
                     <Link
                       key={app.id}
                       href={`/partner/applications/${app.id}`}
-                      className="flex items-center justify-between px-6 py-4 hover:bg-gray-50 transition-colors"
+                      className="flex items-center justify-between px-6 py-4 hover:bg-[var(--color-bg-tertiary)] transition-colors"
                     >
                       <div className="flex-1 min-w-0">
-                        <p className="font-medium text-gray-900 truncate">
+                        <p className="font-medium text-[var(--color-text-primary)] truncate">
                           {app.company_name}
                         </p>
-                        <p className="text-sm text-gray-600">
+                        <p className="text-sm text-[var(--color-text-secondary)]">
                           £{app.requested_amount?.toLocaleString()} – {app.loan_type}
                         </p>
-                        <p className="text-xs text-gray-400 mt-1">
+                        <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                           {new Date(app.created_at).toLocaleDateString('en-GB')}
                         </p>
                       </div>
@@ -426,7 +426,7 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
                     <div className="px-6 py-4 text-center">
                       <Link
                         href="/partner/applications"
-                        className="text-sm text-purple-600 hover:text-purple-700 font-medium"
+                        className="text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] font-medium"
                       >
                         View all {applications.length} applications →
                       </Link>
@@ -443,17 +443,17 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
           {/* Referral Link */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Your Referral Link</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Your Referral Link</h2>
             </CardHeader>
             <CardContent className="space-y-3">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-[var(--color-text-tertiary)]">
                 Share this link with clients to automatically link them to you.
               </p>
               <div className="flex gap-2">
                 <input
                   readOnly
                   value={referralLink}
-                  className="flex-1 px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-600"
+                  className="flex-1 px-3 py-2 bg-[var(--color-bg-primary)] border border-[var(--color-border)] rounded-lg text-xs text-[var(--color-text-primary)]"
                 />
                 <Button
                   variant="secondary"
@@ -483,8 +483,8 @@ export default function DashboardPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
           </div>
         </div>
       </DashboardShell>
@@ -495,8 +495,8 @@ export default function DashboardPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Authentication Required</p>
-          <p className="text-sm text-gray-500 mt-1">Please log in to access the dashboard.</p>
+          <p className="text-[var(--color-error)] font-medium">Authentication Required</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">Please log in to access the dashboard.</p>
         </div>
       </DashboardShell>
     );
@@ -506,8 +506,8 @@ export default function DashboardPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Profile Not Found</p>
-          <p className="text-sm text-gray-500 mt-1">Your user profile could not be loaded. Please contact support.</p>
+          <p className="text-[var(--color-error)] font-medium">Profile Not Found</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">Your user profile could not be loaded. Please contact support.</p>
         </div>
       </DashboardShell>
     );
@@ -524,8 +524,8 @@ export default function DashboardPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Redirecting to admin dashboard...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Redirecting to admin dashboard...</p>
           </div>
         </div>
       </DashboardShell>

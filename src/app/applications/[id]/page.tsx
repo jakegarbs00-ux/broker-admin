@@ -299,7 +299,7 @@ export default function ApplicationDetailPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading application...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading application...</p>
           </div>
         </div>
       </DashboardShell>
@@ -384,7 +384,7 @@ export default function ApplicationDetailPage() {
                 <div className="flex justify-between items-start">
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <span className="text-lg font-semibold text-gray-700">
+                      <span className="text-lg font-semibold text-[var(--color-text-primary)]">
                         {offer.lender?.name || 'Lender'}
                       </span>
                       {offer.status === 'accepted' && (
@@ -393,7 +393,7 @@ export default function ApplicationDetailPage() {
                         </span>
                       )}
                       {offer.status === 'declined' && (
-                        <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full font-medium">
+                        <span className="px-2 py-1 bg-gray-100 text-[var(--color-text-secondary)] text-xs rounded-full font-medium">
                           Declined
                         </span>
                       )}
@@ -405,15 +405,15 @@ export default function ApplicationDetailPage() {
                     
                     <div className="grid grid-cols-3 gap-6 text-sm">
                       <div>
-                        <p className="text-gray-500">Term</p>
+                        <p className="text-[var(--color-text-tertiary)]">Term</p>
                         <p className="font-medium text-gray-900">{offer.loan_term || '—'}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Cost of Funding</p>
+                        <p className="text-[var(--color-text-tertiary)]">Cost of Funding</p>
                         <p className="font-medium text-gray-900">{offer.cost_of_funding || '—'}</p>
                       </div>
                       <div>
-                        <p className="text-gray-500">Repayments</p>
+                        <p className="text-[var(--color-text-tertiary)]">Repayments</p>
                         <p className="font-medium text-gray-900">{offer.repayments || '—'}</p>
                       </div>
                     </div>
@@ -429,7 +429,7 @@ export default function ApplicationDetailPage() {
                       </button>
                       <button
                         onClick={() => handleDeclineOffer(offer.id)}
-                        className="px-6 py-2 border border-gray-300 text-gray-600 rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                        className="px-6 py-2 border border-gray-300 text-[var(--color-text-secondary)] rounded-lg hover:bg-gray-50 font-medium transition-colors"
                       >
                         Decline
                       </button>
@@ -438,7 +438,7 @@ export default function ApplicationDetailPage() {
                   
                   {offer.status === 'accepted' && (
                     <div className="text-right">
-                      <p className="text-sm text-gray-500">Accepted on</p>
+                      <p className="text-sm text-[var(--color-text-tertiary)]">Accepted on</p>
                       <p className="font-medium">{offer.accepted_at ? new Date(offer.accepted_at).toLocaleDateString('en-GB') : '—'}</p>
                     </div>
                   )}
@@ -494,30 +494,30 @@ export default function ApplicationDetailPage() {
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Amount</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Amount</p>
                   <p className="text-lg font-semibold text-gray-900">£{app.requested_amount?.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Loan Type</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Loan Type</p>
                   <p className="text-gray-900">{app.loan_type}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Urgency</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Urgency</p>
                   <p className="text-gray-900">{app.urgency ?? '—'}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Stage</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Stage</p>
                   <Badge variant={getStageBadgeVariant(app.stage)}>{formatStage(app.stage)}</Badge>
                 </div>
               </div>
               {app.purpose && (
                 <div className="pt-4 border-t border-gray-100">
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Purpose</p>
-                  <p className="text-gray-700 whitespace-pre-line">{app.purpose}</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Purpose</p>
+                  <p className="text-[var(--color-text-primary)] whitespace-pre-line">{app.purpose}</p>
                 </div>
               )}
               <div className="pt-4 border-t border-gray-100">
-                <p className="text-xs text-gray-500">
+                <p className="text-xs text-[var(--color-text-tertiary)]">
                   Created {new Date(app.created_at).toLocaleDateString('en-GB')} at {new Date(app.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
                 </p>
               </div>
@@ -531,7 +531,7 @@ export default function ApplicationDetailPage() {
             </CardHeader>
             <CardContent>
               {infoRequests.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">
+                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-4">
                   No information requests for this application.
                 </p>
               ) : (
@@ -548,11 +548,11 @@ export default function ApplicationDetailPage() {
                           <div className="flex-1">
                             <p className="font-medium text-gray-900">{r.title}</p>
                             {r.description && (
-                              <p className="text-sm text-gray-600 mt-1 whitespace-pre-line">
+                              <p className="text-sm text-[var(--color-text-secondary)] mt-1 whitespace-pre-line">
                                 {r.description}
                               </p>
                             )}
-                            <p className="text-xs text-gray-500 mt-2">
+                            <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
                               Requested {new Date(r.created_at).toLocaleDateString('en-GB')}
                             </p>
                           </div>
@@ -561,12 +561,12 @@ export default function ApplicationDetailPage() {
 
                         {r.client_response_text && (
                           <div className="rounded-lg bg-white border border-gray-200 p-3">
-                            <p className="text-xs font-medium text-gray-500 mb-1">Your Response</p>
-                            <p className="text-sm text-gray-800 whitespace-pre-line">
+                            <p className="text-xs font-medium text-[var(--color-text-tertiary)] mb-1">Your Response</p>
+                            <p className="text-sm text-[var(--color-text-primary)] whitespace-pre-line">
                               {r.client_response_text}
                             </p>
                             {r.client_responded_at && (
-                              <p className="text-xs text-gray-500 mt-2">
+                              <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
                                 Submitted {new Date(r.client_responded_at).toLocaleDateString('en-GB')}
                               </p>
                             )}
@@ -575,7 +575,7 @@ export default function ApplicationDetailPage() {
 
                         {canRespond && (
                           <div className="space-y-2 pt-2 border-t border-gray-200">
-                            <p className="text-xs text-gray-600">
+                            <p className="text-xs text-[var(--color-text-secondary)]">
                               Respond to this request below. You can also upload supporting documents.
                             </p>
                             <textarea
@@ -619,7 +619,7 @@ export default function ApplicationDetailPage() {
             </CardHeader>
             <CardContent className="space-y-4">
               {docs.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-2">
+                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-2">
                   No documents uploaded yet.
                 </p>
               ) : (
@@ -639,7 +639,7 @@ export default function ApplicationDetailPage() {
                         >
                           {d.original_filename ?? 'View document'}
                         </a>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                           {new Date(d.created_at).toLocaleDateString('en-GB')}
                         </p>
                       </div>
@@ -650,7 +650,7 @@ export default function ApplicationDetailPage() {
 
               {/* Upload form */}
               <div className="border-t border-gray-200 pt-4 space-y-3">
-                <p className="text-sm font-medium text-gray-700">Upload Document</p>
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">Upload Document</p>
                 <div className="space-y-2">
                   <select
                     className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -665,7 +665,7 @@ export default function ApplicationDetailPage() {
                   </select>
                   <input
                     type="file"
-                    className="w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="w-full text-sm text-[var(--color-text-tertiary)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                     onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                   />
                   <Button

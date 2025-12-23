@@ -15,10 +15,10 @@ export default function DashboardShell({ children }: DashboardShellProps) {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--color-bg-secondary)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-          <p className="text-sm text-gray-500">Loading...</p>
+          <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
         </div>
       </div>
     );
@@ -32,7 +32,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
   const email = user.email ?? 'Unknown';
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen">
       {/* Mobile sidebar overlay */}
       {sidebarOpen && (
         <div 
@@ -51,7 +51,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
       </div>
 
       {/* Main content area - offset by sidebar width on desktop */}
-      <div className="lg:pl-64 flex flex-col min-h-screen">
+      <div className="lg:pl-60 flex flex-col min-h-screen">
         <Header 
           email={email} 
           role={role} 

@@ -120,8 +120,8 @@ export default function PartnerCompanyDetailPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading company...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading company...</p>
           </div>
         </div>
       </DashboardShell>
@@ -132,8 +132,8 @@ export default function PartnerCompanyDetailPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">{error || 'Company not found'}</p>
-          <Link href="/partner/companies" className="text-purple-600 hover:text-purple-700 text-sm mt-4 inline-block">
+          <p className="text-[var(--color-error)] font-medium">{error || 'Company not found'}</p>
+          <Link href="/partner/companies" className="text-[var(--color-accent)] hover:text-purple-700 text-sm mt-4 inline-block">
             ← Back to Companies
           </Link>
         </div>
@@ -149,7 +149,7 @@ export default function PartnerCompanyDetailPage() {
     <DashboardShell>
       {/* Back link */}
       <div className="mb-4">
-        <Link href="/partner/companies" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+        <Link href="/partner/companies" className="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -159,11 +159,11 @@ export default function PartnerCompanyDetailPage() {
 
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">{company.name}</h1>
+        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">{company.name}</h1>
         {company.industry && (
-          <p className="text-gray-600">{company.industry}</p>
+          <p className="text-[var(--color-text-secondary)]">{company.industry}</p>
         )}
-        <p className="text-sm text-gray-500 mt-1">
+        <p className="text-sm text-[var(--color-text-tertiary)] mt-1">
           Added {new Date(company.created_at).toLocaleDateString('en-GB')}
         </p>
       </div>
@@ -174,31 +174,31 @@ export default function PartnerCompanyDetailPage() {
           {/* Company Information */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Company Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Company Information</h2>
             </CardHeader>
             <CardContent>
               <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <dt className="text-xs text-gray-500 uppercase">Company Name</dt>
-                  <dd className="text-sm font-medium text-gray-900">{company.name}</dd>
+                  <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Company Name</dt>
+                  <dd className="text-sm font-medium text-[var(--color-text-primary)]">{company.name}</dd>
                 </div>
                 {company.company_number && (
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Company Number</dt>
-                    <dd className="text-sm font-medium text-gray-900">{company.company_number}</dd>
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Company Number</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{company.company_number}</dd>
                   </div>
                 )}
                 {company.industry && (
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Industry</dt>
-                    <dd className="text-sm font-medium text-gray-900">{company.industry}</dd>
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Industry</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{company.industry}</dd>
                   </div>
                 )}
                 {company.website && (
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Website</dt>
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Website</dt>
                     <dd className="text-sm font-medium">
-                      <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-purple-600 hover:underline">
+                      <a href={company.website} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent)] hover:underline">
                         {company.website.replace(/^https?:\/\//, '')}
                       </a>
                     </dd>
@@ -206,8 +206,8 @@ export default function PartnerCompanyDetailPage() {
                 )}
                 {director && (
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Client Email</dt>
-                    <dd className="text-sm font-medium text-gray-900">{director.email || '—'}</dd>
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Client Email</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{director.email || '—'}</dd>
                   </div>
                 )}
               </dl>
@@ -218,40 +218,40 @@ export default function PartnerCompanyDetailPage() {
           {director && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">Director Information</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Director Information</h2>
               </CardHeader>
               <CardContent>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <dt className="text-xs text-gray-500 uppercase">Name</dt>
-                    <dd className="text-sm font-medium text-gray-900">
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Name</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">
                       {director.first_name} {director.last_name}
                     </dd>
                   </div>
                   {director.email && (
                     <div>
-                      <dt className="text-xs text-gray-500 uppercase">Email</dt>
-                      <dd className="text-sm font-medium text-gray-900">{director.email}</dd>
+                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Email</dt>
+                      <dd className="text-sm font-medium text-[var(--color-text-primary)]">{director.email}</dd>
                     </div>
                   )}
                   {director.phone && (
                     <div>
-                      <dt className="text-xs text-gray-500 uppercase">Phone</dt>
-                      <dd className="text-sm font-medium text-gray-900">{director.phone}</dd>
+                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Phone</dt>
+                      <dd className="text-sm font-medium text-[var(--color-text-primary)]">{director.phone}</dd>
                     </div>
                   )}
                   {director.date_of_birth && (
                     <div>
-                      <dt className="text-xs text-gray-500 uppercase">Date of Birth</dt>
-                      <dd className="text-sm font-medium text-gray-900">
+                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Date of Birth</dt>
+                      <dd className="text-sm font-medium text-[var(--color-text-primary)]">
                         {new Date(director.date_of_birth).toLocaleDateString('en-GB')}
                       </dd>
                     </div>
                   )}
                   {director.address_line_1 && (
                     <div className="sm:col-span-2">
-                      <dt className="text-xs text-gray-500 uppercase">Address</dt>
-                      <dd className="text-sm font-medium text-gray-900">
+                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Address</dt>
+                      <dd className="text-sm font-medium text-[var(--color-text-primary)]">
                         {[
                           director.address_line_1,
                           director.address_line_2,
@@ -273,14 +273,14 @@ export default function PartnerCompanyDetailPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Applications</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Applications</h2>
                 <Badge variant="default">{applications.length}</Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {applications.length === 0 ? (
                 <div className="p-6 text-center">
-                  <p className="text-sm text-gray-500">No applications yet</p>
+                  <p className="text-sm text-[var(--color-text-tertiary)]">No applications yet</p>
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
@@ -288,15 +288,15 @@ export default function PartnerCompanyDetailPage() {
                     <Link
                       key={app.id}
                       href={`/partner/applications/${app.id}`}
-                      className="block p-4 hover:bg-gray-50 transition-colors"
+                      className="block p-4 hover:bg-[var(--color-bg-tertiary)] transition-colors"
                     >
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-[var(--color-text-primary)]">
                             £{app.requested_amount?.toLocaleString()}
                           </p>
-                          <p className="text-sm text-gray-600">{app.loan_type}</p>
-                          <p className="text-xs text-gray-400 mt-1">
+                          <p className="text-sm text-[var(--color-text-secondary)]">{app.loan_type}</p>
+                          <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                             {new Date(app.created_at).toLocaleDateString('en-GB')}
                           </p>
                         </div>
@@ -317,20 +317,20 @@ export default function PartnerCompanyDetailPage() {
           {/* Summary */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Summary</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Summary</h2>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Applications</span>
-                <span className="font-medium text-gray-900">{applications.length}</span>
+                <span className="text-sm text-[var(--color-text-secondary)]">Total Applications</span>
+                <span className="font-medium text-[var(--color-text-primary)]">{applications.length}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Open Applications</span>
-                <span className="font-medium text-purple-600">{openApplications.length}</span>
+                <span className="text-sm text-[var(--color-text-secondary)]">Open Applications</span>
+                <span className="font-medium text-[var(--color-accent)]">{openApplications.length}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Requested</span>
-                <span className="font-medium text-gray-900">£{totalRequested.toLocaleString()}</span>
+                <span className="text-sm text-[var(--color-text-secondary)]">Total Requested</span>
+                <span className="font-medium text-[var(--color-text-primary)]">£{totalRequested.toLocaleString()}</span>
               </div>
             </CardContent>
           </Card>
@@ -339,7 +339,7 @@ export default function PartnerCompanyDetailPage() {
           {applications.length > 0 && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">By Status</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">By Status</h2>
               </CardHeader>
               <CardContent className="space-y-2">
                 {Array.from(new Set(applications.map((a) => a.stage))).map((stage) => {
@@ -349,7 +349,7 @@ export default function PartnerCompanyDetailPage() {
                       <Badge variant={getStageBadgeVariant(stage)}>
                         {formatStage(stage)}
                       </Badge>
-                      <span className="text-sm font-medium text-gray-900">{count}</span>
+                      <span className="text-sm font-medium text-[var(--color-text-primary)]">{count}</span>
                     </div>
                   );
                 })}

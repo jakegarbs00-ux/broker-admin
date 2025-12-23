@@ -117,7 +117,7 @@ export default function AdminPartnersPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading partner companies...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading partner companies...</p>
           </div>
         </div>
       </DashboardShell>
@@ -129,7 +129,7 @@ export default function AdminPartnersPage() {
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -146,7 +146,7 @@ export default function AdminPartnersPage() {
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-2xl font-bold">Partner Companies</h1>
-            <p className="text-gray-600">{partnerCompanies.length} registered partner companies</p>
+            <p className="text-[var(--color-text-secondary)]">{partnerCompanies.length} registered partner companies</p>
           </div>
           <Link href="/admin/partners/create">
             <Button variant="primary">Create Partner Company</Button>
@@ -161,10 +161,10 @@ export default function AdminPartnersPage() {
 
         <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
           {/* Main table - takes 3 columns */}
-          <div className="lg:col-span-3 bg-white rounded-lg border p-6">
+          <div className="lg:col-span-3 bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-lg font-semibold">All Partner Companies</h2>
-              <span className="text-gray-500">{partnerCompanies.length}</span>
+              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">All Partner Companies</h2>
+              <span className="text-[var(--color-text-tertiary)]">{partnerCompanies.length}</span>
             </div>
 
             {partnerCompanies.length === 0 ? (
@@ -183,23 +183,23 @@ export default function AdminPartnersPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[600px]">
                   <thead>
-                    <tr className="text-left text-sm text-gray-500 border-b">
-                      <th className="pb-3 font-medium">COMPANY NAME</th>
-                      <th className="pb-3 font-medium">USERS</th>
-                      <th className="pb-3 font-medium">REFERRALS</th>
-                      <th className="pb-3 font-medium">APPLICATIONS</th>
-                      <th className="pb-3 font-medium">LAST REFERRAL</th>
+                    <tr className="text-left text-sm text-[var(--color-text-tertiary)] border-b border-[var(--color-border)]">
+                      <th className="pb-3 font-medium text-[var(--color-text-tertiary)] text-xs uppercase tracking-wider">COMPANY NAME</th>
+                      <th className="pb-3 font-medium text-[var(--color-text-tertiary)] text-xs uppercase tracking-wider">USERS</th>
+                      <th className="pb-3 font-medium text-[var(--color-text-tertiary)] text-xs uppercase tracking-wider">REFERRALS</th>
+                      <th className="pb-3 font-medium text-[var(--color-text-tertiary)] text-xs uppercase tracking-wider">APPLICATIONS</th>
+                      <th className="pb-3 font-medium text-[var(--color-text-tertiary)] text-xs uppercase tracking-wider">LAST REFERRAL</th>
                       <th className="pb-3"></th>
                     </tr>
                   </thead>
                   <tbody>
                     {partnerCompanies.map((pc) => (
-                      <tr key={pc.id} className="border-b hover:bg-gray-50">
-                        <td className="py-4 font-medium">{pc.name}</td>
-                        <td className="py-4">{pc.userCount}</td>
-                        <td className="py-4">{pc.referralCount}</td>
-                        <td className="py-4">{pc.applicationCount}</td>
-                        <td className="py-4">
+                      <tr key={pc.id} className="border-b border-[var(--color-border)] hover:bg-[var(--color-bg-tertiary)]">
+                        <td className="py-4 font-medium text-[var(--color-text-primary)]">{pc.name}</td>
+                        <td className="py-4 text-[var(--color-text-secondary)]">{pc.userCount}</td>
+                        <td className="py-4 text-[var(--color-text-secondary)]">{pc.referralCount}</td>
+                        <td className="py-4 text-[var(--color-text-secondary)]">{pc.applicationCount}</td>
+                        <td className="py-4 text-[var(--color-text-secondary)]">
                           {pc.lastReferralDate
                             ? new Date(pc.lastReferralDate).toLocaleDateString('en-GB')
                             : '—'}
@@ -207,7 +207,7 @@ export default function AdminPartnersPage() {
                         <td className="py-4">
                           <Link
                             href={`/admin/partners/${pc.id}`}
-                            className="text-blue-600 hover:underline"
+                            className="text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] hover:underline"
                           >
                             View →
                           </Link>
@@ -223,20 +223,20 @@ export default function AdminPartnersPage() {
           {/* Sidebar - takes 1 column */}
           <div className="space-y-6">
             {/* Summary card */}
-            <div className="bg-white rounded-lg border p-6">
-              <h3 className="font-semibold mb-4">Summary</h3>
+            <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-6">
+              <h3 className="font-semibold mb-4 text-[var(--color-text-primary)]">Summary</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Companies</span>
-                  <span className="font-medium">{partnerCompanies.length}</span>
+                  <span className="text-[var(--color-text-secondary)]">Total Companies</span>
+                  <span className="font-medium text-[var(--color-text-primary)]">{partnerCompanies.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Referrals</span>
-                  <span className="font-medium">{totalReferrals}</span>
+                  <span className="text-[var(--color-text-secondary)]">Total Referrals</span>
+                  <span className="font-medium text-[var(--color-text-primary)]">{totalReferrals}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Applications</span>
-                  <span className="font-medium">{totalApplications}</span>
+                  <span className="text-[var(--color-text-secondary)]">Total Applications</span>
+                  <span className="font-medium text-[var(--color-text-primary)]">{totalApplications}</span>
                 </div>
               </div>
             </div>

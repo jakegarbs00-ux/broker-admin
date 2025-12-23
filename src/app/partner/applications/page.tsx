@@ -153,8 +153,8 @@ export default function PartnerApplicationsPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading applications...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading applications...</p>
           </div>
         </div>
       </DashboardShell>
@@ -165,7 +165,7 @@ export default function PartnerApplicationsPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">You need to be logged in.</p>
+          <p className="text-[var(--color-error)] font-medium">You need to be logged in.</p>
         </div>
       </DashboardShell>
     );
@@ -175,8 +175,8 @@ export default function PartnerApplicationsPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-[var(--color-error)] font-medium">Access Denied</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">
             You are not a partner. This page is only available to users with the PARTNER role.
           </p>
         </div>
@@ -189,25 +189,25 @@ export default function PartnerApplicationsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-2xl font-bold text-gray-900">Referred Client Applications</h1>
-            <p className="text-gray-600">{apps.length} applications</p>
+            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Referred Client Applications</h1>
+            <p className="text-[var(--color-text-secondary)]">{apps.length} applications</p>
           </div>
           <Link href="/partner/applications/new">
-            <button className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700">
+            <button className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-lg hover:bg-[var(--color-accent-hover)]">
               New Application
             </button>
           </Link>
         </div>
 
         {error && (
-          <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-sm text-red-600">{error}</p>
+          <div className="p-4 bg-[var(--color-error-light)] border border-[var(--color-error)] rounded-lg">
+            <p className="text-sm text-[var(--color-error)]">{error}</p>
           </div>
         )}
 
         {apps.length === 0 ? (
           <div className="text-center py-12">
-            <p className="text-gray-600 text-sm">
+            <p className="text-[var(--color-text-secondary)] text-sm">
               You don&apos;t have any applications for your clients yet.
             </p>
           </div>
@@ -225,16 +225,16 @@ export default function PartnerApplicationsPage() {
                 <Link
                   key={a.id}
                   href={`/partner/applications/${a.id}`}
-                  className="flex items-center justify-between rounded-md border bg-white px-4 py-3 hover:bg-gray-50 transition-colors"
+                  className="flex items-center justify-between rounded-md border border-[var(--color-border)] bg-[var(--color-surface)] px-4 py-3 hover:bg-[var(--color-bg-tertiary)] transition-colors"
                 >
                   <div>
-                    <p className="text-sm text-gray-500">
+                    <p className="text-sm text-[var(--color-text-tertiary)]">
                       {a.company?.name ?? 'Company pending'} • {clientLabel}
                     </p>
-                    <p className="text-lg font-semibold">
+                    <p className="text-lg font-semibold text-[var(--color-text-primary)]">
                       £{a.requested_amount.toLocaleString()} – {a.loan_type}
                     </p>
-                    <p className="text-xs text-gray-500">
+                    <p className="text-xs text-[var(--color-text-tertiary)]">
                       {new Date(a.created_at).toLocaleString()}
                     </p>
                   </div>
@@ -242,8 +242,8 @@ export default function PartnerApplicationsPage() {
                     <span
                       className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
                         isDraft
-                          ? 'bg-yellow-100 text-yellow-800'
-                          : 'bg-gray-100 text-gray-800'
+                          ? 'bg-[var(--color-warning-light)] text-[var(--color-warning)]'
+                          : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]'
                       }`}
                     >
                       {isDraft ? 'Draft (hidden)' : a.stage}

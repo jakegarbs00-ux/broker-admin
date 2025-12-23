@@ -179,7 +179,7 @@ export default function AdminPartnerCompanyDetailPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading partner company...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading partner company...</p>
           </div>
         </div>
       </DashboardShell>
@@ -191,7 +191,7 @@ export default function AdminPartnerCompanyDetailPage() {
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -217,11 +217,11 @@ export default function AdminPartnerCompanyDetailPage() {
       <div className="p-6">
         <div className="flex justify-between items-start mb-6">
           <div>
-            <Link href="/admin/partners" className="text-sm text-gray-500 hover:underline mb-2 block">
+            <Link href="/admin/partners" className="text-sm text-[var(--color-text-tertiary)] hover:underline mb-2 block">
               ← Back to Partners
             </Link>
             <h1 className="text-2xl font-bold">{partnerCompany.name}</h1>
-            <p className="text-gray-500">Partner Company</p>
+            <p className="text-[var(--color-text-tertiary)]">Partner Company</p>
           </div>
         </div>
 
@@ -246,7 +246,7 @@ export default function AdminPartnerCompanyDetailPage() {
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Company Name</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Company Name</label>
                   <input
                     value={formData.name || ''}
                     onChange={(e) => handleChange('name', e.target.value)}
@@ -255,7 +255,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Registration Number</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Registration Number</label>
                   <input
                     value={formData.registration_number || ''}
                     onChange={(e) => handleChange('registration_number', e.target.value)}
@@ -264,7 +264,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Address Line 1</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Address Line 1</label>
                   <input
                     value={formData.address_line_1 || ''}
                     onChange={(e) => handleChange('address_line_1', e.target.value)}
@@ -273,7 +273,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">City</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">City</label>
                   <input
                     value={formData.city || ''}
                     onChange={(e) => handleChange('city', e.target.value)}
@@ -282,7 +282,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Postcode</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Postcode</label>
                   <input
                     value={formData.postcode || ''}
                     onChange={(e) => handleChange('postcode', e.target.value)}
@@ -291,7 +291,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Website</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Website</label>
                   <input
                     value={formData.website || ''}
                     onChange={(e) => handleChange('website', e.target.value)}
@@ -315,12 +315,12 @@ export default function AdminPartnerCompanyDetailPage() {
             <div className="bg-white rounded-lg border p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold">Referred Companies</h2>
-                <span className="text-gray-500">{referredCompanies.length}</span>
+                <span className="text-[var(--color-text-tertiary)]">{referredCompanies.length}</span>
               </div>
               {referredCompanies.length > 0 ? (
                 <table className="w-full">
                   <thead>
-                    <tr className="text-left text-sm text-gray-500 border-b">
+                    <tr className="text-left text-sm text-[var(--color-text-tertiary)] border-b">
                       <th className="pb-2">Company</th>
                       <th className="pb-2">Referred By</th>
                       <th className="pb-2">Date</th>
@@ -350,7 +350,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   </tbody>
                 </table>
               ) : (
-                <p className="text-gray-500">No referred companies yet</p>
+                <p className="text-[var(--color-text-tertiary)]">No referred companies yet</p>
               )}
             </div>
 
@@ -358,12 +358,12 @@ export default function AdminPartnerCompanyDetailPage() {
             <div className="bg-white rounded-lg border p-6">
               <div className="flex justify-between items-center mb-4">
                 <h2 className="text-lg font-semibold">Applications</h2>
-                <span className="text-gray-500">{applications.length}</span>
+                <span className="text-[var(--color-text-tertiary)]">{applications.length}</span>
               </div>
               {applications.length > 0 ? (
                 <table className="w-full">
                   <thead>
-                    <tr className="text-left text-sm text-gray-500 border-b">
+                    <tr className="text-left text-sm text-[var(--color-text-tertiary)] border-b">
                       <th className="pb-2">Company</th>
                       <th className="pb-2">Amount</th>
                       <th className="pb-2">Type</th>
@@ -386,7 +386,7 @@ export default function AdminPartnerCompanyDetailPage() {
                                   ? 'bg-blue-100 text-blue-800'
                                   : app.stage === 'declined'
                                     ? 'bg-red-100 text-red-800'
-                                    : 'bg-gray-100 text-gray-800'
+                                    : 'bg-gray-100 text-[var(--color-text-primary)]'
                             }`}
                           >
                             {app.stage}
@@ -405,7 +405,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   </tbody>
                 </table>
               ) : (
-                <p className="text-gray-500">No applications yet</p>
+                <p className="text-[var(--color-text-tertiary)]">No applications yet</p>
               )}
             </div>
           </div>
@@ -417,19 +417,19 @@ export default function AdminPartnerCompanyDetailPage() {
               <h3 className="font-semibold mb-4">Summary</h3>
               <div className="space-y-3">
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Users</span>
+                  <span className="text-[var(--color-text-secondary)]">Total Users</span>
                   <span className="font-medium">{users.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Referrals</span>
+                  <span className="text-[var(--color-text-secondary)]">Total Referrals</span>
                   <span className="font-medium">{referredCompanies.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Total Applications</span>
+                  <span className="text-[var(--color-text-secondary)]">Total Applications</span>
                   <span className="font-medium">{applications.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-gray-600">Funded</span>
+                  <span className="text-[var(--color-text-secondary)]">Funded</span>
                   <span className="font-medium text-green-600">{totalFunded}</span>
                 </div>
               </div>
@@ -453,7 +453,7 @@ export default function AdminPartnerCompanyDetailPage() {
               </div>
               <div className="space-y-3">
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Bank Name</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Bank Name</label>
                   <input
                     value={formData.bank_name || ''}
                     onChange={(e) => handleChange('bank_name', e.target.value)}
@@ -462,7 +462,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Account Name</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Account Name</label>
                   <input
                     value={formData.bank_account_name || ''}
                     onChange={(e) => handleChange('bank_account_name', e.target.value)}
@@ -471,7 +471,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Account Number</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Account Number</label>
                   <input
                     value={formData.bank_account_number || ''}
                     onChange={(e) => handleChange('bank_account_number', e.target.value)}
@@ -480,7 +480,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   />
                 </div>
                 <div>
-                  <label className="text-sm text-gray-500 block mb-1">Sort Code</label>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Sort Code</label>
                   <input
                     value={formData.bank_sort_code || ''}
                     onChange={(e) => handleChange('bank_sort_code', e.target.value)}
@@ -504,7 +504,7 @@ export default function AdminPartnerCompanyDetailPage() {
             <div className="bg-white rounded-lg border p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Users</h3>
-                <span className="text-gray-500 text-sm">{users.length}</span>
+                <span className="text-[var(--color-text-tertiary)] text-sm">{users.length}</span>
               </div>
               {users.length > 0 ? (
                 <div className="space-y-2">
@@ -515,7 +515,7 @@ export default function AdminPartnerCompanyDetailPage() {
                           <p className="text-sm font-medium text-gray-900 truncate">
                             {user.first_name} {user.last_name}
                           </p>
-                          <p className="text-xs text-gray-500 truncate">{user.email}</p>
+                          <p className="text-xs text-[var(--color-text-tertiary)] truncate">{user.email}</p>
                         </div>
                         {user.is_primary_contact && (
                           <span className="px-2 py-0.5 bg-green-100 text-green-800 text-xs rounded ml-2">
@@ -533,7 +533,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   ))}
                 </div>
               ) : (
-                <p className="text-gray-500 text-sm">No users in this partner company</p>
+                <p className="text-[var(--color-text-tertiary)] text-sm">No users in this partner company</p>
               )}
             </div>
 

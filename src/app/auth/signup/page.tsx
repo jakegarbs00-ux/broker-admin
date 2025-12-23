@@ -80,7 +80,7 @@ function SignupContent() {
       <h1 className="text-2xl font-semibold">Create your account</h1>
 
       {referrerId && (
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-[var(--color-text-secondary)]">
           You were referred by a partner. We&apos;ll attach your account to them
           automatically.
         </p>

@@ -299,7 +299,7 @@ export default function AdminCompanyDetailPage() {
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -311,7 +311,7 @@ export default function AdminCompanyDetailPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading company...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading company...</p>
           </div>
         </div>
       </DashboardShell>
@@ -381,7 +381,7 @@ export default function AdminCompanyDetailPage() {
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Company Name</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Company Name</p>
                   {isEditing ? (
                     <input
                       type="text"
@@ -394,7 +394,7 @@ export default function AdminCompanyDetailPage() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Company Number</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Company Number</p>
                   {isEditing ? (
                     <input
                       type="text"
@@ -407,7 +407,7 @@ export default function AdminCompanyDetailPage() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Industry</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Industry</p>
                   {isEditing ? (
                     <input
                       type="text"
@@ -420,7 +420,7 @@ export default function AdminCompanyDetailPage() {
                   )}
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase mb-1">Website</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Website</p>
                   {isEditing ? (
                     <input
                       type="url"
@@ -434,7 +434,7 @@ export default function AdminCompanyDetailPage() {
                         {companyData.website}
                       </a>
                   ) : (
-                    <p className="text-gray-500">—</p>
+                    <p className="text-[var(--color-text-tertiary)]">—</p>
                     )
                   )}
                 </div>
@@ -451,7 +451,7 @@ export default function AdminCompanyDetailPage() {
               {directorData ? (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Full Name</p>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Full Name</p>
                     {isEditing ? (
                       <div className="flex gap-2">
                         <input
@@ -476,11 +476,11 @@ export default function AdminCompanyDetailPage() {
                     )}
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Email</p>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Email</p>
                     <p className="text-gray-900">{directorData.email || '—'}</p>
                   </div>
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Phone</p>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Phone</p>
                     {isEditing ? (
                       <input
                         type="tel"
@@ -493,7 +493,7 @@ export default function AdminCompanyDetailPage() {
                     )}
                 </div>
                 <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Date of Birth</p>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Date of Birth</p>
                     {isEditing ? (
                       <input
                         type="date"
@@ -510,7 +510,7 @@ export default function AdminCompanyDetailPage() {
                     )}
                 </div>
                 <div className="sm:col-span-2">
-                    <p className="text-xs font-medium text-gray-500 uppercase mb-1">Address</p>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Address</p>
                     {isEditing ? (
                       <div className="space-y-2">
                         <input
@@ -567,7 +567,7 @@ export default function AdminCompanyDetailPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-gray-500">No director information available</p>
+                <p className="text-[var(--color-text-tertiary)]">No director information available</p>
               )}
             </CardContent>
           </Card>
@@ -603,7 +603,7 @@ export default function AdminCompanyDetailPage() {
             </CardHeader>
             <CardContent>
               {documents.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No documents uploaded yet.</p>
+                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-4">No documents uploaded yet.</p>
               ) : (
                 <div className="space-y-2">
                   {documents.map((doc) => (
@@ -623,7 +623,7 @@ export default function AdminCompanyDetailPage() {
                         >
                           {doc.original_filename ?? 'View document'}
                         </a>
-                        <p className="text-xs text-gray-500 mt-1">
+                        <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                           Uploaded {new Date(doc.created_at).toLocaleDateString('en-GB')}
                         </p>
                       </div>
@@ -644,7 +644,7 @@ export default function AdminCompanyDetailPage() {
             </CardHeader>
             <CardContent>
               {applications.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-2">No applications yet.</p>
+                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-2">No applications yet.</p>
               ) : (
                 <div className="space-y-3">
                   {applications.map((app) => (
@@ -656,10 +656,10 @@ export default function AdminCompanyDetailPage() {
                       <p className="font-medium text-gray-900">
                         £{app.requested_amount?.toLocaleString()}
                       </p>
-                      <p className="text-sm text-gray-600">{app.loan_type}</p>
+                      <p className="text-sm text-[var(--color-text-secondary)]">{app.loan_type}</p>
                       <div className="flex items-center justify-between mt-2">
                         <Badge variant="default" size="sm">{app.stage}</Badge>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-[var(--color-text-tertiary)]">
                           {new Date(app.created_at).toLocaleDateString('en-GB')}
                         </span>
                       </div>
@@ -682,10 +682,10 @@ export default function AdminCompanyDetailPage() {
                     {company.referrer.partner_company.name}
                   </p>
                 )}
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-[var(--color-text-primary)]">
                   {company.referrer.first_name} {company.referrer.last_name}
                 </p>
-                <p className="text-sm text-gray-600">{company.referrer.email}</p>
+                <p className="text-sm text-[var(--color-text-secondary)]">{company.referrer.email}</p>
               </CardContent>
             </Card>
           )}
@@ -697,17 +697,17 @@ export default function AdminCompanyDetailPage() {
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase">Client Email</p>
+                <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Client Email</p>
                 <p className="text-sm text-gray-900">{company.owner?.[0]?.email ?? 'Unknown'}</p>
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase">Created</p>
+                <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Created</p>
                 <p className="text-sm text-gray-900">
                   {new Date(company.created_at).toLocaleDateString('en-GB')}
                 </p>
               </div>
               <div>
-                <p className="text-xs font-medium text-gray-500 uppercase">Total Documents</p>
+                <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Total Documents</p>
                 <p className="text-sm text-gray-900">{documents.length}</p>
               </div>
             </CardContent>

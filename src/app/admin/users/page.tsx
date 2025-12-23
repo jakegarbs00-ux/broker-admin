@@ -87,8 +87,8 @@ export default function AdminUsersPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading users...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading users...</p>
           </div>
         </div>
       </DashboardShell>
@@ -99,8 +99,8 @@ export default function AdminUsersPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-[var(--color-error)] font-medium">Access Denied</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -116,8 +116,8 @@ export default function AdminUsersPage() {
       />
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="mb-6 p-4 bg-[var(--color-error-light)] border border-[var(--color-error)] rounded-lg">
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
         </div>
       )}
 
@@ -131,20 +131,20 @@ export default function AdminUsersPage() {
                 placeholder="Search by name or email..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
               />
             </div>
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
             >
               <option value="ALL">All Roles</option>
               <option value="CLIENT">Clients</option>
               <option value="PARTNER">Partners</option>
               <option value="ADMIN">Admins</option>
             </select>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-[var(--color-text-tertiary)]">
               Showing <span className="font-medium">{filteredUsers.length}</span> of{' '}
               <span className="font-medium">{users.length}</span> users
             </p>
@@ -158,7 +158,7 @@ export default function AdminUsersPage() {
           {filteredUsers.length === 0 ? (
             <EmptyState
               icon={
-                <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="w-12 h-12 text-[var(--color-text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                 </svg>
               }
@@ -169,26 +169,26 @@ export default function AdminUsersPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                  <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Name
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Email
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Role
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Association
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Created
                     </th>
                     <th className="px-6 py-3"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-[var(--color-border)]">
                   {filteredUsers.map((user) => {
                     // Get association name based on role
                     let associationName = '—';
@@ -203,16 +203,16 @@ export default function AdminUsersPage() {
                     return (
                       <tr
                         key={user.id}
-                        className="hover:bg-gray-50 transition-colors cursor-pointer"
+                        className="hover:bg-[var(--color-bg-secondary)] transition-colors cursor-pointer"
                         onClick={() => (window.location.href = `/admin/users/${user.id}`)}
                       >
                         <td className="px-6 py-4">
-                          <p className="font-medium text-gray-900">
+                          <p className="font-medium text-[var(--color-text-primary)]">
                             {formatFullName(user.first_name, user.last_name)}
                           </p>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-600">{user.email}</span>
+                          <span className="text-sm text-[var(--color-text-secondary)]">{user.email}</span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <Badge
@@ -235,15 +235,15 @@ export default function AdminUsersPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-600">{associationName}</span>
+                          <span className="text-sm text-[var(--color-text-secondary)]">{associationName}</span>
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-tertiary)]">
                           {new Date(user.created_at).toLocaleDateString('en-GB')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <Link
                             href={`/admin/users/${user.id}`}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            className="text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] text-sm font-medium"
                             onClick={(e) => e.stopPropagation()}
                           >
                             Edit →

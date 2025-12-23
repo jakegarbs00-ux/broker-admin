@@ -151,21 +151,18 @@ export default function Sidebar({ role, userId, onClose }: SidebarProps) {
   const filteredItems = navItems.filter((item) => item.roles.includes(role));
 
   return (
-    <aside className="w-64 bg-white border-r border-gray-200 min-h-screen flex flex-col">
+    <aside className="w-60 bg-[var(--color-surface)] border-r border-[var(--color-border)] min-h-screen flex flex-col">
       {/* Logo / Brand */}
-      <div className="h-16 flex items-center justify-between px-6 border-b border-gray-200">
+      <div className="p-4 border-b border-[var(--color-border)]">
         <Link href="/dashboard" className="flex items-center gap-2" onClick={onClose}>
-          <div className="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
-            <span className="text-white font-bold text-sm">F</span>
-          </div>
-          <span className="text-xl font-semibold text-gray-900">Flôka</span>
+          <span className="font-semibold text-lg tracking-tight text-[var(--color-text-primary)]">Floka</span>
         </Link>
         
         {/* Mobile close button */}
         {onClose && (
           <button
             onClick={onClose}
-            className="lg:hidden p-2 text-gray-500 hover:text-gray-700 hover:bg-gray-100 rounded-lg -mr-2"
+            className="lg:hidden absolute top-4 right-4 p-2 text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] rounded-lg transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -183,13 +180,13 @@ export default function Sidebar({ role, userId, onClose }: SidebarProps) {
               key={item.href}
               href={item.href}
               onClick={onClose}
-              className={`flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`flex items-center gap-3 px-3 py-2 rounded-lg transition-colors ${
                 isActive
-                  ? 'bg-blue-50 text-blue-700'
-                  : 'text-gray-700 hover:bg-gray-100'
+                  ? 'bg-[var(--color-accent-light)] text-[var(--color-accent)] font-medium'
+                  : 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)]'
               }`}
             >
-              <span className={isActive ? 'text-blue-600' : 'text-gray-400'}>
+              <span className={isActive ? 'text-[var(--color-accent)]' : 'text-[var(--color-text-tertiary)]'}>
                 {item.icon}
               </span>
               {item.label}
@@ -204,7 +201,7 @@ export default function Sidebar({ role, userId, onClose }: SidebarProps) {
           <Link
             href="/partner/companies/new"
             onClick={onClose}
-            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-purple-600 text-white text-sm font-medium rounded-lg hover:bg-purple-700 transition-colors"
+            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[var(--color-accent)] text-white text-sm font-medium rounded-lg hover:bg-[var(--color-accent-hover)] transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
@@ -219,7 +216,7 @@ export default function Sidebar({ role, userId, onClose }: SidebarProps) {
           <Link
             href="/applications/new"
             onClick={onClose}
-            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            className="flex items-center justify-center gap-2 w-full px-4 py-2 bg-[var(--color-accent)] text-white text-sm font-medium rounded-lg hover:bg-[var(--color-accent-hover)] transition-colors"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />

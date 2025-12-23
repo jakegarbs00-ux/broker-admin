@@ -211,7 +211,7 @@ export default function PartnerApplicationDetailPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading application...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading application...</p>
           </div>
         </div>
       </DashboardShell>
@@ -222,8 +222,8 @@ export default function PartnerApplicationDetailPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-[var(--color-error)] font-medium">Access Denied</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -233,8 +233,8 @@ export default function PartnerApplicationDetailPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">{error || 'Application not found'}</p>
-          <Link href="/partner/applications" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+          <p className="text-[var(--color-error)] font-medium">{error || 'Application not found'}</p>
+          <Link href="/partner/applications" className="text-[var(--color-accent)] hover:underline text-sm mt-2 inline-block">
             ← Back to Applications
           </Link>
         </div>
@@ -245,14 +245,14 @@ export default function PartnerApplicationDetailPage() {
   return (
     <DashboardShell>
       <div className="mb-6">
-        <Link href="/partner/applications" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4">
+        <Link href="/partner/applications" className="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] flex items-center gap-1 mb-4">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
           Back to Applications
         </Link>
-        <h1 className="text-2xl font-bold text-gray-900">Application Details</h1>
-        <p className="text-gray-600 mt-1">
+        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Application Details</h1>
+        <p className="text-[var(--color-text-secondary)] mt-1">
           £{application.requested_amount?.toLocaleString()} • {application.loan_type}
         </p>
       </div>
@@ -263,20 +263,20 @@ export default function PartnerApplicationDetailPage() {
           {/* Application Info */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Application Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Application Information</h2>
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Amount Requested</p>
-                  <p className="text-gray-900">£{application.requested_amount?.toLocaleString()}</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Amount Requested</p>
+                  <p className="text-[var(--color-text-primary)]">£{application.requested_amount?.toLocaleString()}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Loan Type</p>
-                  <p className="text-gray-900">{application.loan_type}</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Loan Type</p>
+                  <p className="text-[var(--color-text-primary)]">{application.loan_type}</p>
                 </div>
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Stage</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Stage</p>
                   <span
                     className={`inline-block px-2 py-1 rounded text-sm ${
                       application.stage === 'funded'
@@ -290,12 +290,12 @@ export default function PartnerApplicationDetailPage() {
                               : application.stage === 'withdrawn'
                                 ? 'bg-red-100 text-red-800'
                                 : application.stage === 'in_credit'
-                                  ? 'bg-yellow-100 text-yellow-800'
+                                  ? 'bg-[var(--color-warning-light)] text-[var(--color-warning)]'
                                   : application.stage === 'information_requested'
                                     ? 'bg-orange-100 text-orange-800'
                                     : application.stage === 'submitted'
                                       ? 'bg-blue-100 text-blue-800'
-                                      : 'bg-gray-100 text-gray-800'
+                                      : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)]'
                     }`}
                   >
                     {application.stage?.replace('_', ' ')}
@@ -303,19 +303,19 @@ export default function PartnerApplicationDetailPage() {
                 </div>
                 {application.urgency && (
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase">Urgency</p>
-                    <p className="text-gray-900 capitalize">{application.urgency}</p>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Urgency</p>
+                    <p className="text-[var(--color-text-primary)] capitalize">{application.urgency}</p>
                   </div>
                 )}
                 {application.purpose && (
                   <div className="sm:col-span-2">
-                    <p className="text-xs font-medium text-gray-500 uppercase">Purpose</p>
-                    <p className="text-gray-900">{application.purpose}</p>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Purpose</p>
+                    <p className="text-[var(--color-text-primary)]">{application.purpose}</p>
                   </div>
                 )}
                 <div>
-                  <p className="text-xs font-medium text-gray-500 uppercase">Created</p>
-                  <p className="text-gray-900">{new Date(application.created_at).toLocaleDateString('en-GB')}</p>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Created</p>
+                  <p className="text-[var(--color-text-primary)]">{new Date(application.created_at).toLocaleDateString('en-GB')}</p>
                 </div>
               </div>
             </CardContent>
@@ -325,24 +325,24 @@ export default function PartnerApplicationDetailPage() {
           {application.company && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">Company Information</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Company Information</h2>
               </CardHeader>
               <CardContent>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <p className="text-xs font-medium text-gray-500 uppercase">Company Name</p>
-                    <p className="text-gray-900">{application.company.name}</p>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Company Name</p>
+                    <p className="text-[var(--color-text-primary)]">{application.company.name}</p>
                   </div>
                   {application.company.company_number && (
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase">Company Number</p>
-                      <p className="text-gray-900">{application.company.company_number}</p>
+                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Company Number</p>
+                      <p className="text-[var(--color-text-primary)]">{application.company.company_number}</p>
                     </div>
                   )}
                   {application.company.address_line_1 && (
                     <div className="sm:col-span-2">
-                      <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
-                      <p className="text-gray-900">
+                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Address</p>
+                      <p className="text-[var(--color-text-primary)]">
                         {[
                           application.company.address_line_1,
                           application.company.address_line_2,
@@ -356,12 +356,12 @@ export default function PartnerApplicationDetailPage() {
                   )}
                   {application.company.website && (
                     <div>
-                      <p className="text-xs font-medium text-gray-500 uppercase">Website</p>
+                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Website</p>
                       <a
                         href={application.company.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
+                        className="text-[var(--color-accent)] hover:underline"
                       >
                         {application.company.website}
                       </a>
@@ -376,7 +376,7 @@ export default function PartnerApplicationDetailPage() {
           {directors.length > 0 && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">Directors</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Directors</h2>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
@@ -384,33 +384,33 @@ export default function PartnerApplicationDetailPage() {
                     <div key={director.id} className="border-b pb-4 last:border-0 last:pb-0">
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase">Name</p>
-                          <p className="text-gray-900">
+                          <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Name</p>
+                          <p className="text-[var(--color-text-primary)]">
                             {director.first_name} {director.last_name}
                           </p>
                         </div>
                         <div>
-                          <p className="text-xs font-medium text-gray-500 uppercase">Email</p>
-                          <p className="text-gray-900">{director.email || '—'}</p>
+                          <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Email</p>
+                          <p className="text-[var(--color-text-primary)]">{director.email || '—'}</p>
                         </div>
                         {director.phone && (
                           <div>
-                            <p className="text-xs font-medium text-gray-500 uppercase">Phone</p>
-                            <p className="text-gray-900">{director.phone}</p>
+                            <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Phone</p>
+                            <p className="text-[var(--color-text-primary)]">{director.phone}</p>
                           </div>
                         )}
                         {director.date_of_birth && (
                           <div>
-                            <p className="text-xs font-medium text-gray-500 uppercase">Date of Birth</p>
-                            <p className="text-gray-900">
+                            <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Date of Birth</p>
+                            <p className="text-[var(--color-text-primary)]">
                               {new Date(director.date_of_birth).toLocaleDateString('en-GB')}
                             </p>
                           </div>
                         )}
                         {director.address_line_1 && (
                           <div className="sm:col-span-2">
-                            <p className="text-xs font-medium text-gray-500 uppercase">Address</p>
-                            <p className="text-gray-900">
+                            <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Address</p>
+                            <p className="text-[var(--color-text-primary)]">
                               {[
                                 director.address_line_1,
                                 director.address_line_2,
@@ -434,11 +434,11 @@ export default function PartnerApplicationDetailPage() {
           {/* Documents */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Documents</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Documents</h2>
             </CardHeader>
             <CardContent>
               {documents.length === 0 ? (
-                <p className="text-sm text-gray-500">No documents uploaded</p>
+                <p className="text-sm text-[var(--color-text-tertiary)]">No documents uploaded</p>
               ) : (
                 <div className="space-y-2">
                   {documents.map((doc) => (
@@ -447,16 +447,16 @@ export default function PartnerApplicationDetailPage() {
                       href={getDocumentUrl(doc.storage_path)}
                       target="_blank"
                       rel="noreferrer"
-                      className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100"
+                      className="block p-3 bg-[var(--color-bg-tertiary)] rounded-lg hover:bg-[var(--color-bg-tertiary)]"
                     >
                       <div className="flex items-center justify-between">
                         <div>
                           <Badge variant="info" size="sm">{doc.category}</Badge>
-                          <p className="text-sm text-gray-900 mt-1">
+                          <p className="text-sm text-[var(--color-text-primary)] mt-1">
                             {doc.original_filename || 'View document'}
                           </p>
                         </div>
-                        <span className="text-xs text-gray-500">
+                        <span className="text-xs text-[var(--color-text-tertiary)]">
                           {new Date(doc.created_at).toLocaleDateString('en-GB')}
                         </span>
                       </div>
@@ -471,25 +471,25 @@ export default function PartnerApplicationDetailPage() {
           {infoRequests.length > 0 && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">Information Requests</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Information Requests</h2>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {infoRequests.map((req) => (
                     <div key={req.id} className="border-b pb-4 last:border-0 last:pb-0">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium text-gray-900">{req.title}</h3>
+                        <h3 className="font-medium text-[var(--color-text-primary)]">{req.title}</h3>
                         <Badge variant={req.status === 'replied' ? 'success' : 'warning'}>
                           {req.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">{req.description}</p>
+                      <p className="text-sm text-[var(--color-text-secondary)] mb-2">{req.description}</p>
                       {req.client_response_text && (
-                        <div className="mt-2 p-3 bg-gray-50 rounded">
-                          <p className="text-xs font-medium text-gray-500 uppercase mb-1">Client Response</p>
-                          <p className="text-sm text-gray-900">{req.client_response_text}</p>
+                        <div className="mt-2 p-3 bg-[var(--color-bg-tertiary)] rounded">
+                          <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Client Response</p>
+                          <p className="text-sm text-[var(--color-text-primary)]">{req.client_response_text}</p>
                           {req.client_responded_at && (
-                            <p className="text-xs text-gray-500 mt-1">
+                            <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                               Responded: {new Date(req.client_responded_at).toLocaleDateString('en-GB')}
                             </p>
                           )}
@@ -509,10 +509,10 @@ export default function PartnerApplicationDetailPage() {
           {application.lender && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">Assigned Lender</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Assigned Lender</h2>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-900">{application.lender.name}</p>
+                <p className="text-[var(--color-text-primary)]">{application.lender.name}</p>
               </CardContent>
             </Card>
           )}
@@ -521,14 +521,14 @@ export default function PartnerApplicationDetailPage() {
           {offers.length > 0 && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">Offers</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Offers</h2>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
                   {offers.map((offer) => (
                     <div key={offer.id} className="border rounded-lg p-4">
                       <div className="flex items-center justify-between mb-3">
-                        <h3 className="font-medium text-gray-900 text-sm">{offer.lender?.name || 'Unknown Lender'}</h3>
+                        <h3 className="font-medium text-[var(--color-text-primary)] text-sm">{offer.lender?.name || 'Unknown Lender'}</h3>
                         <Badge
                           variant={
                             offer.status === 'accepted'
@@ -543,20 +543,20 @@ export default function PartnerApplicationDetailPage() {
                       </div>
                       <div className="grid grid-cols-2 gap-3 text-sm">
                         <div>
-                          <p className="text-gray-500 text-xs">Amount</p>
-                          <p className="font-medium text-gray-900">£{offer.amount?.toLocaleString()}</p>
+                          <p className="text-[var(--color-text-tertiary)] text-xs">Amount</p>
+                          <p className="font-medium text-[var(--color-text-primary)]">£{offer.amount?.toLocaleString()}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500 text-xs">Loan Term</p>
-                          <p className="font-medium text-gray-900">{offer.loan_term}</p>
+                          <p className="text-[var(--color-text-tertiary)] text-xs">Loan Term</p>
+                          <p className="font-medium text-[var(--color-text-primary)]">{offer.loan_term}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500 text-xs">Cost of Funding</p>
-                          <p className="font-medium text-gray-900">{offer.cost_of_funding}</p>
+                          <p className="text-[var(--color-text-tertiary)] text-xs">Cost of Funding</p>
+                          <p className="font-medium text-[var(--color-text-primary)]">{offer.cost_of_funding}</p>
                         </div>
                         <div>
-                          <p className="text-gray-500 text-xs">Repayments</p>
-                          <p className="font-medium text-gray-900">{offer.repayments}</p>
+                          <p className="text-[var(--color-text-tertiary)] text-xs">Repayments</p>
+                          <p className="font-medium text-[var(--color-text-primary)]">{offer.repayments}</p>
                         </div>
                       </div>
                     </div>

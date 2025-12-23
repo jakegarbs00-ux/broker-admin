@@ -107,7 +107,7 @@ export default function NewApplicationPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
           </div>
         </div>
       </DashboardShell>
@@ -135,7 +135,7 @@ export default function NewApplicationPage() {
             <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
               {/* Requested Amount */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Requested Amount (£) <span className="text-red-500">*</span>
                 </label>
                 <input
@@ -151,7 +151,7 @@ export default function NewApplicationPage() {
 
               {/* Loan Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Loan Type <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -172,7 +172,7 @@ export default function NewApplicationPage() {
 
               {/* Urgency */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Urgency <span className="text-red-500">*</span>
                 </label>
                 <select
@@ -193,7 +193,7 @@ export default function NewApplicationPage() {
 
               {/* Purpose */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Purpose of Funding <span className="text-red-500">*</span>
                 </label>
                 <textarea

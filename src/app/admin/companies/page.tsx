@@ -105,7 +105,7 @@ export default function AdminCompaniesPage() {
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -117,7 +117,7 @@ export default function AdminCompaniesPage() {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading companies...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading companies...</p>
           </div>
         </div>
       </DashboardShell>
@@ -167,7 +167,7 @@ export default function AdminCompaniesPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
             </div>
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-[var(--color-text-tertiary)]">
               Showing <span className="font-medium">{filteredCompanies.length}</span> of{' '}
               <span className="font-medium">{companies.length}</span> companies
             </p>
@@ -192,51 +192,51 @@ export default function AdminCompaniesPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                  <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Company
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Client Email
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Referred By
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Website
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Open Apps
                     </th>
-                    <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Created
                     </th>
                     <th className="px-6 py-3"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-[var(--color-border)]">
                   {filteredCompanies.map((c) => {
                     const openApps = getOpenApplicationsCount(c.applications);
                     return (
-                      <tr key={c.id} className="hover:bg-gray-50 transition-colors">
+                      <tr key={c.id} className="hover:bg-[var(--color-bg-tertiary)] transition-colors">
                         <td className="px-6 py-4">
                           <div>
-                            <p className="font-medium text-gray-900">{c.name}</p>
+                            <p className="font-medium text-[var(--color-text-primary)]">{c.name}</p>
                             {c.company_number && (
-                              <p className="text-xs text-gray-500">#{c.company_number}</p>
+                              <p className="text-xs text-[var(--color-text-tertiary)]">#{c.company_number}</p>
                             )}
                             {c.industry && (
-                              <p className="text-xs text-gray-500">{c.industry}</p>
+                              <p className="text-xs text-[var(--color-text-tertiary)]">{c.industry}</p>
                             )}
                           </div>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-[var(--color-text-secondary)]">
                             {c.owner?.[0]?.email ?? '—'}
                           </span>
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
-                          <span className="text-sm text-gray-600">
+                          <span className="text-sm text-[var(--color-text-secondary)]">
                             {c.referrer?.partner_company?.name || '—'}
                           </span>
                         </td>
@@ -246,28 +246,28 @@ export default function AdminCompaniesPage() {
                               href={c.website}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="text-sm text-blue-600 hover:text-blue-700"
+                              className="text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
                             >
                               {c.website.replace(/^https?:\/\//, '')}
                             </a>
                           ) : (
-                            <span className="text-sm text-gray-400">—</span>
+                            <span className="text-sm text-[var(--color-text-tertiary)]">—</span>
                           )}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           {openApps > 0 ? (
                             <Badge variant="info">{openApps}</Badge>
                           ) : (
-                            <span className="text-sm text-gray-400">0</span>
+                            <span className="text-sm text-[var(--color-text-tertiary)]">0</span>
                           )}
                         </td>
-                        <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-tertiary)]">
                           {new Date(c.created_at).toLocaleDateString('en-GB')}
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap text-right">
                           <Link
                             href={`/admin/companies/${c.id}`}
-                            className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                            className="text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] text-sm font-medium"
                           >
                             View →
                           </Link>

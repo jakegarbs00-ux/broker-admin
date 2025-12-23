@@ -97,8 +97,8 @@ export default function PartnerNewApplicationPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
           </div>
         </div>
       </DashboardShell>
@@ -109,7 +109,7 @@ export default function PartnerNewApplicationPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600">You need to be logged in.</p>
+          <p className="text-[var(--color-error)]">You need to be logged in.</p>
         </div>
       </DashboardShell>
     );
@@ -119,8 +119,8 @@ export default function PartnerNewApplicationPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">This page is only available to partners.</p>
+          <p className="text-[var(--color-error)] font-medium">Access Denied</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">This page is only available to partners.</p>
         </div>
       </DashboardShell>
     );
@@ -139,8 +139,8 @@ export default function PartnerNewApplicationPage() {
       />
 
       {submitError && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">{submitError}</p>
+        <div className="mb-6 p-4 bg-[var(--color-error-light)] border border-[var(--color-error)] rounded-lg">
+          <p className="text-sm text-[var(--color-error)]">{submitError}</p>
         </div>
       )}
 
@@ -149,40 +149,40 @@ export default function PartnerNewApplicationPage() {
           {/* Client Information */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Client Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Client Information</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Client Email (optional)
                 </label>
                 <input
                   type="email"
                   placeholder="client@example.com"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   {...register('prospective_client_email')}
                 />
                 {errors.prospective_client_email && (
-                  <p className="text-sm text-red-600 mt-1">{errors.prospective_client_email.message}</p>
+                  <p className="text-sm text-[var(--color-error)] mt-1">{errors.prospective_client_email.message}</p>
                 )}
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                   Enter the client's email if known. They'll be linked to this application when they sign up.
                 </p>
               </div>
 
               {/* Draft toggle */}
-              <div className="flex items-start gap-3 p-4 bg-gray-50 rounded-lg">
+              <div className="flex items-start gap-3 p-4 bg-[var(--color-bg-tertiary)] rounded-lg">
                 <input
                   type="checkbox"
                   id="is_hidden"
-                  className="mt-1 h-4 w-4 text-purple-600 focus:ring-purple-500 border-gray-300 rounded"
+                  className="mt-1 h-4 w-4 text-[var(--color-accent)] focus:ring-[var(--color-accent)] border-[var(--color-border)] rounded"
                   {...register('is_hidden')}
                 />
                 <div>
-                  <label htmlFor="is_hidden" className="block text-sm font-medium text-gray-900">
+                  <label htmlFor="is_hidden" className="block text-sm font-medium text-[var(--color-text-primary)]">
                     Keep as draft (hidden from client)
                   </label>
-                  <p className="text-xs text-gray-500 mt-1">
+                  <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                     {isHidden
                       ? 'This application will only be visible to you and admins until you uncheck this option.'
                       : 'The client will be able to see this application once linked.'}
@@ -195,32 +195,32 @@ export default function PartnerNewApplicationPage() {
           {/* Application Details */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Application Details</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Application Details</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Requested Amount */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Requested Amount (£) <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                  Requested Amount (£) <span className="text-[var(--color-error)]">*</span>
                 </label>
                 <input
                   type="number"
                   placeholder="e.g. 50000"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   {...register('requested_amount')}
                 />
                 {errors.requested_amount && (
-                  <p className="text-sm text-red-600 mt-1">{errors.requested_amount.message}</p>
+                  <p className="text-sm text-[var(--color-error)] mt-1">{errors.requested_amount.message}</p>
                 )}
               </div>
 
               {/* Loan Type */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Loan Type <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                  Loan Type <span className="text-[var(--color-error)]">*</span>
                 </label>
                 <select
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   {...register('loan_type')}
                 >
                   <option value="">Select a loan type...</option>
@@ -231,17 +231,17 @@ export default function PartnerNewApplicationPage() {
                   ))}
                 </select>
                 {errors.loan_type && (
-                  <p className="text-sm text-red-600 mt-1">{errors.loan_type.message}</p>
+                  <p className="text-sm text-[var(--color-error)] mt-1">{errors.loan_type.message}</p>
                 )}
               </div>
 
               {/* Urgency */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Urgency <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                  Urgency <span className="text-[var(--color-error)]">*</span>
                 </label>
                 <select
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   {...register('urgency')}
                 >
                   <option value="">How soon does the client need the funds?</option>
@@ -252,23 +252,23 @@ export default function PartnerNewApplicationPage() {
                   ))}
                 </select>
                 {errors.urgency && (
-                  <p className="text-sm text-red-600 mt-1">{errors.urgency.message}</p>
+                  <p className="text-sm text-[var(--color-error)] mt-1">{errors.urgency.message}</p>
                 )}
               </div>
 
               {/* Purpose */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Purpose of Funding <span className="text-red-500">*</span>
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                  Purpose of Funding <span className="text-[var(--color-error)]">*</span>
                 </label>
                 <textarea
                   rows={4}
                   placeholder="Describe what the client will use the funds for..."
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-purple-500 focus:border-purple-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   {...register('purpose')}
                 />
                 {errors.purpose && (
-                  <p className="text-sm text-red-600 mt-1">{errors.purpose.message}</p>
+                  <p className="text-sm text-[var(--color-error)] mt-1">{errors.purpose.message}</p>
                 )}
               </div>
             </CardContent>
@@ -284,7 +284,7 @@ export default function PartnerNewApplicationPage() {
               variant="primary"
               disabled={isSubmitting}
               loading={isSubmitting}
-              className="bg-purple-600 hover:bg-purple-700 focus:ring-purple-500"
+              className="bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] focus:ring-[var(--color-accent)]"
             >
               {isSubmitting ? 'Creating...' : 'Create Application'}
             </Button>

@@ -100,8 +100,8 @@ export default function AdminLendersPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading lenders...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading lenders...</p>
           </div>
         </div>
       </DashboardShell>
@@ -112,8 +112,8 @@ export default function AdminLendersPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-[var(--color-error)] font-medium">Access Denied</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -129,8 +129,8 @@ export default function AdminLendersPage() {
       />
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="mb-6 p-4 bg-[var(--color-error-light)] border border-[var(--color-error)] rounded-lg">
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
         </div>
       )}
 
@@ -140,7 +140,7 @@ export default function AdminLendersPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">All Lenders</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">All Lenders</h2>
                 <Badge variant="default">{lenders.length}</Badge>
               </div>
             </CardHeader>
@@ -161,35 +161,35 @@ export default function AdminLendersPage() {
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
-                      <tr className="border-b border-gray-200 bg-gray-50">
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                      <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
+                        <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                           Lender
                         </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                        <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                           Contact
                         </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                        <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                           Applications
                         </th>
-                        <th className="text-left text-xs font-medium text-gray-500 uppercase tracking-wider px-6 py-3">
+                        <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                           Added
                         </th>
                         <th className="px-6 py-3"></th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-gray-200">
+                    <tbody className="divide-y divide-[var(--color-border)]">
                       {lenders.map((l) => (
-                        <tr key={l.id} className="hover:bg-gray-50 transition-colors">
+                        <tr key={l.id} className="hover:bg-[var(--color-bg-secondary)] transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
                             <Link
                               href={`/admin/lenders/${l.id}`}
-                              className="font-medium text-gray-900 hover:text-blue-600"
+                              className="font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)]"
                             >
                               {l.name}
                             </Link>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <span className="text-sm text-gray-600">
+                            <span className="text-sm text-[var(--color-text-secondary)]">
                               {l.contact_email || l.contact_phone || '—'}
                             </span>
                           </td>
@@ -197,16 +197,16 @@ export default function AdminLendersPage() {
                             {l.applications_count > 0 ? (
                               <Badge variant="info">{l.applications_count}</Badge>
                             ) : (
-                              <span className="text-sm text-gray-400">0</span>
+                              <span className="text-sm text-[var(--color-text-tertiary)]">0</span>
                             )}
                           </td>
-                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-[var(--color-text-tertiary)]">
                             {new Date(l.created_at).toLocaleDateString('en-GB')}
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap text-right">
                             <Link
                               href={`/admin/lenders/${l.id}`}
-                              className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                              className="text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] text-sm font-medium"
                             >
                               View →
                             </Link>
@@ -225,17 +225,17 @@ export default function AdminLendersPage() {
         <div>
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Add Lender</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Add Lender</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Lender Name
                 </label>
                 <input
                   type="text"
                   placeholder="e.g. Funding Circle"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => {
@@ -251,7 +251,7 @@ export default function AdminLendersPage() {
               >
                 {creating ? 'Adding...' : 'Add Lender'}
               </Button>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-[var(--color-text-tertiary)]">
                 After adding, click the lender to add contact details.
               </p>
             </CardContent>
@@ -260,16 +260,16 @@ export default function AdminLendersPage() {
           {/* Summary */}
           <Card className="mt-6">
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Summary</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Summary</h2>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Lenders</span>
-                <span className="font-medium text-gray-900">{lenders.length}</span>
+                <span className="text-sm text-[var(--color-text-secondary)]">Total Lenders</span>
+                <span className="font-medium text-[var(--color-text-primary)]">{lenders.length}</span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600">Total Assigned Apps</span>
-                <span className="font-medium text-gray-900">
+                <span className="text-sm text-[var(--color-text-secondary)]">Total Assigned Apps</span>
+                <span className="font-medium text-[var(--color-text-primary)]">
                   {lenders.reduce((sum, l) => sum + l.applications_count, 0)}
                 </span>
               </div>

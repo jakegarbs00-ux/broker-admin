@@ -139,8 +139,8 @@ export default function PartnerCompanyPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-purple-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
           </div>
         </div>
       </DashboardShell>
@@ -151,8 +151,8 @@ export default function PartnerCompanyPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-[var(--color-error)] font-medium">Access Denied</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -162,8 +162,8 @@ export default function PartnerCompanyPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Partner Company Not Found</p>
-          <p className="text-sm text-gray-500 mt-1">{error || 'Unable to load partner company information.'}</p>
+          <p className="text-[var(--color-error)] font-medium">Partner Company Not Found</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">{error || 'Unable to load partner company information.'}</p>
         </div>
       </DashboardShell>
     );
@@ -175,13 +175,13 @@ export default function PartnerCompanyPage() {
     <DashboardShell>
       {/* Header */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Your Company</h1>
-        <p className="text-gray-600">Manage your business information and payment details</p>
+        <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">Your Company</h1>
+        <p className="text-[var(--color-text-secondary)]">Manage your business information and payment details</p>
       </div>
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="mb-6 p-4 bg-[var(--color-error-light)] border border-[var(--color-error)] rounded-lg">
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
         </div>
       )}
 
@@ -196,7 +196,7 @@ export default function PartnerCompanyPage() {
         <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
-              <h2 className="font-medium text-gray-900">Business Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Business Information</h2>
               {canEdit && !isEditing && (
                 <Button
                   variant="outline"
@@ -210,7 +210,7 @@ export default function PartnerCompanyPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                 Business Name
               </label>
               <input
@@ -218,15 +218,15 @@ export default function PartnerCompanyPage() {
                 value={formData.name || ''}
                 onChange={(e) => handleChange('name', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                  !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                  !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                 }`}
                 placeholder="Your Company Ltd"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                 Registration Number
               </label>
               <input
@@ -234,15 +234,15 @@ export default function PartnerCompanyPage() {
                 value={formData.registration_number || ''}
                 onChange={(e) => handleChange('registration_number', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                  !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                  !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                 }`}
                 placeholder="12345678"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                 Address Line 1
               </label>
               <input
@@ -250,15 +250,15 @@ export default function PartnerCompanyPage() {
                 value={formData.address_line_1 || ''}
                 onChange={(e) => handleChange('address_line_1', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                  !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                  !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                 }`}
                 placeholder="123 Business Street"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                 Address Line 2
               </label>
               <input
@@ -266,8 +266,8 @@ export default function PartnerCompanyPage() {
                 value={formData.address_line_2 || ''}
                 onChange={(e) => handleChange('address_line_2', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                  !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                  !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                 }`}
                 placeholder="Suite, Floor, etc. (optional)"
               />
@@ -275,7 +275,7 @@ export default function PartnerCompanyPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   City
                 </label>
                 <input
@@ -283,14 +283,14 @@ export default function PartnerCompanyPage() {
                   value={formData.city || ''}
                   onChange={(e) => handleChange('city', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                    !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                  className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                    !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                   }`}
                   placeholder="London"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Postcode
                 </label>
                 <input
@@ -298,8 +298,8 @@ export default function PartnerCompanyPage() {
                   value={formData.postcode || ''}
                   onChange={(e) => handleChange('postcode', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                    !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                  className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                    !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                   }`}
                   placeholder="EC1A 1AA"
                 />
@@ -307,7 +307,7 @@ export default function PartnerCompanyPage() {
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                 Country
               </label>
               <input
@@ -315,15 +315,15 @@ export default function PartnerCompanyPage() {
                 value={formData.country || 'United Kingdom'}
                 onChange={(e) => handleChange('country', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                  !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                  !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                 }`}
                 placeholder="United Kingdom"
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                 Website
               </label>
               <input
@@ -331,8 +331,8 @@ export default function PartnerCompanyPage() {
                 value={formData.website || ''}
                 onChange={(e) => handleChange('website', e.target.value)}
                 disabled={!isEditing}
-                className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                  !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                  !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                 }`}
                 placeholder="https://yourcompany.com"
               />
@@ -345,8 +345,8 @@ export default function PartnerCompanyPage() {
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
-                <h2 className="font-medium text-gray-900">Payment Information</h2>
-                <p className="text-sm text-gray-500">For commission payments</p>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Payment Information</h2>
+                <p className="text-sm text-[var(--color-text-tertiary)]">For commission payments</p>
               </div>
               {canEdit && !isEditing && (
                 <Button
@@ -362,7 +362,7 @@ export default function PartnerCompanyPage() {
           <CardContent>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Bank Name
                 </label>
                 <input
@@ -370,15 +370,15 @@ export default function PartnerCompanyPage() {
                   value={formData.bank_name || ''}
                   onChange={(e) => handleChange('bank_name', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                    !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                  className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                    !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                   }`}
                   placeholder="Barclays"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Account Name
                 </label>
                 <input
@@ -386,15 +386,15 @@ export default function PartnerCompanyPage() {
                   value={formData.bank_account_name || ''}
                   onChange={(e) => handleChange('bank_account_name', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                    !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                  className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                    !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                   }`}
                   placeholder="Your Company Ltd"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Account Number
                 </label>
                 <input
@@ -402,15 +402,15 @@ export default function PartnerCompanyPage() {
                   value={formData.bank_account_number || ''}
                   onChange={(e) => handleChange('bank_account_number', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                    !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                  className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                    !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                   }`}
                   placeholder="12345678"
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
+                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                   Sort Code
                 </label>
                 <input
@@ -418,8 +418,8 @@ export default function PartnerCompanyPage() {
                   value={formData.bank_sort_code || ''}
                   onChange={(e) => handleChange('bank_sort_code', e.target.value)}
                   disabled={!isEditing}
-                  className={`w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-purple-500 focus:border-purple-500 ${
-                    !isEditing ? 'bg-gray-100 text-gray-600 cursor-not-allowed' : 'bg-white'
+                  className={`w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] ${
+                    !isEditing ? 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] cursor-not-allowed' : 'bg-[var(--color-surface)]'
                   }`}
                   placeholder="12-34-56"
                 />
@@ -451,7 +451,7 @@ export default function PartnerCompanyPage() {
 
       {!canEdit && (
         <div className="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-          <p className="text-sm text-blue-600">
+          <p className="text-sm text-[var(--color-accent)]">
             Only the primary contact can edit company information. Contact your administrator to make changes.
           </p>
         </div>

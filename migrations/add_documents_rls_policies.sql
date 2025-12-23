@@ -7,6 +7,7 @@ DROP POLICY IF EXISTS "Clients can view documents for their own applications" ON
 DROP POLICY IF EXISTS "Partners can view documents for referred companies" ON documents;
 DROP POLICY IF EXISTS "Admins have full access to documents" ON documents;
 DROP POLICY IF EXISTS "Users can view documents for their applications" ON documents;
+DROP POLICY IF EXISTS "Users can update their own uploaded documents" ON documents;
 
 -- Policy 1: Clients can insert documents for applications belonging to their company
 CREATE POLICY "Clients can insert documents for their own applications"
@@ -14,15 +15,16 @@ ON documents
 FOR INSERT
 TO authenticated
 WITH CHECK (
-  EXISTS (
+  uploaded_by = auth.uid()
+  AND EXISTS (
     SELECT 1
-    FROM applications a
-    JOIN profiles p ON p.company_id = a.company_id
-    WHERE a.id = documents.application_id
-      AND p.id = auth.uid()
+    FROM profiles p
+    JOIN applications a ON a.company_id = p.company_id
+    WHERE p.id = auth.uid()
       AND p.role = 'CLIENT'
+      AND p.company_id IS NOT NULL
+      AND a.id = documents.application_id
   )
-  AND uploaded_by = auth.uid()
 );
 
 -- Policy 2: Clients can view documents for applications belonging to their company
@@ -33,11 +35,12 @@ TO authenticated
 USING (
   EXISTS (
     SELECT 1
-    FROM applications a
-    JOIN profiles p ON p.company_id = a.company_id
-    WHERE a.id = documents.application_id
-      AND p.id = auth.uid()
+    FROM profiles p
+    JOIN applications a ON a.company_id = p.company_id
+    WHERE p.id = auth.uid()
       AND p.role = 'CLIENT'
+      AND p.company_id IS NOT NULL
+      AND a.id = documents.application_id
   )
 );
 

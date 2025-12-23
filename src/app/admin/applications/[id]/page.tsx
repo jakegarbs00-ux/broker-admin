@@ -373,7 +373,7 @@ const handleSaveOffer = async () => {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading application...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading application...</p>
           </div>
         </div>
       </DashboardShell>
@@ -386,7 +386,7 @@ const handleSaveOffer = async () => {
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Access Denied</p>
-          <p className="text-sm text-gray-500 mt-1">You do not have permission to view this page.</p>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
     );
@@ -398,8 +398,8 @@ const handleSaveOffer = async () => {
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-red-600 font-medium">Error</p>
-          <p className="text-sm text-gray-500 mt-1">{error}</p>
-          <Link href="/admin/applications" className="text-blue-600 hover:underline text-sm mt-4 inline-block">
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">{error}</p>
+          <Link href="/admin/applications" className="text-[var(--color-accent)] hover:underline text-sm mt-4 inline-block">
             ← Back to Applications
           </Link>
         </div>
@@ -414,7 +414,7 @@ const handleSaveOffer = async () => {
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
             <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-gray-500">Loading application...</p>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading application...</p>
           </div>
         </div>
       </DashboardShell>
@@ -428,7 +428,7 @@ const handleSaveOffer = async () => {
     <DashboardShell>
       {/* Back link */}
       <div className="mb-4">
-        <Link href="/admin/applications" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1">
+        <Link href="/admin/applications" className="text-sm text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)] flex items-center gap-1">
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
           </svg>
@@ -440,7 +440,7 @@ const handleSaveOffer = async () => {
       <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <div className="flex items-center gap-3 mb-2">
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-[var(--color-text-primary)]">
               £{application.requested_amount?.toLocaleString()}
             </h1>
             <Badge variant={getStageBadgeVariant(application.stage)}>
@@ -448,8 +448,8 @@ const handleSaveOffer = async () => {
             </Badge>
             {application.is_hidden && <Badge variant="warning">Draft</Badge>}
           </div>
-          <p className="text-gray-600">{application.loan_type}</p>
-          <p className="text-sm text-gray-500">
+          <p className="text-[var(--color-text-secondary)]">{application.loan_type}</p>
+          <p className="text-sm text-[var(--color-text-tertiary)]">
             Created {new Date(application.created_at).toLocaleDateString('en-GB')} at{' '}
             {new Date(application.created_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
           </p>
@@ -462,13 +462,13 @@ const handleSaveOffer = async () => {
           {/* Stage & Lender Controls */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Application</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Application</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Stage</label>
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Stage</label>
                 <select
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] disabled:opacity-50"
                   value={application.stage}
                   disabled={updatingStage}
                   onChange={(e) => handleStageChange(e.target.value)}
@@ -482,9 +482,9 @@ const handleSaveOffer = async () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">Assigned Lender</label>
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Assigned Lender</label>
                 <select
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] disabled:opacity-50"
                   value={application.lender_id ?? 'none'}
                   disabled={updatingLender}
                   onChange={(e) => handleLenderChange(e.target.value)}
@@ -498,8 +498,8 @@ const handleSaveOffer = async () => {
                 </select>
               </div>
 
-              <div className="pt-2 border-t border-gray-100 space-y-2">
-                <p className="text-xs text-gray-500 uppercase font-medium">Quick Actions</p>
+              <div className="pt-2 border-t border-[var(--color-border)] space-y-2">
+                <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium">Quick Actions</p>
                 {application.stage === 'created' && (
                   <Button
                     variant="primary"
@@ -534,23 +534,23 @@ const handleSaveOffer = async () => {
           {/* Referral Partner */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Referral Partner</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Referral Partner</h2>
             </CardHeader>
             <CardContent>
               {application?.company?.referrer ? (
                 <div>
                   {application.company.referrer.partner_company?.name && (
-                    <p className="font-medium text-gray-900">
+                    <p className="font-medium text-[var(--color-text-primary)]">
                       {application.company.referrer.partner_company.name}
                     </p>
                   )}
-                  <p className="text-sm text-gray-700">
+                  <p className="text-sm text-[var(--color-text-primary)]">
                     {application.company.referrer.first_name} {application.company.referrer.last_name}
                   </p>
-                  <p className="text-sm text-gray-600">{application.company.referrer.email}</p>
+                  <p className="text-sm text-[var(--color-text-secondary)]">{application.company.referrer.email}</p>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">No referral partner</p>
+                <p className="text-sm text-[var(--color-text-tertiary)]">No referral partner</p>
               )}
             </CardContent>
           </Card>
@@ -558,16 +558,16 @@ const handleSaveOffer = async () => {
              {/* Offer Details */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Offer Details</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Offer Details</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
                   Offer Amount (£)
                 </label>
                 <input
                   type="number"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
                   placeholder="e.g., 50000"
                   value={offerAmount}
                   onChange={(e) => {
@@ -578,12 +578,12 @@ const handleSaveOffer = async () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
                   Loan Term
                 </label>
                 <input
                   type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
                   placeholder="e.g., 12 months"
                   value={offerLoanTerm}
                   onChange={(e) => {
@@ -594,12 +594,12 @@ const handleSaveOffer = async () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
                   Cost of Funding
                 </label>
                 <input
                   type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
                   placeholder="e.g., 8% APR"
                   value={offerCostOfFunding}
                   onChange={(e) => {
@@ -610,12 +610,12 @@ const handleSaveOffer = async () => {
               </div>
 
               <div>
-                <label className="block text-xs font-medium text-gray-600 mb-1">
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
                   Repayments
                 </label>
                 <input
                   type="text"
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
                   placeholder="e.g., £4,500/month"
                   value={offerRepayments}
                   onChange={(e) => {
@@ -637,20 +637,20 @@ const handleSaveOffer = async () => {
               </div>
 
               {/* Show current values as reference */}
-              <div className="pt-3 border-t border-gray-100 space-y-2">
-                <p className="text-xs text-gray-500 uppercase font-medium">Application Details</p>
+              <div className="pt-3 border-t border-[var(--color-border)] space-y-2">
+                <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium">Application Details</p>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Requested</span>
+                  <span className="text-sm text-[var(--color-text-secondary)]">Requested</span>
                   <span className="text-sm font-medium">£{application.requested_amount?.toLocaleString()}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-sm text-gray-600">Type</span>
+                  <span className="text-sm text-[var(--color-text-secondary)]">Type</span>
                   <span className="text-sm font-medium">{application.loan_type}</span>
                 </div>
                 {currentLender && (
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Lender</span>
-                    <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-blue-600 hover:underline">
+                    <span className="text-sm text-[var(--color-text-secondary)]">Lender</span>
+                    <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-[var(--color-accent)] hover:underline">
                       {currentLender.name}
                     </Link>
                   </div>
@@ -667,9 +667,9 @@ const handleSaveOffer = async () => {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Company Information</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Company Information</h2>
                 {application?.company && (
-                  <Link href={`/admin/companies/${application.company.id}`} className="text-sm text-blue-600 hover:underline">
+                  <Link href={`/admin/companies/${application.company.id}`} className="text-sm text-[var(--color-accent)] hover:underline">
                     View Company →
                   </Link>
                 )}
@@ -703,7 +703,7 @@ const handleSaveOffer = async () => {
                         href={application.company.website}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-blue-600 hover:underline"
+                        className="text-[var(--color-accent)] hover:underline"
                       >
                         {application.company.website.replace(/^https?:\/\//, '')}
                       </a>
@@ -725,7 +725,7 @@ const handleSaveOffer = async () => {
                   )}
                 </div>
               ) : (
-                <p className="text-gray-500">No company information available</p>
+                <p className="text-[var(--color-text-tertiary)]">No company information available</p>
               )}
             </CardContent>
           </Card>
@@ -734,10 +734,10 @@ const handleSaveOffer = async () => {
           {application.purpose && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">Purpose of Funding</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Purpose of Funding</h2>
               </CardHeader>
               <CardContent>
-                <p className="text-gray-700 whitespace-pre-line">{application.purpose}</p>
+                <p className="text-[var(--color-text-primary)] whitespace-pre-line">{application.purpose}</p>
               </CardContent>
             </Card>
           )}
@@ -746,7 +746,7 @@ const handleSaveOffer = async () => {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Information Requests</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Information Requests</h2>
                 <Badge variant="default">{infoRequests.length}</Badge>
               </div>
             </CardHeader>
@@ -756,7 +756,7 @@ const handleSaveOffer = async () => {
                 <input
                   type="text"
                   placeholder="Ask the client for information..."
-                  className="flex-1 rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
                   value={newQuestion}
                   onChange={(e) => setNewQuestion(e.target.value)}
                   onKeyDown={(e) => {
@@ -774,15 +774,15 @@ const handleSaveOffer = async () => {
 
               {/* Requests list */}
               {infoRequests.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No information requests yet</p>
+                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-4">No information requests yet</p>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {infoRequests.map((req) => (
                     <div key={req.id} className="py-3">
                       <div className="flex items-start justify-between gap-2">
                         <div className="flex-1">
-                          <p className="font-medium text-gray-900">{req.question}</p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="font-medium text-[var(--color-text-primary)]">{req.question}</p>
+                          <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
                             {new Date(req.created_at).toLocaleDateString('en-GB')}
                           </p>
                         </div>
@@ -792,7 +792,7 @@ const handleSaveOffer = async () => {
                       </div>
                       {req.response_text && (
                         <div className="mt-2 p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm text-gray-700">{req.response_text}</p>
+                          <p className="text-sm text-[var(--color-text-primary)]">{req.response_text}</p>
                         </div>
                       )}
                     </div>
@@ -806,20 +806,20 @@ const handleSaveOffer = async () => {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Documents</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Documents</h2>
                 <Badge variant="default">{documents.length}</Badge>
               </div>
             </CardHeader>
             <CardContent>
               {documents.length === 0 ? (
-                <p className="text-sm text-gray-500 text-center py-4">No documents uploaded</p>
+                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-4">No documents uploaded</p>
               ) : (
                 <div className="divide-y divide-gray-100">
                   {documents.map((doc) => (
                     <div key={doc.id} className="py-3 flex items-center justify-between">
                       <div>
-                        <p className="font-medium text-gray-900">{doc.original_filename}</p>
-                        <p className="text-xs text-gray-500">
+                        <p className="font-medium text-[var(--color-text-primary)]">{doc.original_filename}</p>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
                           {doc.category} • {new Date(doc.created_at).toLocaleDateString('en-GB')}
                         </p>
                       </div>
@@ -827,7 +827,7 @@ const handleSaveOffer = async () => {
                         href={getDocumentUrl(doc.storage_path)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="text-sm text-blue-600 hover:underline"
+                        className="text-sm text-[var(--color-accent)] hover:underline"
                       >
                         View →
                       </a>
@@ -841,11 +841,11 @@ const handleSaveOffer = async () => {
           {/* Admin Notes */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Admin Notes</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Admin Notes</h2>
             </CardHeader>
             <CardContent className="space-y-3">
               <textarea
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
                 rows={4}
                 placeholder="Internal notes visible only to admins..."
                 value={adminNotes}
