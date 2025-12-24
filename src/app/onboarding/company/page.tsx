@@ -175,7 +175,7 @@ export default function CompanyOnboardingPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
             <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
           </div>
         </div>
@@ -200,7 +200,7 @@ export default function CompanyOnboardingPage() {
           {/* Company Details */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Company Details</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Company Details</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
@@ -208,7 +208,7 @@ export default function CompanyOnboardingPage() {
                   Company Name <span className="text-red-500">*</span>
                 </label>
                 <input
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   placeholder="e.g. Acme Ltd"
                   {...register('name')}
                 />
@@ -223,7 +223,7 @@ export default function CompanyOnboardingPage() {
                     Company Number
                   </label>
                   <input
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     placeholder="e.g. 12345678"
                     {...register('company_number')}
                   />
@@ -233,7 +233,7 @@ export default function CompanyOnboardingPage() {
                     Industry
                   </label>
                   <input
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     placeholder="e.g. Technology"
                     {...register('industry')}
                   />
@@ -245,7 +245,7 @@ export default function CompanyOnboardingPage() {
                   Website
                 </label>
                 <input
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   placeholder="e.g. https://acme.com"
                   {...register('website')}
                 />
@@ -256,7 +256,7 @@ export default function CompanyOnboardingPage() {
           {/* Director Information */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Director Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Director Information</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
@@ -265,7 +265,7 @@ export default function CompanyOnboardingPage() {
                     First Name
                   </label>
                   <input
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     placeholder="John"
                     {...register('director_first_name')}
                   />
@@ -275,7 +275,7 @@ export default function CompanyOnboardingPage() {
                     Last Name
                   </label>
                   <input
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     placeholder="Smith"
                     {...register('director_last_name')}
                   />
@@ -287,7 +287,7 @@ export default function CompanyOnboardingPage() {
                   Address Line 1
                 </label>
                 <input
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   placeholder="123 Main Street"
                   {...register('director_address_line_1')}
                 />
@@ -298,7 +298,7 @@ export default function CompanyOnboardingPage() {
                   Address Line 2
                 </label>
                 <input
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   placeholder="Apartment, Suite, etc. (optional)"
                   {...register('director_address_line_2')}
                 />
@@ -310,7 +310,7 @@ export default function CompanyOnboardingPage() {
                     City
                   </label>
                   <input
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     placeholder="London"
                     {...register('director_city')}
                   />
@@ -320,7 +320,7 @@ export default function CompanyOnboardingPage() {
                     Postcode
                   </label>
                   <input
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     placeholder="SW1A 1AA"
                     {...register('director_postcode')}
                   />
@@ -332,7 +332,7 @@ export default function CompanyOnboardingPage() {
                   Country
                 </label>
                 <input
-                  className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   placeholder="United Kingdom"
                   defaultValue="United Kingdom"
                   {...register('director_country')}
@@ -346,7 +346,7 @@ export default function CompanyOnboardingPage() {
                   </label>
                   <input
                     type="date"
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     {...register('director_dob')}
                   />
                 </div>
@@ -356,7 +356,7 @@ export default function CompanyOnboardingPage() {
                     Property Status
                   </label>
                   <select
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     {...register('property_status')}
                   >
                     <option value="">Select...</option>

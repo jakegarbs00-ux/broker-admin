@@ -98,7 +98,7 @@ export default function ApplicationsListPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
             <p className="text-sm text-[var(--color-text-tertiary)]">Loading applications...</p>
           </div>
         </div>
@@ -146,7 +146,7 @@ export default function ApplicationsListPage() {
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-gray-200 bg-gray-50">
+                  <tr className="border-b border-[var(--color-border)] bg-[var(--color-bg-secondary)]">
                     <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Company
                     </th>
@@ -168,16 +168,16 @@ export default function ApplicationsListPage() {
                     <th className="px-6 py-3"></th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200">
+                <tbody className="divide-y divide-[var(--color-border)]">
                   {applications.map((app) => (
-                    <tr key={app.id} className="hover:bg-gray-50 transition-colors">
+                    <tr key={app.id} className="hover:bg-[var(--color-bg-tertiary)] transition-colors">
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-medium text-gray-900">
+                        <span className="font-medium text-[var(--color-text-primary)]">
                           {app.company?.name ?? 'No company'}
                         </span>
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap">
-                        <span className="font-medium text-gray-900">
+                        <span className="font-medium text-[var(--color-text-primary)]">
                           £{app.requested_amount?.toLocaleString() ?? '—'}
                         </span>
                       </td>
@@ -198,7 +198,7 @@ export default function ApplicationsListPage() {
                       <td className="px-6 py-4 whitespace-nowrap text-right">
                         <Link
                           href={`/applications/${app.id}`}
-                          className="text-blue-600 hover:text-blue-700 text-sm font-medium"
+                          className="text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] text-sm font-medium"
                         >
                           View →
                         </Link>

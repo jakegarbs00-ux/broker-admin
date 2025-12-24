@@ -72,8 +72,7 @@ type Document = {
 
 type InfoRequest = {
   id: string;
-  title: string;
-  description: string;
+  message: string;
   status: string;
   created_at: string;
   client_response_text: string | null;
@@ -478,12 +477,11 @@ export default function PartnerApplicationDetailPage() {
                   {infoRequests.map((req) => (
                     <div key={req.id} className="border-b pb-4 last:border-0 last:pb-0">
                       <div className="flex items-center justify-between mb-2">
-                        <h3 className="font-medium text-[var(--color-text-primary)]">{req.title}</h3>
+                        <p className="text-[var(--color-text-primary)]">{req.message}</p>
                         <Badge variant={req.status === 'replied' ? 'success' : 'warning'}>
                           {req.status}
                         </Badge>
                       </div>
-                      <p className="text-sm text-[var(--color-text-secondary)] mb-2">{req.description}</p>
                       {req.client_response_text && (
                         <div className="mt-2 p-3 bg-[var(--color-bg-tertiary)] rounded">
                           <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Client Response</p>

@@ -298,7 +298,7 @@ export default function AdminCompanyDetailPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Access Denied</p>
+          <p className="text-[var(--color-error)] font-medium">Access Denied</p>
           <p className="text-sm text-[var(--color-text-tertiary)] mt-1">You do not have permission to view this page.</p>
         </div>
       </DashboardShell>
@@ -310,7 +310,7 @@ export default function AdminCompanyDetailPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
             <p className="text-sm text-[var(--color-text-tertiary)]">Loading company...</p>
           </div>
         </div>
@@ -322,8 +322,8 @@ export default function AdminCompanyDetailPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Company not found.</p>
-          <Link href="/admin/applications" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+          <p className="text-[var(--color-error)] font-medium">Company not found.</p>
+          <Link href="/admin/applications" className="text-[var(--color-accent)] hover:underline text-sm mt-2 inline-block">
             ← Back to applications
           </Link>
         </div>
@@ -344,16 +344,16 @@ export default function AdminCompanyDetailPage() {
       />
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="mb-6 p-4 bg-[var(--color-error-light)] border border-[var(--color-error)] rounded-lg">
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
         </div>
       )}
 
       {message && (
         <div className={`mb-6 p-4 rounded-lg border ${
           message.includes('Error') 
-            ? 'bg-red-50 border-red-200 text-red-700' 
-            : 'bg-green-50 border-green-200 text-green-700'
+            ? 'bg-[var(--color-error-light)] border-[var(--color-error)] text-[var(--color-error)]' 
+            : 'bg-[var(--color-success-light)] border-[var(--color-success)] text-[var(--color-success)]'
         }`}>
           <p className="text-sm">{message}</p>
         </div>
@@ -366,7 +366,7 @@ export default function AdminCompanyDetailPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-              <h2 className="font-medium text-gray-900">Company Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Company Information</h2>
                 {!isEditing && (
                   <Button
                     variant="outline"
@@ -387,10 +387,10 @@ export default function AdminCompanyDetailPage() {
                       type="text"
                       value={companyData?.name || ''}
                       onChange={(e) => handleCompanyChange('name', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     />
                   ) : (
-                    <p className="text-gray-900">{companyData?.name || '—'}</p>
+                    <p className="text-[var(--color-text-primary)]">{companyData?.name || '—'}</p>
                   )}
                 </div>
                 <div>
@@ -400,10 +400,10 @@ export default function AdminCompanyDetailPage() {
                       type="text"
                       value={companyData?.company_number || ''}
                       onChange={(e) => handleCompanyChange('company_number', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     />
                   ) : (
-                    <p className="text-gray-900">{companyData?.company_number ?? '—'}</p>
+                    <p className="text-[var(--color-text-primary)]">{companyData?.company_number ?? '—'}</p>
                   )}
                 </div>
                 <div>
@@ -413,10 +413,10 @@ export default function AdminCompanyDetailPage() {
                       type="text"
                       value={companyData?.industry || ''}
                       onChange={(e) => handleCompanyChange('industry', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     />
                   ) : (
-                    <p className="text-gray-900">{companyData?.industry ?? '—'}</p>
+                    <p className="text-[var(--color-text-primary)]">{companyData?.industry ?? '—'}</p>
                   )}
                 </div>
                 <div>
@@ -426,11 +426,11 @@ export default function AdminCompanyDetailPage() {
                       type="url"
                       value={companyData?.website || ''}
                       onChange={(e) => handleCompanyChange('website', e.target.value)}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     />
                   ) : (
                     companyData?.website ? (
-                      <a href={companyData.website} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      <a href={companyData.website} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent)] hover:underline">
                         {companyData.website}
                       </a>
                   ) : (
@@ -445,7 +445,7 @@ export default function AdminCompanyDetailPage() {
           {/* Director Information */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Director Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Director Information</h2>
             </CardHeader>
             <CardContent>
               {directorData ? (
@@ -459,25 +459,25 @@ export default function AdminCompanyDetailPage() {
                           value={directorData.first_name || ''}
                           onChange={(e) => handleDirectorChange('first_name', e.target.value)}
                           placeholder="First name"
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="flex-1 px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                         />
                         <input
                           type="text"
                           value={directorData.last_name || ''}
                           onChange={(e) => handleDirectorChange('last_name', e.target.value)}
                           placeholder="Last name"
-                          className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="flex-1 px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                         />
                       </div>
                     ) : (
-                      <p className="text-gray-900">
+                      <p className="text-[var(--color-text-primary)]">
                         {directorData.first_name} {directorData.last_name}
                       </p>
                     )}
                   </div>
                   <div>
                     <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Email</p>
-                    <p className="text-gray-900">{directorData.email || '—'}</p>
+                    <p className="text-[var(--color-text-primary)]">{directorData.email || '—'}</p>
                   </div>
                   <div>
                     <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Phone</p>
@@ -486,10 +486,10 @@ export default function AdminCompanyDetailPage() {
                         type="tel"
                         value={directorData.phone || ''}
                         onChange={(e) => handleDirectorChange('phone', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                       />
                     ) : (
-                      <p className="text-gray-900">{directorData.phone || '—'}</p>
+                      <p className="text-[var(--color-text-primary)]">{directorData.phone || '—'}</p>
                     )}
                 </div>
                 <div>
@@ -499,10 +499,10 @@ export default function AdminCompanyDetailPage() {
                         type="date"
                         value={directorData.date_of_birth ? directorData.date_of_birth.split('T')[0] : ''}
                         onChange={(e) => handleDirectorChange('date_of_birth', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                        className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                       />
                     ) : (
-                  <p className="text-gray-900">
+                  <p className="text-[var(--color-text-primary)]">
                         {directorData.date_of_birth
                           ? new Date(directorData.date_of_birth).toLocaleDateString('en-GB')
                       : '—'}
@@ -518,14 +518,14 @@ export default function AdminCompanyDetailPage() {
                           value={directorData.address_line_1 || ''}
                           onChange={(e) => handleDirectorChange('address_line_1', e.target.value)}
                           placeholder="Address line 1"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                         />
                         <input
                           type="text"
                           value={directorData.address_line_2 || ''}
                           onChange={(e) => handleDirectorChange('address_line_2', e.target.value)}
                           placeholder="Address line 2"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                         />
                         <div className="grid grid-cols-2 gap-2">
                           <input
@@ -533,14 +533,14 @@ export default function AdminCompanyDetailPage() {
                             value={directorData.city || ''}
                             onChange={(e) => handleDirectorChange('city', e.target.value)}
                             placeholder="City"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                           />
                           <input
                             type="text"
                             value={directorData.postcode || ''}
                             onChange={(e) => handleDirectorChange('postcode', e.target.value)}
                             placeholder="Postcode"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                            className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                           />
                         </div>
                         <input
@@ -548,11 +548,11 @@ export default function AdminCompanyDetailPage() {
                           value={directorData.country || ''}
                           onChange={(e) => handleDirectorChange('country', e.target.value)}
                           placeholder="Country"
-                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                          className="w-full px-3 py-2 border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] rounded-lg text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                         />
                       </div>
                     ) : (
-                      <div className="text-gray-900">
+                      <div className="text-[var(--color-text-primary)]">
                         {directorData.address_line_1 && <p>{directorData.address_line_1}</p>}
                         {directorData.address_line_2 && <p>{directorData.address_line_2}</p>}
                         {(directorData.city || directorData.postcode) && (
@@ -597,7 +597,7 @@ export default function AdminCompanyDetailPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Uploaded Documents</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Uploaded Documents</h2>
                 <Badge variant="default">{documents.length}</Badge>
               </div>
             </CardHeader>
@@ -609,7 +609,7 @@ export default function AdminCompanyDetailPage() {
                   {documents.map((doc) => (
                     <div
                       key={doc.id}
-                      className="flex items-center justify-between p-3 bg-gray-50 rounded-lg"
+                      className="flex items-center justify-between p-3 bg-[var(--color-bg-tertiary)] rounded-lg"
                     >
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
@@ -619,7 +619,7 @@ export default function AdminCompanyDetailPage() {
                           href={getDocumentUrl(doc.storage_path)}
                           target="_blank"
                           rel="noreferrer"
-                          className="text-sm text-blue-600 hover:text-blue-700 truncate block mt-1"
+                          className="text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] truncate block mt-1"
                         >
                           {doc.original_filename ?? 'View document'}
                         </a>
@@ -640,7 +640,7 @@ export default function AdminCompanyDetailPage() {
           {/* Applications summary */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Applications</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Applications</h2>
             </CardHeader>
             <CardContent>
               {applications.length === 0 ? (
@@ -651,9 +651,9 @@ export default function AdminCompanyDetailPage() {
                     <Link
                       key={app.id}
                       href={`/admin/applications/${app.id}`}
-                      className="block p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
+                      className="block p-3 bg-[var(--color-bg-tertiary)] rounded-lg hover:bg-[var(--color-bg-tertiary)] transition-colors"
                     >
-                      <p className="font-medium text-gray-900">
+                      <p className="font-medium text-[var(--color-text-primary)]">
                         £{app.requested_amount?.toLocaleString()}
                       </p>
                       <p className="text-sm text-[var(--color-text-secondary)]">{app.loan_type}</p>
@@ -674,11 +674,11 @@ export default function AdminCompanyDetailPage() {
           {company?.referrer && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-gray-900">Referred By</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Referred By</h2>
               </CardHeader>
               <CardContent>
                 {company.referrer.partner_company?.name && (
-                  <p className="font-medium text-gray-900 mb-2">
+                  <p className="font-medium text-[var(--color-text-primary)] mb-2">
                     {company.referrer.partner_company.name}
                   </p>
                 )}
@@ -693,22 +693,22 @@ export default function AdminCompanyDetailPage() {
           {/* Meta info */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Details</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Details</h2>
             </CardHeader>
             <CardContent className="space-y-3">
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Client Email</p>
-                <p className="text-sm text-gray-900">{company.owner?.[0]?.email ?? 'Unknown'}</p>
+                <p className="text-sm text-[var(--color-text-primary)]">{company.owner?.[0]?.email ?? 'Unknown'}</p>
               </div>
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Created</p>
-                <p className="text-sm text-gray-900">
+                <p className="text-sm text-[var(--color-text-primary)]">
                   {new Date(company.created_at).toLocaleDateString('en-GB')}
                 </p>
               </div>
               <div>
                 <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Total Documents</p>
-                <p className="text-sm text-gray-900">{documents.length}</p>
+                <p className="text-sm text-[var(--color-text-primary)]">{documents.length}</p>
               </div>
             </CardContent>
           </Card>

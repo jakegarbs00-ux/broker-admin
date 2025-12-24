@@ -29,8 +29,7 @@ type Document = {
 
 type InfoRequest = {
   id: string;
-  title: string;
-  description: string | null;
+  message: string;
   status: string;
   created_at: string;
   client_response_text: string | null;
@@ -61,8 +60,8 @@ export default function ApplicationDetailPage() {
   const [uploadCategory, setUploadCategory] = useState('other');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
 
-  const [responses, setResponses] = useState<Record<string, string>>({});
-  const [respondingId, setRespondingId] = useState<string | null>(null);
+  const [responseText, setResponseText] = useState<Record<string, string>>({});
+  const [submittingResponse, setSubmittingResponse] = useState(false);
 
   useEffect(() => {
     if (!id || !user) return;
@@ -109,17 +108,7 @@ export default function ApplicationDetailPage() {
 
       const { data: reqs, error: reqError } = await supabase
         .from('information_requests')
-        .select(
-          `
-          id,
-          title,
-          description,
-          status,
-          created_at,
-          client_response_text,
-          client_responded_at
-        `
-        )
+        .select('*')
         .eq('application_id', id)
         .order('created_at', { ascending: false });
 
@@ -245,41 +234,33 @@ export default function ApplicationDetailPage() {
     }
   };
 
-  const handleRespond = async (requestId: string) => {
-    if (!responses[requestId]?.trim()) return;
-    setRespondingId(requestId);
-
-    const text = responses[requestId].trim();
+  const handleSubmitResponse = async (requestId: string) => {
+    if (!responseText[requestId]?.trim()) return;
+    setSubmittingResponse(true);
 
     const { error } = await supabase
       .from('information_requests')
       .update({
-        client_response_text: text,
-        client_responded_at: new Date().toISOString(),
-        status: 'client_responded',
+        status: 'completed',
+        client_response_text: responseText[requestId].trim(),
+        client_responded_at: new Date().toISOString()
       })
       .eq('id', requestId);
 
-    if (error) {
+    if (!error) {
+      // Optionally move application back to submitted
+      await supabase
+        .from('applications')
+        .update({ stage: 'submitted' })
+        .eq('id', id);
+      
+      // Refresh the page data
+      window.location.reload();
+    } else {
       alert('Error submitting response: ' + error.message);
-      setRespondingId(null);
-      return;
     }
-
-    setInfoRequests((prev) =>
-      prev.map((r) =>
-        r.id === requestId
-          ? {
-              ...r,
-              client_response_text: text,
-              client_responded_at: new Date().toISOString(),
-              status: 'client_responded',
-            }
-          : r
-      )
-    );
-    setResponses((prev) => ({ ...prev, [requestId]: '' }));
-    setRespondingId(null);
+    
+    setSubmittingResponse(false);
   };
 
   const getStatusBadge = (status: string) => {
@@ -298,7 +279,7 @@ export default function ApplicationDetailPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
             <p className="text-sm text-[var(--color-text-tertiary)]">Loading application...</p>
           </div>
         </div>
@@ -310,8 +291,8 @@ export default function ApplicationDetailPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-red-600 font-medium">Application not found.</p>
-          <Link href="/applications" className="text-blue-600 hover:underline text-sm mt-2 inline-block">
+          <p className="text-[var(--color-error)] font-medium">Application not found.</p>
+          <Link href="/applications" className="text-[var(--color-accent)] hover:underline text-sm mt-2 inline-block">
             ← Back to applications
           </Link>
         </div>
@@ -319,7 +300,7 @@ export default function ApplicationDetailPage() {
     );
   }
 
-  const openRequests = infoRequests.filter(r => r.status === 'open');
+  const openRequests = infoRequests.filter(r => r.status === 'open' || r.status === 'pending');
 
   return (
     <DashboardShell>
@@ -334,8 +315,8 @@ export default function ApplicationDetailPage() {
       />
 
       {error && (
-        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-sm text-red-600">{error}</p>
+        <div className="mb-6 p-4 bg-[var(--color-error-light)] border border-[var(--color-error)] rounded-lg">
+          <p className="text-sm text-[var(--color-error)]">{error}</p>
         </div>
       )}
 
@@ -368,17 +349,17 @@ export default function ApplicationDetailPage() {
       {/* Offers Cards */}
       {offers.length > 0 && (
         <div className="mb-6">
-          <h2 className="text-lg font-semibold mb-4">Your Offers</h2>
+          <h2 className="text-lg font-semibold mb-4 text-[var(--color-text-primary)]">Your Offers</h2>
           <div className="grid gap-4">
             {offers.map((offer: any) => (
               <div 
                 key={offer.id} 
-                className={`bg-white rounded-xl border-2 p-6 transition-all ${
+                className={`bg-[var(--color-surface)] rounded-xl border p-6 transition-all ${
                   offer.status === 'pending' 
-                    ? 'border-green-400 shadow-lg shadow-green-100' 
+                    ? 'border-[var(--color-success)] shadow-lg' 
                     : offer.status === 'accepted'
-                    ? 'border-blue-400 bg-blue-50'
-                    : 'border-gray-200 opacity-60'
+                    ? 'border-[var(--color-accent)] bg-[var(--color-accent-light)]'
+                    : 'border-[var(--color-border)] opacity-60'
                 }`}
               >
                 <div className="flex justify-between items-start">
@@ -388,33 +369,33 @@ export default function ApplicationDetailPage() {
                         {offer.lender?.name || 'Lender'}
                       </span>
                       {offer.status === 'accepted' && (
-                        <span className="px-2 py-1 bg-blue-100 text-blue-800 text-xs rounded-full font-medium">
+                        <span className="px-2 py-1 bg-[var(--color-success-light)] text-[var(--color-success)] text-xs rounded-full font-medium">
                           ✓ Accepted
                         </span>
                       )}
                       {offer.status === 'declined' && (
-                        <span className="px-2 py-1 bg-gray-100 text-[var(--color-text-secondary)] text-xs rounded-full font-medium">
+                        <span className="px-2 py-1 bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] text-xs rounded-full font-medium">
                           Declined
                         </span>
                       )}
                     </div>
                     
-                    <div className="text-3xl font-bold text-gray-900 mb-4">
+                    <div className="text-3xl font-bold text-[var(--color-text-primary)] mb-4">
                       £{Number(offer.amount).toLocaleString()}
                     </div>
                     
                     <div className="grid grid-cols-3 gap-6 text-sm">
                       <div>
                         <p className="text-[var(--color-text-tertiary)]">Term</p>
-                        <p className="font-medium text-gray-900">{offer.loan_term || '—'}</p>
+                        <p className="font-medium text-[var(--color-text-primary)]">{offer.loan_term || '—'}</p>
                       </div>
                       <div>
                         <p className="text-[var(--color-text-tertiary)]">Cost of Funding</p>
-                        <p className="font-medium text-gray-900">{offer.cost_of_funding || '—'}</p>
+                        <p className="font-medium text-[var(--color-text-primary)]">{offer.cost_of_funding || '—'}</p>
                       </div>
                       <div>
                         <p className="text-[var(--color-text-tertiary)]">Repayments</p>
-                        <p className="font-medium text-gray-900">{offer.repayments || '—'}</p>
+                        <p className="font-medium text-[var(--color-text-primary)]">{offer.repayments || '—'}</p>
                       </div>
                     </div>
                   </div>
@@ -423,13 +404,13 @@ export default function ApplicationDetailPage() {
                     <div className="flex flex-col gap-2">
                       <button
                         onClick={() => handleAcceptOffer(offer.id)}
-                        className="px-6 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium transition-colors"
+                        className="px-6 py-2 bg-[var(--color-success)] text-white rounded-lg hover:bg-[var(--color-success)] hover:opacity-90 font-medium transition-colors"
                       >
                         Accept Offer
                       </button>
                       <button
                         onClick={() => handleDeclineOffer(offer.id)}
-                        className="px-6 py-2 border border-gray-300 text-[var(--color-text-secondary)] rounded-lg hover:bg-gray-50 font-medium transition-colors"
+                        className="px-6 py-2 border border-[var(--color-border)] text-[var(--color-text-secondary)] rounded-lg hover:bg-[var(--color-bg-tertiary)] font-medium transition-colors"
                       >
                         Decline
                       </button>
@@ -439,7 +420,7 @@ export default function ApplicationDetailPage() {
                   {offer.status === 'accepted' && (
                     <div className="text-right">
                       <p className="text-sm text-[var(--color-text-tertiary)]">Accepted on</p>
-                      <p className="font-medium">{offer.accepted_at ? new Date(offer.accepted_at).toLocaleDateString('en-GB') : '—'}</p>
+                      <p className="font-medium text-[var(--color-text-primary)]">{offer.accepted_at ? new Date(offer.accepted_at).toLocaleDateString('en-GB') : '—'}</p>
                     </div>
                   )}
                 </div>
@@ -489,21 +470,21 @@ export default function ApplicationDetailPage() {
           {/* Application Details */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Application Details</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Application Details</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Amount</p>
-                  <p className="text-lg font-semibold text-gray-900">£{app.requested_amount?.toLocaleString()}</p>
+                  <p className="text-lg font-semibold text-[var(--color-text-primary)]">£{app.requested_amount?.toLocaleString()}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Loan Type</p>
-                  <p className="text-gray-900">{app.loan_type}</p>
+                  <p className="text-[var(--color-text-primary)]">{app.loan_type}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Urgency</p>
-                  <p className="text-gray-900">{app.urgency ?? '—'}</p>
+                  <p className="text-[var(--color-text-primary)]">{app.urgency ?? '—'}</p>
                 </div>
                 <div>
                   <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Stage</p>
@@ -511,7 +492,7 @@ export default function ApplicationDetailPage() {
                 </div>
               </div>
               {app.purpose && (
-                <div className="pt-4 border-t border-gray-100">
+                <div className="pt-4 border-t border-[var(--color-border)]">
                   <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase mb-1">Purpose</p>
                   <p className="text-[var(--color-text-primary)] whitespace-pre-line">{app.purpose}</p>
                 </div>
@@ -527,7 +508,7 @@ export default function ApplicationDetailPage() {
           {/* Information Requests */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Information Requests</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Information Requests</h2>
             </CardHeader>
             <CardContent>
               {infoRequests.length === 0 ? (
@@ -535,76 +516,53 @@ export default function ApplicationDetailPage() {
                   No information requests for this application.
                 </p>
               ) : (
-                <div className="space-y-4">
-                  {infoRequests.map((r) => {
-                    const canRespond = r.status === 'open' && !r.client_response_text;
-
-                    return (
-                      <div
-                        key={r.id}
-                        className="rounded-lg border border-gray-200 bg-gray-50 p-4 space-y-3"
-                      >
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="flex-1">
-                            <p className="font-medium text-gray-900">{r.title}</p>
-                            {r.description && (
-                              <p className="text-sm text-[var(--color-text-secondary)] mt-1 whitespace-pre-line">
-                                {r.description}
-                              </p>
-                            )}
-                            <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
-                              Requested {new Date(r.created_at).toLocaleDateString('en-GB')}
-                            </p>
-                          </div>
-                          {getStatusBadge(r.status)}
-                        </div>
-
-                        {r.client_response_text && (
-                          <div className="rounded-lg bg-white border border-gray-200 p-3">
-                            <p className="text-xs font-medium text-[var(--color-text-tertiary)] mb-1">Your Response</p>
-                            <p className="text-sm text-[var(--color-text-primary)] whitespace-pre-line">
-                              {r.client_response_text}
-                            </p>
-                            {r.client_responded_at && (
-                              <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
-                                Submitted {new Date(r.client_responded_at).toLocaleDateString('en-GB')}
-                              </p>
-                            )}
-                          </div>
-                        )}
-
-                        {canRespond && (
-                          <div className="space-y-2 pt-2 border-t border-gray-200">
-                            <p className="text-xs text-[var(--color-text-secondary)]">
-                              Respond to this request below. You can also upload supporting documents.
-                            </p>
-                            <textarea
-                              rows={3}
-                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                              placeholder="Type your response here..."
-                              value={responses[r.id] ?? ''}
-                              onChange={(e) =>
-                                setResponses((prev) => ({
-                                  ...prev,
-                                  [r.id]: e.target.value,
-                                }))
-                              }
-                            />
-                            <div className="flex justify-end">
-                              <Button
-                                variant="primary"
-                                size="sm"
-                                disabled={!responses[r.id]?.trim() || respondingId === r.id}
-                                onClick={() => handleRespond(r.id)}
-                              >
-                                {respondingId === r.id ? 'Submitting…' : 'Submit Response'}
-                              </Button>
-                            </div>
-                          </div>
-                        )}
+                <div className="space-y-3">
+                  {infoRequests.map((request) => (
+                    <div key={request.id} className="p-4 bg-[var(--color-bg-tertiary)] rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="font-medium text-[var(--color-text-primary)]">{request.message}</p>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          request.status === 'completed' 
+                            ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
+                            : 'bg-[var(--color-warning-light)] text-[var(--color-warning)]'
+                        }`}>
+                          {request.status === 'completed' ? 'Completed' : 'Open'}
+                        </span>
                       </div>
-                    );
-                  })}
+                      
+                      <p className="text-sm text-[var(--color-text-tertiary)] mb-3">
+                        Requested {new Date(request.created_at).toLocaleDateString('en-GB')}
+                      </p>
+                      
+                      {/* Show response if completed */}
+                      {request.status === 'completed' && request.client_response_text && (
+                        <div className="mt-3 p-3 bg-[var(--color-surface)] rounded border border-[var(--color-border)]">
+                          <p className="text-sm text-[var(--color-text-secondary)] mb-1">Your response:</p>
+                          <p className="text-[var(--color-text-primary)]">{request.client_response_text}</p>
+                        </div>
+                      )}
+                      
+                      {/* Show response form if open/pending */}
+                      {(request.status === 'pending' || request.status === 'open') && (
+                        <div className="mt-3 space-y-3">
+                          <textarea
+                            value={responseText[request.id] || ''}
+                            onChange={(e) => setResponseText({ ...responseText, [request.id]: e.target.value })}
+                            placeholder="Type your response here..."
+                            rows={3}
+                            className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
+                          />
+                          <button
+                            onClick={() => handleSubmitResponse(request.id)}
+                            disabled={!responseText[request.id]?.trim() || submittingResponse}
+                            className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-lg hover:bg-[var(--color-accent-hover)] disabled:opacity-50 transition-colors"
+                          >
+                            {submittingResponse ? 'Submitting...' : 'Submit Response'}
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  ))}
                 </div>
               )}
             </CardContent>
@@ -615,7 +573,7 @@ export default function ApplicationDetailPage() {
         <div className="space-y-6">
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-gray-900">Documents</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Documents</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               {docs.length === 0 ? (
@@ -627,7 +585,7 @@ export default function ApplicationDetailPage() {
                   {docs.map((d) => (
                     <li
                       key={d.id}
-                      className="flex items-center justify-between text-sm p-2 bg-gray-50 rounded-lg"
+                      className="flex items-center justify-between text-sm p-2 bg-[var(--color-bg-tertiary)] rounded-lg"
                     >
                       <div className="flex-1 min-w-0">
                         <Badge variant="default" size="sm">{d.category}</Badge>
@@ -635,7 +593,7 @@ export default function ApplicationDetailPage() {
                           href={getDocumentUrl(d.storage_path)}
                           target="_blank"
                           rel="noreferrer"
-                          className="block text-blue-600 hover:text-blue-700 truncate mt-1"
+                          className="block text-[var(--color-accent)] hover:text-[var(--color-accent-hover)] truncate mt-1"
                         >
                           {d.original_filename ?? 'View document'}
                         </a>
@@ -649,11 +607,11 @@ export default function ApplicationDetailPage() {
               )}
 
               {/* Upload form */}
-              <div className="border-t border-gray-200 pt-4 space-y-3">
+              <div className="border-t border-[var(--color-border)] pt-4 space-y-3">
                 <p className="text-sm font-medium text-[var(--color-text-primary)]">Upload Document</p>
                 <div className="space-y-2">
                   <select
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                     value={uploadCategory}
                     onChange={(e) => setUploadCategory(e.target.value)}
                   >
@@ -665,7 +623,7 @@ export default function ApplicationDetailPage() {
                   </select>
                   <input
                     type="file"
-                    className="w-full text-sm text-[var(--color-text-tertiary)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
+                    className="w-full text-sm text-[var(--color-text-tertiary)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent-light)] file:text-[var(--color-accent)] hover:file:bg-[var(--color-accent-light)]"
                     onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
                   />
                   <Button

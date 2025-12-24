@@ -71,10 +71,11 @@ type Lender = {
 
 type InfoRequest = {
   id: string;
-  question: string;
+  message: string;
   status: string;
   created_at: string;
-  response_text: string | null;
+  client_response_text: string | null;
+  client_responded_at: string | null;
 };
 
 type Document = {
@@ -130,7 +131,7 @@ export default function AdminApplicationDetailPage() {
   const [notesDirty, setNotesDirty] = useState(false);
 
   // New info request form
-  const [newQuestion, setNewQuestion] = useState('');
+  const [requestMessage, setRequestMessage] = useState('');
   const [creatingRequest, setCreatingRequest] = useState(false);
 
   useEffect(() => {
@@ -238,7 +239,7 @@ export default function AdminApplicationDetailPage() {
       // Load info requests
       const { data: requestsData } = await supabase
         .from('information_requests')
-        .select('id, question, status, created_at, response_text')
+        .select('*')
         .eq('application_id', id)
         .order('created_at', { ascending: false });
       setInfoRequests((requestsData || []) as InfoRequest[]);
@@ -339,14 +340,14 @@ const handleSaveOffer = async () => {
   };
 
   const handleCreateInfoRequest = async () => {
-    if (!newQuestion.trim()) return;
+    if (!requestMessage.trim()) return;
     setCreatingRequest(true);
 
     const { data, error } = await supabase
       .from('information_requests')
       .insert({
+        message: requestMessage.trim(),
         application_id: id,
-        question: newQuestion.trim(),
         status: 'pending',
         created_by: user?.id,
       })
@@ -357,13 +358,13 @@ const handleSaveOffer = async () => {
       alert('Error creating request: ' + error.message);
     } else if (data) {
       setInfoRequests((prev) => [data as InfoRequest, ...prev]);
-      setNewQuestion('');
+      setRequestMessage('');
     }
     setCreatingRequest(false);
   };
 
   const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('documents').getPublicUrl(storagePath);
+    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
     return data.publicUrl;
   };
 
@@ -752,47 +753,63 @@ const handleSaveOffer = async () => {
             </CardHeader>
             <CardContent className="space-y-4">
               {/* Create new request */}
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  placeholder="Ask the client for information..."
-                  className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
-                  value={newQuestion}
-                  onChange={(e) => setNewQuestion(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleCreateInfoRequest();
-                  }}
-                />
-                <Button
-                  variant="primary"
-                  disabled={creatingRequest || !newQuestion.trim()}
-                  onClick={handleCreateInfoRequest}
-                >
-                  {creatingRequest ? 'Sending...' : 'Send'}
-                </Button>
+              <div>
+                <label className="block text-sm font-medium mb-1 text-[var(--color-text-primary)]">Message to client</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="e.g. Please upload your last 3 months bank statements"
+                    className="flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
+                    value={requestMessage}
+                    onChange={(e) => setRequestMessage(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') handleCreateInfoRequest();
+                    }}
+                  />
+                  <Button
+                    variant="primary"
+                    disabled={creatingRequest || !requestMessage.trim()}
+                    onClick={handleCreateInfoRequest}
+                  >
+                    {creatingRequest ? 'Sending...' : 'Send'}
+                  </Button>
+                </div>
               </div>
 
               {/* Requests list */}
               {infoRequests.length === 0 ? (
                 <p className="text-sm text-[var(--color-text-tertiary)] text-center py-4">No information requests yet</p>
               ) : (
-                <div className="divide-y divide-gray-100">
-                  {infoRequests.map((req) => (
-                    <div key={req.id} className="py-3">
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1">
-                          <p className="font-medium text-[var(--color-text-primary)]">{req.question}</p>
-                          <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-                            {new Date(req.created_at).toLocaleDateString('en-GB')}
-                          </p>
-                        </div>
-                        <Badge variant={req.status === 'answered' ? 'success' : 'warning'}>
-                          {req.status}
-                        </Badge>
+                <div className="space-y-3">
+                  {infoRequests.map((request) => (
+                    <div key={request.id} className="p-4 bg-[var(--color-bg-tertiary)] rounded-lg">
+                      <div className="flex justify-between items-start mb-2">
+                        <p className="font-medium text-[var(--color-text-primary)]">{request.message}</p>
+                        <span className={`px-2 py-1 text-xs rounded-full ${
+                          request.status === 'completed' 
+                            ? 'bg-[var(--color-success-light)] text-[var(--color-success)]'
+                            : 'bg-[var(--color-warning-light)] text-[var(--color-warning)]'
+                        }`}>
+                          {request.status === 'completed' ? 'Completed' : 'Open'}
+                        </span>
                       </div>
-                      {req.response_text && (
-                        <div className="mt-2 p-3 bg-green-50 rounded-lg">
-                          <p className="text-sm text-[var(--color-text-primary)]">{req.response_text}</p>
+                      
+                      <p className="text-sm text-[var(--color-text-tertiary)]">
+                        Requested {new Date(request.created_at).toLocaleDateString('en-GB')}
+                      </p>
+                      
+                      {/* Show client response if completed */}
+                      {request.status === 'completed' && (
+                        <div className="mt-3 p-3 bg-[var(--color-surface)] rounded border border-[var(--color-border)]">
+                          <p className="text-sm font-medium text-[var(--color-text-secondary)] mb-1">Client Response:</p>
+                          {request.client_response_text && (
+                            <p className="text-[var(--color-text-primary)]">{request.client_response_text}</p>
+                          )}
+                          {request.client_responded_at && (
+                            <p className="text-xs text-[var(--color-text-tertiary)] mt-2">
+                              Responded {new Date(request.client_responded_at).toLocaleDateString('en-GB')} at {new Date(request.client_responded_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                            </p>
+                          )}
                         </div>
                       )}
                     </div>
