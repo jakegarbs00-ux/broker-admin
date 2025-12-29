@@ -109,7 +109,7 @@ export default function AdminLenderDetailPage() {
         .order('created_at', { ascending: false });
 
       // Get unique application IDs
-      const applicationIds = [...new Set(submissionsData?.map(s => s.application_id).filter(Boolean))];
+      const applicationIds = Array.from(new Set(submissionsData?.map(s => s.application_id).filter(Boolean) || []));
 
       // Fetch applications with their companies
       let applicationsMap: Record<string, any> = {};
