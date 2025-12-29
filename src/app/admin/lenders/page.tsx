@@ -14,7 +14,7 @@ type Lender = {
   contact_phone: string | null;
   status: string;
   created_at: string;
-  applications_count: number;
+  lender_submissions?: Array<{ count: number }>;
 };
 
 export default function AdminLendersPage() {
@@ -38,10 +38,13 @@ export default function AdminLendersPage() {
     const loadLenders = async () => {
       setError(null);
 
-      // Get lenders
+      // Get lenders with submission counts
       const { data: lendersData, error: lendersError } = await supabase
         .from('lenders')
-        .select('id, name, contact_email, contact_phone, status, created_at')
+        .select(`
+          *,
+          lender_submissions(count)
+        `)
         .order('name', { ascending: true });
 
       if (lendersError) {
@@ -51,24 +54,7 @@ export default function AdminLendersPage() {
         return;
       }
 
-      // Get application counts
-      const { data: appCounts } = await supabase
-        .from('applications')
-        .select('lender_id');
-
-      const countMap: Record<string, number> = {};
-      (appCounts || []).forEach((a: any) => {
-        if (a.lender_id) {
-          countMap[a.lender_id] = (countMap[a.lender_id] || 0) + 1;
-        }
-      });
-
-      const processedLenders: Lender[] = (lendersData || []).map((l) => ({
-        ...l,
-        applications_count: countMap[l.id] || 0,
-      }));
-
-      setLenders(processedLenders);
+      setLenders((lendersData || []) as Lender[]);
       setLoadingData(false);
     };
 
@@ -89,7 +75,7 @@ export default function AdminLendersPage() {
     if (error) {
       setError('Error adding lender: ' + error.message);
     } else if (data) {
-      setLenders((prev) => [...prev, { ...data, applications_count: 0 }].sort((a, b) => a.name.localeCompare(b.name)));
+      setLenders((prev) => [...prev, { ...data, lender_submissions: [] }].sort((a, b) => a.name.localeCompare(b.name)));
       setNewName('');
     }
     setCreating(false);
@@ -194,8 +180,8 @@ export default function AdminLendersPage() {
                             </span>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
-                            {l.applications_count > 0 ? (
-                              <Badge variant="info">{l.applications_count}</Badge>
+                            {(l.lender_submissions?.[0]?.count || 0) > 0 ? (
+                              <Badge variant="info">{l.lender_submissions[0].count}</Badge>
                             ) : (
                               <span className="text-sm text-[var(--color-text-tertiary)]">0</span>
                             )}
@@ -270,7 +256,7 @@ export default function AdminLendersPage() {
               <div className="flex items-center justify-between">
                 <span className="text-sm text-[var(--color-text-secondary)]">Total Assigned Apps</span>
                 <span className="font-medium text-[var(--color-text-primary)]">
-                  {lenders.reduce((sum, l) => sum + l.applications_count, 0)}
+                  {lenders.reduce((sum, l) => sum + (l.lender_submissions?.[0]?.count || 0), 0)}
                 </span>
               </div>
             </CardContent>

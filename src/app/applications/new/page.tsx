@@ -18,6 +18,8 @@ const schema = z.object({
   loan_type: z.string().min(1, 'Select a loan type'),
   urgency: z.string().min(1, 'Select urgency'),
   purpose: z.string().min(10, 'Please describe the purpose (at least 10 characters)'),
+  monthly_revenue: z.string().optional(),
+  trading_months: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -52,22 +54,23 @@ export default function NewApplicationPage() {
   useEffect(() => {
     if (!user) return;
     const loadCompany = async () => {
-      const { data, error } = await supabase
-        .from('companies')
-        .select('id')
-        .eq('owner_id', user.id)
-        .maybeSingle();
+      // Check if user has a company via their profile
+      const { data: profileData, error: profileError } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', user.id)
+        .single();
 
-      if (error) {
-        console.error('Error loading company', error);
+      if (profileError) {
+        console.error('Error loading profile', profileError);
       }
 
-      if (!data) {
+      if (!profileData?.company_id) {
         router.replace('/onboarding/company');
         return;
       }
 
-      setCompanyId(data.id);
+      setCompanyId(profileData.company_id);
       setLoadingCompany(false);
     };
 
@@ -81,7 +84,6 @@ export default function NewApplicationPage() {
       .from('applications')
       .insert({
         company_id: companyId,
-        owner_id: user.id,
         created_by: user.id,
         requested_amount: values.requested_amount,
         loan_type: values.loan_type,
@@ -89,6 +91,8 @@ export default function NewApplicationPage() {
         purpose: values.purpose,
         stage: 'created',
         is_hidden: false,
+        monthly_revenue: values.monthly_revenue ? parseFloat(values.monthly_revenue) : null,
+        trading_months: values.trading_months ? parseInt(values.trading_months) : null,
       })
       .select('id')
       .single();
@@ -205,6 +209,38 @@ export default function NewApplicationPage() {
                 {errors.purpose && (
                   <p className="text-sm text-red-600 mt-1">{errors.purpose.message}</p>
                 )}
+              </div>
+
+              {/* Business Information */}
+              <div className="pt-4 border-t border-gray-200">
+                <h3 className="text-sm font-medium text-[var(--color-text-primary)] mb-4">Business Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                      Monthly Revenue (£)
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm"
+                      placeholder="e.g., 50000"
+                      {...register('monthly_revenue')}
+                    />
+                    <p className="text-xs text-[var(--color-text-tertiary)] mt-1">Average monthly revenue</p>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                      Trading History (months)
+                    </label>
+                    <input
+                      type="number"
+                      className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm"
+                      placeholder="e.g., 24"
+                      {...register('trading_months')}
+                    />
+                    <p className="text-xs text-[var(--color-text-tertiary)] mt-1">How long the business has been trading</p>
+                  </div>
+                </div>
               </div>
 
               {/* Submit */}

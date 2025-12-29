@@ -24,6 +24,8 @@ const schema = z.object({
   urgency: z.string().min(1, 'Select urgency'),
   purpose: z.string().min(10, 'Please describe the purpose (at least 10 characters)'),
   is_hidden: z.boolean(),
+  monthly_revenue: z.string().optional(),
+  trading_months: z.string().optional(),
 });
 
 type FormValues = z.infer<typeof schema>;
@@ -79,6 +81,8 @@ export default function PartnerNewApplicationPage() {
         stage: 'created',
         is_hidden: values.is_hidden,
         prospective_client_email: values.prospective_client_email || null,
+        monthly_revenue: values.monthly_revenue ? parseFloat(values.monthly_revenue) : null,
+        trading_months: values.trading_months ? parseInt(values.trading_months) : null,
       })
       .select('id')
       .single();
@@ -270,6 +274,42 @@ export default function PartnerNewApplicationPage() {
                 {errors.purpose && (
                   <p className="text-sm text-[var(--color-error)] mt-1">{errors.purpose.message}</p>
                 )}
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Business Information */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Business Information</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                    Monthly Revenue (£)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm"
+                    placeholder="e.g., 50000"
+                    {...register('monthly_revenue')}
+                  />
+                  <p className="text-xs text-[var(--color-text-tertiary)] mt-1">Average monthly revenue</p>
+                </div>
+                
+                <div>
+                  <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                    Trading History (months)
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm"
+                    placeholder="e.g., 24"
+                    {...register('trading_months')}
+                  />
+                  <p className="text-xs text-[var(--color-text-tertiary)] mt-1">How long the business has been trading</p>
+                </div>
               </div>
             </CardContent>
           </Card>

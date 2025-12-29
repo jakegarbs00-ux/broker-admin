@@ -27,6 +27,11 @@ type Application = {
   offer_loan_term: string | null;
   offer_cost_of_funding: string | null;
   offer_repayments: string | null;
+  monthly_revenue: number | null;
+  trading_months: number | null;
+  workflow_status: string | null;
+  eligibility_result: Record<string, unknown> | null;
+  companies_house_data: Record<string, unknown> | null;
   company?: {
     id: string;
     name: string;
@@ -67,6 +72,7 @@ type Company = {
 type Lender = {
   id: string;
   name: string;
+  submission_method?: string | null;
 };
 
 type InfoRequest = {
@@ -89,6 +95,21 @@ type Document = {
 type Partner = {
   id: string;
   email: string;
+};
+
+type LenderSubmission = {
+  id: string;
+  lender_id: string;
+  submission_method: 'api' | 'email';
+  status: 'pending' | 'sent' | 'acknowledged' | 'failed' | 'retry';
+  sent_at: string | null;
+  retry_count: number;
+  last_error: string | null;
+  created_at: string;
+  lender?: {
+    id: string;
+    name: string;
+  };
 };
 
 const STAGES = [
@@ -120,12 +141,14 @@ export default function AdminApplicationDetailPage() {
   const [lenders, setLenders] = useState<Lender[]>([]);
   const [infoRequests, setInfoRequests] = useState<InfoRequest[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
+  const [lenderSubmissions, setLenderSubmissions] = useState<LenderSubmission[]>([]);
+  const [selectedLenderIds, setSelectedLenderIds] = useState<string[]>([]);
+  const [sendingToLenders, setSendingToLenders] = useState(false);
   const [referralPartner, setReferralPartner] = useState<Partner | null>(null);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const [updatingStage, setUpdatingStage] = useState(false);
-  const [updatingLender, setUpdatingLender] = useState(false);
   const [savingNotes, setSavingNotes] = useState(false);
   const [adminNotes, setAdminNotes] = useState('');
   const [notesDirty, setNotesDirty] = useState(false);
@@ -232,7 +255,7 @@ export default function AdminApplicationDetailPage() {
       // Load lenders
       const { data: lendersData } = await supabase
         .from('lenders')
-        .select('id, name')
+        .select('id, name, submission_method')
         .order('name', { ascending: true });
       setLenders((lendersData || []) as Lender[]);
 
@@ -252,11 +275,23 @@ export default function AdminApplicationDetailPage() {
         .order('created_at', { ascending: false });
       setDocuments((docsData || []) as Document[]);
 
+      // Load lender submissions
+      const { data: submissionsData } = await supabase
+        .from('lender_submissions')
+        .select('*, lender:lender_id(id, name)')
+        .eq('application_id', id)
+        .order('created_at', { ascending: false });
+      setLenderSubmissions((submissionsData || []) as LenderSubmission[]);
+
       setLoadingData(false);
     };
 
     loadData();
   }, [loading, profile?.role, id, supabase]);
+
+  const availableLenders = lenders.filter(
+    (l) => !lenderSubmissions.some((sub) => sub.lender_id === l.id)
+  );
 
   const handleStageChange = async (newStage: string) => {
     if (!application) return;
@@ -273,24 +308,6 @@ export default function AdminApplicationDetailPage() {
       setApplication((prev) => prev ? { ...prev, stage: newStage } : null);
     }
     setUpdatingStage(false);
-  };
-
-  const handleLenderChange = async (lenderId: string) => {
-    if (!application) return;
-    setUpdatingLender(true);
-
-    const lender_id = lenderId === 'none' ? null : lenderId;
-    const { error } = await supabase
-      .from('applications')
-      .update({ lender_id })
-      .eq('id', id);
-
-    if (error) {
-      alert('Error updating lender: ' + error.message);
-    } else {
-      setApplication((prev) => prev ? { ...prev, lender_id } : null);
-    }
-    setUpdatingLender(false);
   };
 
   const handleSaveNotes = async () => {
@@ -310,7 +327,69 @@ export default function AdminApplicationDetailPage() {
     }
     setSavingNotes(false);
   };
-const handleSaveOffer = async () => {
+
+  const handleSendToLenders = async () => {
+    if (selectedLenderIds.length === 0 || !application) return;
+    setSendingToLenders(true);
+
+    try {
+      // Create pending submission records for each selected lender
+      const submissions = selectedLenderIds.map((lenderId) => ({
+        application_id: id,
+        lender_id: lenderId,
+        submission_method: lenders.find((l) => l.id === lenderId)?.submission_method || 'email',
+        status: 'pending',
+      }));
+
+      const { data: newSubmissions, error: insertError } = await supabase
+        .from('lender_submissions')
+        .insert(submissions)
+        .select('*, lender:lender_id(id, name)');
+
+      if (insertError) throw insertError;
+
+      // Trigger n8n webhook
+      const webhookUrl = process.env.NEXT_PUBLIC_N8N_WEBHOOK_URL;
+      if (webhookUrl) {
+        await fetch(webhookUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            application_id: id,
+            lender_ids: selectedLenderIds,
+          }),
+        });
+      }
+
+      // Update local state
+      setLenderSubmissions((prev) => [...(newSubmissions || []), ...prev]);
+      setSelectedLenderIds([]);
+      
+      // Update workflow status
+      await supabase
+        .from('applications')
+        .update({ workflow_status: 'submitted_to_lenders' })
+        .eq('id', id);
+
+      // Reload application to get updated workflow_status
+      const { data: updatedApp } = await supabase
+        .from('applications')
+        .select('*')
+        .eq('id', id)
+        .single();
+      if (updatedApp) {
+        setApplication(updatedApp as Application);
+      }
+
+    } catch (error) {
+      console.error('Error sending to lenders:', error);
+      alert('Failed to send to lenders. Please try again.');
+    } finally {
+      setSendingToLenders(false);
+    }
+  };
+
+  const handleSaveOffer = async () => {
     if (!application) return;
     setSavingOffer(true);
 
@@ -422,7 +501,6 @@ const handleSaveOffer = async () => {
     );
   }
 
-  const currentLender = application.lender || lenders.find((l) => l.id === application.lender_id);
   const ownerEmail = company?.owner?.[0]?.email ?? application.prospective_client_email ?? 'Unknown';
 
   return (
@@ -482,23 +560,6 @@ const handleSaveOffer = async () => {
                 </select>
               </div>
 
-              <div>
-                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Assigned Lender</label>
-                <select
-                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] disabled:opacity-50"
-                  value={application.lender_id ?? 'none'}
-                  disabled={updatingLender}
-                  onChange={(e) => handleLenderChange(e.target.value)}
-                >
-                  <option value="none">Unassigned</option>
-                  {lenders.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
               <div className="pt-2 border-t border-[var(--color-border)] space-y-2">
                 <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium">Quick Actions</p>
                 {application.stage === 'created' && (
@@ -529,6 +590,112 @@ const handleSaveOffer = async () => {
                   </>
                 )}
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Send to Lenders */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Send to Lenders</h2>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {availableLenders.length === 0 ? (
+                <p className="text-sm text-[var(--color-text-tertiary)]">
+                  {lenders.length === 0 ? 'No lenders configured' : 'Already sent to all lenders'}
+                </p>
+              ) : (
+                <>
+                  <div className="space-y-2">
+                    {availableLenders.map((lender) => (
+                      <label key={lender.id} className="flex items-center gap-2 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
+                          checked={selectedLenderIds.includes(lender.id)}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setSelectedLenderIds([...selectedLenderIds, lender.id]);
+                            } else {
+                              setSelectedLenderIds(selectedLenderIds.filter((id) => id !== lender.id));
+                            }
+                          }}
+                        />
+                        <span className="text-sm text-[var(--color-text-primary)]">{lender.name}</span>
+                      </label>
+                    ))}
+                  </div>
+                  
+                  <div className="flex gap-2">
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSelectedLenderIds(availableLenders.map((l) => l.id))}
+                    >
+                      Select All
+                    </Button>
+                    <Button
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => setSelectedLenderIds([])}
+                    >
+                      Clear
+                    </Button>
+                  </div>
+                  
+                  <Button
+                    variant="primary"
+                    className="w-full"
+                    disabled={selectedLenderIds.length === 0 || sendingToLenders}
+                    onClick={handleSendToLenders}
+                  >
+                    {sendingToLenders ? 'Sending...' : `Send to ${selectedLenderIds.length} Lender${selectedLenderIds.length !== 1 ? 's' : ''}`}
+                  </Button>
+                </>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Workflow & Eligibility */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Workflow</h2>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-[var(--color-text-secondary)]">Status</span>
+                <Badge variant={
+                  application.workflow_status === 'submitted_to_lenders' ? 'success' :
+                  application.workflow_status === 'failed' ? 'error' :
+                  application.workflow_status === 'eligible' ? 'info' : 'default'
+                }>
+                  {application.workflow_status || 'pending'}
+                </Badge>
+              </div>
+              
+              <div className="pt-2 border-t border-[var(--color-border)] space-y-2">
+                <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium">Eligibility Data</p>
+                <div className="flex justify-between">
+                  <span className="text-sm text-[var(--color-text-secondary)]">Monthly Revenue</span>
+                  <span className="text-sm font-medium">
+                    {application.monthly_revenue ? `£${application.monthly_revenue.toLocaleString()}` : '—'}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-sm text-[var(--color-text-secondary)]">Trading History</span>
+                  <span className="text-sm font-medium">
+                    {application.trading_months ? `${application.trading_months} months` : '—'}
+                  </span>
+                </div>
+              </div>
+
+              {application.eligibility_result && (
+                <div className="pt-2 border-t border-[var(--color-border)]">
+                  <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium mb-2">Check Results</p>
+                  <pre className="text-xs bg-[var(--color-bg-tertiary)] p-2 rounded overflow-auto max-h-32">
+                    {JSON.stringify(application.eligibility_result, null, 2)}
+                  </pre>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -648,14 +815,6 @@ const handleSaveOffer = async () => {
                   <span className="text-sm text-[var(--color-text-secondary)]">Type</span>
                   <span className="text-sm font-medium">{application.loan_type}</span>
                 </div>
-                {currentLender && (
-                  <div className="flex justify-between">
-                    <span className="text-sm text-[var(--color-text-secondary)]">Lender</span>
-                    <Link href={`/admin/lenders/${currentLender.id}`} className="text-sm font-medium text-[var(--color-accent)] hover:underline">
-                      {currentLender.name}
-                    </Link>
-                  </div>
-                )}
               </div>
             </CardContent>
           </Card>
@@ -727,6 +886,44 @@ const handleSaveOffer = async () => {
                 </div>
               ) : (
                 <p className="text-[var(--color-text-tertiary)]">No company information available</p>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Lender Submissions */}
+          <Card>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <h2 className="font-medium text-[var(--color-text-primary)]">Lender Submissions</h2>
+                <Badge variant="default">{lenderSubmissions.length}</Badge>
+              </div>
+            </CardHeader>
+            <CardContent>
+              {lenderSubmissions.length === 0 ? (
+                <p className="text-sm text-[var(--color-text-tertiary)] text-center py-4">Not yet submitted to lenders</p>
+              ) : (
+                <div className="divide-y divide-[var(--color-border)]">
+                  {lenderSubmissions.map((sub) => (
+                    <div key={sub.id} className="py-3 flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-[var(--color-text-primary)]">{sub.lender?.name || 'Unknown Lender'}</p>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          {sub.submission_method.toUpperCase()} • {sub.sent_at ? new Date(sub.sent_at).toLocaleDateString('en-GB') : 'Not sent'}
+                        </p>
+                        {sub.last_error && (
+                          <p className="text-xs text-[var(--color-error)] mt-1">{sub.last_error}</p>
+                        )}
+                      </div>
+                      <Badge variant={
+                        sub.status === 'sent' || sub.status === 'acknowledged' ? 'success' :
+                        sub.status === 'failed' ? 'error' :
+                        sub.status === 'retry' ? 'warning' : 'default'
+                      }>
+                        {sub.status}
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
               )}
             </CardContent>
           </Card>

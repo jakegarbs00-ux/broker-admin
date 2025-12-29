@@ -13,6 +13,7 @@ type AdminApp = {
   stage: string;
   loan_type: string;
   urgency: string | null;
+  workflow_status: string | null;
   created_at: string;
   is_hidden: boolean;
   lender_id: string | null;
@@ -52,6 +53,7 @@ export default function AdminApplicationsPage() {
 
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [lenderFilter, setLenderFilter] = useState<string>('all');
+  const [workflowFilter, setWorkflowFilter] = useState<string>('all');
 
   useEffect(() => {
     if (loading) return;
@@ -83,6 +85,7 @@ export default function AdminApplicationsPage() {
         .from('applications')
         .select(`
           *,
+          workflow_status,
           company:company_id(id, name),
           lender:lender_id(id, name)
         `)
@@ -122,6 +125,7 @@ export default function AdminApplicationsPage() {
     if (lenderFilter === 'none' && a.lender_id) return false;
     if (lenderFilter !== 'all' && lenderFilter !== 'none' && a.lender_id !== lenderFilter)
       return false;
+    if (workflowFilter !== 'all' && a.workflow_status !== workflowFilter) return false;
     return true;
   });
 
@@ -201,6 +205,21 @@ export default function AdminApplicationsPage() {
             </select>
           </div>
 
+          <div>
+            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">Workflow Status</label>
+            <select
+              className="rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+              value={workflowFilter}
+              onChange={(e) => setWorkflowFilter(e.target.value)}
+            >
+              <option value="all">All Workflow Status</option>
+              <option value="pending">Pending</option>
+              <option value="eligible">Eligible</option>
+              <option value="submitted_to_lenders">Submitted to Lenders</option>
+              <option value="failed">Failed</option>
+            </select>
+          </div>
+
           <div className="ml-auto">
             <p className="text-sm text-[var(--color-text-tertiary)]">
               Showing <span className="font-medium">{filteredApps.length}</span> of{' '}
@@ -266,6 +285,19 @@ export default function AdminApplicationsPage() {
                       <Badge variant={getStageBadgeVariant(a.stage)}>
                         {formatStage(a.stage)}
                       </Badge>
+                      {a.workflow_status && (
+                        <Badge variant={
+                          a.workflow_status === 'submitted_to_lenders' ? 'success' :
+                          a.workflow_status === 'failed' ? 'error' :
+                          'default'
+                        }>
+                          {a.workflow_status === 'submitted_to_lenders' ? 'Submitted' :
+                           a.workflow_status === 'failed' ? 'Failed' :
+                           a.workflow_status === 'eligible' ? 'Eligible' :
+                           a.workflow_status === 'pending' ? 'Pending' :
+                           a.workflow_status}
+                        </Badge>
+                      )}
                       <svg className="w-5 h-5 text-[var(--color-text-tertiary)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
                       </svg>

@@ -15,16 +15,25 @@ type Lender = {
   contact_email: string | null;
   contact_phone: string | null;
   notes: string | null;
+  submission_method: 'api' | 'email' | null;
+  api_endpoint: string | null;
+  api_auth_type: string | null;
+  submission_email: string | null;
   created_at: string;
 };
 
-type Application = {
+type LenderSubmission = {
   id: string;
-  requested_amount: number;
-  loan_type: string;
-  stage: string;
-  created_at: string;
-  company: { id: string; name: string }[] | null;
+  status: string;
+  sent_at: string | null;
+  application: {
+    id: string;
+    requested_amount: number;
+    loan_type: string;
+    stage: string;
+    created_at: string;
+    company: { id: string; name: string } | null;
+  };
 };
 
 export default function AdminLenderDetailPage() {
@@ -35,7 +44,7 @@ export default function AdminLenderDetailPage() {
   const supabase = getSupabaseClient();
 
   const [lender, setLender] = useState<Lender | null>(null);
-  const [applications, setApplications] = useState<Application[]>([]);
+  const [submissions, setSubmissions] = useState<LenderSubmission[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -46,6 +55,10 @@ export default function AdminLenderDetailPage() {
     contact_email: '',
     contact_phone: '',
     notes: '',
+    submission_method: 'email' as 'api' | 'email' | null,
+    api_endpoint: '',
+    api_auth_type: '',
+    submission_email: '',
   });
 
   useEffect(() => {
@@ -77,19 +90,32 @@ export default function AdminLenderDetailPage() {
         contact_email: lenderData.contact_email || '',
         contact_phone: lenderData.contact_phone || '',
         notes: lenderData.notes || '',
+        submission_method: lenderData.submission_method || 'email',
+        api_endpoint: lenderData.api_endpoint || '',
+        api_auth_type: lenderData.api_auth_type || '',
+        submission_email: lenderData.submission_email || '',
       });
 
-      // Load applications assigned to this lender
-      const { data: appsData } = await supabase
-        .from('applications')
+      // Load submissions for this lender
+      const { data: submissionsData } = await supabase
+        .from('lender_submissions')
         .select(`
-          id, requested_amount, loan_type, stage, created_at,
-          company:companies(id, name)
+          id,
+          status,
+          sent_at,
+          application:application_id(
+            id,
+            requested_amount,
+            loan_type,
+            stage,
+            created_at,
+            company:company_id(id, name)
+          )
         `)
         .eq('lender_id', id)
         .order('created_at', { ascending: false });
 
-      setApplications((appsData || []) as Application[]);
+      setSubmissions((submissionsData || []) as LenderSubmission[]);
       setLoadingData(false);
     };
 
@@ -105,6 +131,10 @@ export default function AdminLenderDetailPage() {
         contact_email: formData.contact_email.trim() || null,
         contact_phone: formData.contact_phone.trim() || null,
         notes: formData.notes.trim() || null,
+        submission_method: formData.submission_method || null,
+        api_endpoint: formData.api_endpoint.trim() || null,
+        api_auth_type: formData.api_auth_type.trim() || null,
+        submission_email: formData.submission_email.trim() || null,
       })
       .eq('id', id);
 
@@ -117,6 +147,10 @@ export default function AdminLenderDetailPage() {
         contact_email: formData.contact_email.trim() || null,
         contact_phone: formData.contact_phone.trim() || null,
         notes: formData.notes.trim() || null,
+        submission_method: formData.submission_method || null,
+        api_endpoint: formData.api_endpoint.trim() || null,
+        api_auth_type: formData.api_auth_type.trim() || null,
+        submission_email: formData.submission_email.trim() || null,
       } : null);
       setEditing(false);
     }
@@ -149,8 +183,8 @@ export default function AdminLenderDetailPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-[#22d3ee] border-t-transparent rounded-full animate-spin"></div>
-            <p className="text-sm text-[#a3a3a3]">Loading lender...</p>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-secondary)]">Loading lender...</p>
           </div>
         </div>
       </DashboardShell>
@@ -161,8 +195,8 @@ export default function AdminLenderDetailPage() {
     return (
       <DashboardShell>
         <div className="text-center py-12">
-          <p className="text-[#f87171] font-medium">Access Denied</p>
-          <p className="text-sm text-[#a3a3a3] mt-1">{error || 'You do not have permission to view this page.'}</p>
+          <p className="text-[var(--color-error)] font-medium">Access Denied</p>
+          <p className="text-sm text-[var(--color-text-secondary)] mt-1">{error || 'You do not have permission to view this page.'}</p>
         </div>
       </DashboardShell>
     );
@@ -170,18 +204,19 @@ export default function AdminLenderDetailPage() {
 
   if (!lender) return null;
 
-  // Group applications by stage
-  const stageGroups: Record<string, Application[]> = {};
-  applications.forEach((app) => {
-    if (!stageGroups[app.stage]) stageGroups[app.stage] = [];
-    stageGroups[app.stage].push(app);
+  // Group submissions by stage
+  const stageGroups: Record<string, LenderSubmission[]> = {};
+  submissions.forEach((sub) => {
+    const stage = sub.application.stage;
+    if (!stageGroups[stage]) stageGroups[stage] = [];
+    stageGroups[stage].push(sub);
   });
 
   return (
     <DashboardShell>
       <PageHeader
         title={lender.name}
-        description={`${applications.length} applications assigned`}
+        description={`${submissions.length} submitted applications`}
         actions={
           <div className="flex gap-2">
             {!editing && (
@@ -189,7 +224,7 @@ export default function AdminLenderDetailPage() {
                 Edit
               </Button>
             )}
-            <Button variant="secondary" onClick={handleDelete} className="text-[#f87171] hover:bg-[#7f1d1d]">
+            <Button variant="secondary" onClick={handleDelete} className="text-[var(--color-error)] hover:bg-[var(--color-error-light)]">
               Delete
             </Button>
           </div>
@@ -202,47 +237,114 @@ export default function AdminLenderDetailPage() {
           {/* Lender Info */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-[#fafafa]">Lender Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Lender Information</h2>
             </CardHeader>
             <CardContent>
               {editing ? (
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-[#a3a3a3] mb-1">Name</label>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Name</label>
                     <input
                       type="text"
                       value={formData.name}
                       onChange={(e) => setFormData((p) => ({ ...p, name: e.target.value }))}
-                      className="w-full rounded-lg border border-[#404040] px-3 py-2 text-sm focus:ring-2 focus:ring-[#22d3ee] bg-[#171717] text-[#fafafa]"
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#a3a3a3] mb-1">Contact Email</label>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Contact Email</label>
                     <input
                       type="email"
                       value={formData.contact_email}
                       onChange={(e) => setFormData((p) => ({ ...p, contact_email: e.target.value }))}
-                      className="w-full rounded-lg border border-[#404040] px-3 py-2 text-sm focus:ring-2 focus:ring-[#22d3ee] bg-[#171717] text-[#fafafa]"
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#a3a3a3] mb-1">Contact Phone</label>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Contact Phone</label>
                     <input
                       type="tel"
                       value={formData.contact_phone}
                       onChange={(e) => setFormData((p) => ({ ...p, contact_phone: e.target.value }))}
-                      className="w-full rounded-lg border border-[#404040] px-3 py-2 text-sm focus:ring-2 focus:ring-[#22d3ee] bg-[#171717] text-[#fafafa]"
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#a3a3a3] mb-1">Notes</label>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">Notes</label>
                     <textarea
                       value={formData.notes}
                       onChange={(e) => setFormData((p) => ({ ...p, notes: e.target.value }))}
                       rows={3}
-                      className="w-full rounded-lg border border-[#404040] px-3 py-2 text-sm focus:ring-2 focus:ring-[#22d3ee] bg-[#171717] text-[#fafafa]"
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
                     />
                   </div>
+
+                  <div className="pt-4 border-t border-[var(--color-border)]">
+                    <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium mb-3">Workflow Integration</p>
+                    
+                    <div className="space-y-4">
+                      <div>
+                        <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                          Submission Method
+                        </label>
+                        <select
+                          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                          value={formData.submission_method || 'email'}
+                          onChange={(e) => setFormData((p) => ({ ...p, submission_method: e.target.value as 'api' | 'email' }))}
+                        >
+                          <option value="email">Email</option>
+                          <option value="api">API</option>
+                        </select>
+                      </div>
+
+                      {formData.submission_method === 'email' || !formData.submission_method ? (
+                        <div>
+                          <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                            Submission Email
+                          </label>
+                          <input
+                            type="email"
+                            className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                            placeholder="submissions@lender.com"
+                            value={formData.submission_email || ''}
+                            onChange={(e) => setFormData((p) => ({ ...p, submission_email: e.target.value }))}
+                          />
+                          <p className="text-xs text-[var(--color-text-tertiary)] mt-1">Where n8n will email applications</p>
+                        </div>
+                      ) : (
+                        <>
+                          <div>
+                            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                              API Endpoint
+                            </label>
+                            <input
+                              type="url"
+                              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                              placeholder="https://api.lender.com/applications"
+                              value={formData.api_endpoint || ''}
+                              onChange={(e) => setFormData((p) => ({ ...p, api_endpoint: e.target.value }))}
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-1">
+                              API Auth Type
+                            </label>
+                            <select
+                              className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                              value={formData.api_auth_type || ''}
+                              onChange={(e) => setFormData((p) => ({ ...p, api_auth_type: e.target.value }))}
+                            >
+                              <option value="">Select...</option>
+                              <option value="api_key">API Key</option>
+                              <option value="oauth2">OAuth 2.0</option>
+                              <option value="basic">Basic Auth</option>
+                            </select>
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  </div>
+
                   <div className="flex gap-2">
                     <Button variant="primary" onClick={handleSave} disabled={saving}>
                       {saving ? 'Saving...' : 'Save'}
@@ -255,27 +357,27 @@ export default function AdminLenderDetailPage() {
               ) : (
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <dt className="text-xs text-[#a3a3a3] uppercase">Name</dt>
-                    <dd className="text-sm font-medium text-[#fafafa]">{lender.name}</dd>
+                    <dt className="text-xs text-[var(--color-text-secondary)] uppercase">Name</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{lender.name}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-[#a3a3a3] uppercase">Contact Email</dt>
-                    <dd className="text-sm font-medium text-[#fafafa]">{lender.contact_email || '—'}</dd>
+                    <dt className="text-xs text-[var(--color-text-secondary)] uppercase">Contact Email</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{lender.contact_email || '—'}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-[#a3a3a3] uppercase">Contact Phone</dt>
-                    <dd className="text-sm font-medium text-[#fafafa]">{lender.contact_phone || '—'}</dd>
+                    <dt className="text-xs text-[var(--color-text-secondary)] uppercase">Contact Phone</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{lender.contact_phone || '—'}</dd>
                   </div>
                   <div>
-                    <dt className="text-xs text-[#a3a3a3] uppercase">Added</dt>
-                    <dd className="text-sm font-medium text-[#fafafa]">
+                    <dt className="text-xs text-[var(--color-text-secondary)] uppercase">Added</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">
                       {new Date(lender.created_at).toLocaleDateString('en-GB')}
                     </dd>
                   </div>
                   {lender.notes && (
                     <div className="sm:col-span-2">
-                      <dt className="text-xs text-[#a3a3a3] uppercase">Notes</dt>
-                      <dd className="text-sm text-[#fafafa] whitespace-pre-line">{lender.notes}</dd>
+                      <dt className="text-xs text-[var(--color-text-secondary)] uppercase">Notes</dt>
+                      <dd className="text-sm text-[var(--color-text-primary)] whitespace-pre-line">{lender.notes}</dd>
                     </div>
                   )}
                 </dl>
@@ -287,35 +389,44 @@ export default function AdminLenderDetailPage() {
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
-                <h2 className="font-medium text-[#fafafa]">Assigned Applications</h2>
-                <Badge variant="default">{applications.length}</Badge>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Submitted Applications</h2>
+                <Badge variant="default">{submissions.length}</Badge>
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              {applications.length === 0 ? (
+              {submissions.length === 0 ? (
                 <div className="p-6 text-center">
-                  <p className="text-sm text-[#a3a3a3]">No applications assigned to this lender yet.</p>
+                  <p className="text-sm text-[var(--color-text-secondary)]">No applications submitted to this lender yet.</p>
                 </div>
               ) : (
-                <div className="divide-y divide-gray-200">
-                  {applications.map((app) => (
+                <div className="divide-y divide-[var(--color-border)]">
+                  {submissions.map((submission) => (
                     <Link
-                      key={app.id}
-                      href={`/admin/applications/${app.id}`}
-                      className="block p-4 hover:bg-[#262626] transition-colors"
+                      key={submission.id}
+                      href={`/admin/applications/${submission.application.id}`}
+                      className="block p-4 hover:bg-[var(--color-bg-tertiary)] transition-colors"
                     >
-                      <div className="flex items-center justify-between mb-1">
-                        <span className="font-medium text-[#fafafa]">
-                          £{app.requested_amount.toLocaleString()} – {app.loan_type}
-                        </span>
-                        <Badge variant={getStageBadgeVariant(app.stage)}>
-                          {formatStage(app.stage)}
-                        </Badge>
+                      <div className="py-3 flex items-center justify-between">
+                        <div>
+                          <p className="font-medium text-[var(--color-text-primary)]">
+                            {submission.application.company?.name || 'No company'}
+                          </p>
+                          <p className="text-sm text-[var(--color-text-secondary)]">
+                            £{submission.application.requested_amount.toLocaleString()} – {submission.application.loan_type}
+                          </p>
+                          <p className="text-xs text-[var(--color-text-tertiary)]">
+                            {new Date(submission.application.created_at).toLocaleDateString('en-GB')}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Badge variant={getStageBadgeVariant(submission.application.stage)}>
+                            {formatStage(submission.application.stage)}
+                          </Badge>
+                          <Badge variant={submission.status === 'sent' || submission.status === 'acknowledged' ? 'success' : submission.status === 'failed' ? 'error' : 'default'}>
+                            {submission.status}
+                          </Badge>
+                        </div>
                       </div>
-                      <p className="text-sm text-[#a3a3a3]">{app.company?.[0]?.name || 'No company'}</p>
-                      <p className="text-xs text-[#737373] mt-1">
-                        {new Date(app.created_at).toLocaleDateString('en-GB')}
-                      </p>
                     </Link>
                   ))}
                 </div>
@@ -328,19 +439,19 @@ export default function AdminLenderDetailPage() {
         <div>
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-[#fafafa]">By Stage</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">By Stage</h2>
             </CardHeader>
             <CardContent className="space-y-2">
-              {Object.entries(stageGroups).map(([stage, apps]) => (
+              {Object.entries(stageGroups).map(([stage, subs]) => (
                 <div key={stage} className="flex items-center justify-between py-1">
                   <Badge variant={getStageBadgeVariant(stage)}>
                     {formatStage(stage)}
                   </Badge>
-                  <span className="text-sm font-medium text-[#fafafa]">{apps.length}</span>
+                  <span className="text-sm font-medium text-[var(--color-text-primary)]">{subs.length}</span>
                 </div>
               ))}
-              {applications.length === 0 && (
-                <p className="text-sm text-[#a3a3a3] text-center py-2">No applications</p>
+              {submissions.length === 0 && (
+                <p className="text-sm text-[var(--color-text-secondary)] text-center py-2">No applications</p>
               )}
             </CardContent>
           </Card>
