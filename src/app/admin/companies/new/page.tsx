@@ -65,66 +65,47 @@ export default function AdminNewCompanyPage() {
     setSaving(true);
     setError(null);
 
-    // Create company directly
-    const { data: newCompany, error: companyError } = await supabase
-      .from('companies')
-      .insert({
+    // Use API route to create company with director info (handles user creation)
+    const response = await fetch('/api/companies/create', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         name: formData.name.trim(),
         company_number: formData.company_number.trim() || null,
         industry: formData.industry.trim() || null,
         website: formData.website.trim() || null,
-      })
-      .select('id')
-      .single();
+        director_first_name: formData.director_first_name.trim() || null,
+        director_last_name: formData.director_last_name.trim() || null,
+        director_address_line_1: formData.director_address_line_1.trim() || null,
+        director_address_line_2: formData.director_address_line_2.trim() || null,
+        director_city: formData.director_city.trim() || null,
+        director_postcode: formData.director_postcode.trim() || null,
+        director_country: formData.director_country || 'United Kingdom',
+        director_dob: formData.director_dob || null,
+        property_status: formData.property_status || null,
+        client_email: formData.client_email.trim(),
+        // Note: no partner_id for admin-created companies
+      }),
+    });
 
-    if (companyError) {
-      setError('Error creating company: ' + companyError.message);
+    const result = await response.json();
+
+    if (!response.ok || result.error) {
+      setError(result.error || 'Error creating company');
       setSaving(false);
       return;
     }
 
-    // Create or link client profile
-    // Check if email exists
-    const { data: existingProfile } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('email', formData.client_email.trim())
-      .maybeSingle();
-
-    if (existingProfile) {
-      // Update existing profile to link to company
-      await supabase
-        .from('profiles')
-        .update({
-          company_id: newCompany.id,
-          is_primary_director: true,
-          first_name: formData.director_first_name.trim() || null,
-          last_name: formData.director_last_name.trim() || null,
-          date_of_birth: formData.director_dob || null,
-          address_line_1: formData.director_address_line_1.trim() || null,
-          address_line_2: formData.director_address_line_2.trim() || null,
-          city: formData.director_city.trim() || null,
-          postcode: formData.director_postcode.trim() || null,
-          country: formData.director_country || 'United Kingdom',
-          property_status: formData.property_status || null,
-        })
-        .eq('id', existingProfile.id);
-    } else {
-      // Store email on company for later linking (prospective client pattern)
-      await supabase
-        .from('companies')
-        .update({ prospective_client_email: formData.client_email.trim() })
-        .eq('id', newCompany.id);
-    }
+    const newCompanyId = result.companyId;
 
     // Create application if checkbox is checked
     if (createApplication && formData.requested_amount) {
-      const { error: appError } = await supabase
+      const { data: newApp, error: appError } = await supabase
         .from('applications')
         .insert({
-          company_id: newCompany.id,
+          company_id: newCompanyId,
           requested_amount: parseFloat(formData.requested_amount),
-          loan_type: formData.loan_type,
+          loan_type: formData.loan_type || 'term_loan',
           purpose: formData.purpose || null,
           urgency: formData.urgency || null,
           monthly_revenue: formData.monthly_revenue ? parseFloat(formData.monthly_revenue) : null,
@@ -132,7 +113,9 @@ export default function AdminNewCompanyPage() {
           stage: 'created',
           workflow_status: 'pending',
           created_by: user.id,
-        });
+        })
+        .select('id')
+        .single();
 
       if (appError) {
         setError('Company created but error creating application: ' + appError.message);
@@ -146,7 +129,7 @@ export default function AdminNewCompanyPage() {
     }
 
     // Redirect to company detail page if no application
-    router.push(`/admin/companies/${newCompany.id}`);
+    router.push(`/admin/companies/${newCompanyId}`);
   };
 
   if (loading) {
