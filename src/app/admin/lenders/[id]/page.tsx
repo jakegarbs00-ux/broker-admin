@@ -22,32 +22,23 @@ type Lender = {
   created_at: string;
 };
 
-type LenderSubmissionRaw = {
-  id: string;
-  status: string;
-  sent_at: string | null;
-  application: {
-    id: string;
-    requested_amount: number;
-    loan_type: string;
-    stage: string;
-    created_at: string;
-    company: { id: string; name: string }[] | null;
-  }[] | null;
-};
-
 type LenderSubmission = {
   id: string;
   status: string;
   sent_at: string | null;
+  created_at: string;
+  application_id: string;
   application: {
     id: string;
     requested_amount: number;
     loan_type: string;
     stage: string;
     created_at: string;
-    company: { id: string; name: string } | null;
-  };
+    company: {
+      id: string;
+      name: string;
+    } | null;
+  } | null;
 };
 
 export default function AdminLenderDetailPage() {
@@ -110,43 +101,48 @@ export default function AdminLenderDetailPage() {
         submission_email: lenderData.submission_email || '',
       });
 
-      // Load submissions for this lender
+      // Load lender submissions
       const { data: submissionsData } = await supabase
         .from('lender_submissions')
-        .select(`
-          id,
-          status,
-          sent_at,
-          application:application_id(
+        .select('*')
+        .eq('lender_id', id)
+        .order('created_at', { ascending: false });
+
+      // Get unique application IDs
+      const applicationIds = [...new Set(submissionsData?.map(s => s.application_id).filter(Boolean))];
+
+      // Fetch applications with their companies
+      let applicationsMap: Record<string, any> = {};
+      if (applicationIds.length > 0) {
+        const { data: applicationsData } = await supabase
+          .from('applications')
+          .select(`
             id,
             requested_amount,
             loan_type,
             stage,
             created_at,
             company:company_id(id, name)
-          )
-        `)
-        .eq('lender_id', id)
-        .order('created_at', { ascending: false });
+          `)
+          .in('id', applicationIds);
+        
+        applicationsData?.forEach(app => {
+          // Transform company from array to single object
+          const company = Array.isArray(app.company) ? (app.company[0] || null) : app.company;
+          applicationsMap[app.id] = {
+            ...app,
+            company: company,
+          };
+        });
+      }
 
-      // Transform the nested arrays to single objects
-      const transformedSubmissions: LenderSubmission[] = (submissionsData || []).map((sub: LenderSubmissionRaw) => ({
-        id: sub.id,
-        status: sub.status,
-        sent_at: sub.sent_at,
-        application: sub.application?.[0] ? {
-          ...sub.application[0],
-          company: sub.application[0].company?.[0] || null,
-        } : {
-          id: '',
-          requested_amount: 0,
-          loan_type: '',
-          stage: '',
-          created_at: '',
-          company: null,
-        },
-      }));
-      setSubmissions(transformedSubmissions);
+      // Combine the data
+      const enrichedSubmissions = submissionsData?.map(sub => ({
+        ...sub,
+        application: applicationsMap[sub.application_id] || null
+      })) || [];
+
+      setSubmissions(enrichedSubmissions as LenderSubmission[]);
       setLoadingData(false);
     };
 
@@ -238,7 +234,7 @@ export default function AdminLenderDetailPage() {
   // Group submissions by stage
   const stageGroups: Record<string, LenderSubmission[]> = {};
   submissions.forEach((sub) => {
-    const stage = sub.application.stage;
+    const stage = sub.application?.stage || 'created';
     if (!stageGroups[stage]) stageGroups[stage] = [];
     stageGroups[stage].push(sub);
   });
@@ -432,33 +428,29 @@ export default function AdminLenderDetailPage() {
               ) : (
                 <div className="divide-y divide-[var(--color-border)]">
                   {submissions.map((submission) => (
-                    <Link
-                      key={submission.id}
-                      href={`/admin/applications/${submission.application.id}`}
-                      className="block p-4 hover:bg-[var(--color-bg-tertiary)] transition-colors"
-                    >
-                      <div className="py-3 flex items-center justify-between">
-                        <div>
-                          <p className="font-medium text-[var(--color-text-primary)]">
-                            {submission.application.company?.name || 'No company'}
-                          </p>
-                          <p className="text-sm text-[var(--color-text-secondary)]">
-                            £{submission.application.requested_amount.toLocaleString()} – {submission.application.loan_type}
-                          </p>
-                          <p className="text-xs text-[var(--color-text-tertiary)]">
-                            {new Date(submission.application.created_at).toLocaleDateString('en-GB')}
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-2">
-                          <Badge variant={getStageBadgeVariant(submission.application.stage)}>
-                            {formatStage(submission.application.stage)}
-                          </Badge>
-                          <Badge variant={submission.status === 'sent' || submission.status === 'acknowledged' ? 'success' : submission.status === 'failed' ? 'error' : 'default'}>
-                            {submission.status}
-                          </Badge>
-                        </div>
+                    <div key={submission.id} className="py-3 flex items-center justify-between px-4">
+                      <div>
+                        <Link href={`/admin/applications/${submission.application?.id}`} className="font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)]">
+                          {submission.application?.company?.name || 'No company'}
+                        </Link>
+                        <p className="text-sm text-[var(--color-text-secondary)]">
+                          £{submission.application?.requested_amount?.toLocaleString() || 0} – {submission.application?.loan_type || 'Unknown'}
+                        </p>
+                        <p className="text-xs text-[var(--color-text-tertiary)]">
+                          {submission.application?.created_at 
+                            ? new Date(submission.application.created_at).toLocaleDateString('en-GB')
+                            : 'No date'}
+                        </p>
                       </div>
-                    </Link>
+                      <div className="flex items-center gap-2">
+                        <Badge variant={getStageBadgeVariant(submission.application?.stage || 'created')}>
+                          {formatStage(submission.application?.stage || 'created')}
+                        </Badge>
+                        <Badge variant={submission.status === 'sent' ? 'success' : 'default'}>
+                          {submission.status}
+                        </Badge>
+                      </div>
+                    </div>
                   ))}
                 </div>
               )}
