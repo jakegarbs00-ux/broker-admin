@@ -181,7 +181,7 @@ export default function AdminLendersPage() {
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             {(l.lender_submissions?.[0]?.count || 0) > 0 ? (
-                              <Badge variant="info">{l.lender_submissions[0].count}</Badge>
+                              <Badge variant="info">{l.lender_submissions?.[0]?.count}</Badge>
                             ) : (
                               <span className="text-sm text-[var(--color-text-tertiary)]">0</span>
                             )}
