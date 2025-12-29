@@ -12,17 +12,41 @@ export function useRequireAuth() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const check = async () => {
-      const { data } = await supabase.auth.getUser();
-      if (!data.user) {
+    let mounted = true;
+
+    const getInitialSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!mounted) return;
+
+      if (session?.user) {
+        setUser(session.user);
+        setLoading(false);
+      } else {
         router.replace('/auth/login');
-        return;
       }
-      setUser(data.user);
-      setLoading(false);
     };
 
-    check();
+    getInitialSession();
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        if (!mounted) return;
+        
+        if (event === 'SIGNED_OUT' || !session?.user) {
+          setUser(null);
+          router.replace('/auth/login');
+        } else if (session?.user) {
+          setUser(session.user);
+          setLoading(false);
+        }
+      }
+    );
+
+    return () => {
+      mounted = false;
+      subscription.unsubscribe();
+    };
   }, [supabase, router]);
 
   return { user, loading };
