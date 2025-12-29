@@ -22,6 +22,20 @@ type Lender = {
   created_at: string;
 };
 
+type LenderSubmissionRaw = {
+  id: string;
+  status: string;
+  sent_at: string | null;
+  application: {
+    id: string;
+    requested_amount: number;
+    loan_type: string;
+    stage: string;
+    created_at: string;
+    company: { id: string; name: string }[] | null;
+  }[] | null;
+};
+
 type LenderSubmission = {
   id: string;
   status: string;
@@ -115,7 +129,24 @@ export default function AdminLenderDetailPage() {
         .eq('lender_id', id)
         .order('created_at', { ascending: false });
 
-      setSubmissions((submissionsData || []) as LenderSubmission[]);
+      // Transform the nested arrays to single objects
+      const transformedSubmissions: LenderSubmission[] = (submissionsData || []).map((sub: LenderSubmissionRaw) => ({
+        id: sub.id,
+        status: sub.status,
+        sent_at: sub.sent_at,
+        application: sub.application?.[0] ? {
+          ...sub.application[0],
+          company: sub.application[0].company?.[0] || null,
+        } : {
+          id: '',
+          requested_amount: 0,
+          loan_type: '',
+          stage: '',
+          created_at: '',
+          company: null,
+        },
+      }));
+      setSubmissions(transformedSubmissions);
       setLoadingData(false);
     };
 
