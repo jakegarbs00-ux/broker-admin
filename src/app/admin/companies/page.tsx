@@ -146,6 +146,11 @@ export default function AdminCompaniesPage() {
       <PageHeader
         title="Companies"
         description={`${companies.length} companies registered`}
+        actions={
+          <Link href="/admin/companies/new">
+            <Button variant="primary">+ Create Company</Button>
+          </Link>
+        }
       />
 
       {error && (

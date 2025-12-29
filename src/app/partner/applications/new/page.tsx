@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
@@ -12,11 +12,7 @@ import { DashboardShell } from '@/components/layout';
 import { Card, CardContent, CardHeader, PageHeader, Button } from '@/components/ui';
 
 const schema = z.object({
-  prospective_client_email: z
-    .string()
-    .email('Enter a valid email address')
-    .optional()
-    .or(z.literal('')),
+  company_id: z.string().min(1, 'Please select a company'),
   requested_amount: z.coerce
     .number()
     .min(1000, 'Minimum amount is £1,000'),
@@ -49,40 +45,88 @@ export default function PartnerNewApplicationPage() {
   const supabase = getSupabaseClient();
   const router = useRouter();
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
+  const [loadingCompanies, setLoadingCompanies] = useState(true);
 
   const {
     register,
     handleSubmit,
-    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       is_hidden: true, // Draft by default
+      company_id: '',
     },
   });
 
-  const isHidden = watch('is_hidden');
+  useEffect(() => {
+    if (!user || profile?.role !== 'PARTNER') return;
+
+    const loadCompanies = async () => {
+      // Get user's partner_company_id
+      const { data: userProfile } = await supabase
+        .from('profiles')
+        .select('partner_company_id')
+        .eq('id', user.id)
+        .single();
+
+      if (!userProfile?.partner_company_id) {
+        setLoadingCompanies(false);
+        return;
+      }
+
+      // Get all partner user IDs in this partner company
+      const { data: partnerUsers } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('partner_company_id', userProfile.partner_company_id)
+        .eq('role', 'PARTNER');
+
+      const partnerUserIds = (partnerUsers || []).map((u) => u.id);
+
+      if (partnerUserIds.length === 0) {
+        setLoadingCompanies(false);
+        return;
+      }
+
+      // Get companies referred by this partner company
+      const { data: companiesData } = await supabase
+        .from('companies')
+        .select('id, name')
+        .in('referred_by', partnerUserIds)
+        .order('name', { ascending: true });
+
+      setCompanies(companiesData || []);
+      setLoadingCompanies(false);
+    };
+
+    loadCompanies();
+  }, [user, profile?.role, supabase]);
 
   const onSubmit = async (values: FormValues) => {
     if (!user) return;
     setSubmitError(null);
 
+    if (!values.company_id) {
+      setSubmitError('Please select a company.');
+      return;
+    }
+
     const { data, error } = await supabase
       .from('applications')
       .insert({
-        owner_id: null, // No owner yet - this is a draft
-        company_id: null, // No company yet
-        created_by: user.id,
+        company_id: values.company_id,
         requested_amount: values.requested_amount,
         loan_type: values.loan_type,
-        urgency: values.urgency,
-        purpose: values.purpose,
-        stage: 'created',
-        is_hidden: values.is_hidden,
-        prospective_client_email: values.prospective_client_email || null,
+        purpose: values.purpose || null,
+        urgency: values.urgency || null,
         monthly_revenue: values.monthly_revenue ? parseFloat(values.monthly_revenue) : null,
         trading_months: values.trading_months ? parseInt(values.trading_months) : null,
+        stage: 'created',
+        workflow_status: 'pending',
+        is_hidden: values.is_hidden,
+        created_by: user.id,
       })
       .select('id')
       .single();
@@ -150,48 +194,55 @@ export default function PartnerNewApplicationPage() {
 
       <div className="max-w-2xl">
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* Client Information */}
+          {/* Company Selection */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-[var(--color-text-primary)]">Client Information</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Company</h2>
             </CardHeader>
             <CardContent className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Client Email (optional)
+                  Select Company <span className="text-[var(--color-error)]">*</span>
                 </label>
-                <input
-                  type="email"
-                  placeholder="client@example.com"
-                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
-                  {...register('prospective_client_email')}
-                />
-                {errors.prospective_client_email && (
-                  <p className="text-sm text-[var(--color-error)] mt-1">{errors.prospective_client_email.message}</p>
+                {loadingCompanies ? (
+                  <p className="text-sm text-[var(--color-text-tertiary)]">Loading companies...</p>
+                ) : companies.length === 0 ? (
+                  <div className="p-4 bg-[var(--color-bg-tertiary)] rounded-lg">
+                    <p className="text-sm text-[var(--color-text-secondary)]">No companies found.</p>
+                    <Link href="/partner/companies/new" className="text-sm text-[var(--color-accent)] hover:underline mt-1 inline-block">
+                      Create a company first →
+                    </Link>
+                  </div>
+                ) : (
+                  <select
+                    {...register('company_id')}
+                    required
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  >
+                    <option value="">Select a company...</option>
+                    {companies.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
                 )}
-                <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-                  Enter the client's email if known. They'll be linked to this application when they sign up.
-                </p>
+                {errors.company_id && (
+                  <p className="text-sm text-[var(--color-error)] mt-1">{errors.company_id.message}</p>
+                )}
               </div>
 
               {/* Draft toggle */}
-              <div className="flex items-start gap-3 p-4 bg-[var(--color-bg-tertiary)] rounded-lg">
-                <input
-                  type="checkbox"
-                  id="is_hidden"
-                  className="mt-1 h-4 w-4 text-[var(--color-accent)] focus:ring-[var(--color-accent)] border-[var(--color-border)] rounded"
-                  {...register('is_hidden')}
-                />
-                <div>
-                  <label htmlFor="is_hidden" className="block text-sm font-medium text-[var(--color-text-primary)]">
-                    Keep as draft (hidden from client)
-                  </label>
-                  <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
-                    {isHidden
-                      ? 'This application will only be visible to you and admins until you uncheck this option.'
-                      : 'The client will be able to see this application once linked.'}
-                  </p>
-                </div>
+              <div className="p-4 bg-[var(--color-bg-tertiary)] rounded-lg">
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    {...register('is_hidden')}
+                    className="mt-0.5 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
+                  />
+                  <div>
+                    <p className="font-medium text-[var(--color-text-primary)]">Keep as draft (hidden from client)</p>
+                    <p className="text-sm text-[var(--color-text-tertiary)]">This application will only be visible to you and admins until you uncheck this option.</p>
+                  </div>
+                </label>
               </div>
             </CardContent>
           </Card>
@@ -322,7 +373,7 @@ export default function PartnerNewApplicationPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={isSubmitting}
+              disabled={isSubmitting || companies.length === 0}
               loading={isSubmitting}
               className="bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] focus:ring-[var(--color-accent)]"
             >

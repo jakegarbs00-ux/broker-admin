@@ -6,6 +6,7 @@ import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 
 const schema = z.object({
   email: z.string().email('Please enter a valid email'),
@@ -53,6 +54,15 @@ export default function LoginPage() {
           {...register('password')}
         />
         <p className="text-red-600 text-sm">{errors.password?.message}</p>
+
+        <div className="flex justify-end mt-1">
+          <Link 
+            href="/auth/reset-password" 
+            className="text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-hover)]"
+          >
+            Forgot password?
+          </Link>
+        </div>
 
         {formError && <p className="text-red-600 text-sm">{formError}</p>}
 

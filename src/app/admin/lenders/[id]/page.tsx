@@ -163,8 +163,8 @@ export default function AdminLenderDetailPage() {
     // Unassign applications first
     await supabase
       .from('applications')
-      .update({ lender_id: null })
-      .eq('lender_id', id);
+      .update({ accepted_lender_id: null })
+      .eq('accepted_lender_id', id);
 
     const { error } = await supabase
       .from('lenders')

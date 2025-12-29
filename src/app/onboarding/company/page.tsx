@@ -35,11 +35,14 @@ export default function CompanyOnboardingPage() {
   const router = useRouter();
   const [companyId, setCompanyId] = useState<string | null>(null);
   const [loadingCompany, setLoadingCompany] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   const {
     register,
     handleSubmit,
     reset,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
@@ -82,6 +85,7 @@ export default function CompanyOnboardingPage() {
           director_dob: profileData.date_of_birth ? profileData.date_of_birth.split('T')[0] : undefined,
           property_status: profileData.property_status ?? undefined,
         });
+        setIsEditing(false);
       } else {
         // No company yet - check for stored name
         if (typeof window !== 'undefined') {
@@ -95,6 +99,7 @@ export default function CompanyOnboardingPage() {
             director_country: 'United Kingdom',
           });
         }
+        setIsEditing(true);
       }
       setLoadingCompany(false);
     };
@@ -167,7 +172,9 @@ export default function CompanyOnboardingPage() {
       }
     }
 
-    router.push('/dashboard');
+    setSuccessMessage('Company information saved successfully!');
+    setIsEditing(false);
+    // router.push('/dashboard'); // Removed - user stays on page
   };
 
   if (loading || loadingCompany) {
@@ -189,14 +196,100 @@ export default function CompanyOnboardingPage() {
         title={companyId ? 'Edit Company Information' : 'Company Information'}
         description="Tell us about your business so we can match you with the right lenders."
         actions={
-          <Link href="/dashboard">
-            <Button variant="outline">← Back to Dashboard</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/dashboard">
+              <Button variant="outline">← Back to Dashboard</Button>
+            </Link>
+            {companyId && !isEditing && (
+              <Button variant="primary" onClick={() => { setIsEditing(true); setSuccessMessage(null); }}>
+                Edit
+              </Button>
+            )}
+          </div>
         }
       />
 
-      <div className="max-w-2xl">
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      {successMessage && (
+        <div className="max-w-2xl mb-6 p-4 bg-[var(--color-success-light)] border border-[var(--color-success)] rounded-lg">
+          <p className="text-sm text-[var(--color-success)]">{successMessage}</p>
+        </div>
+      )}
+
+      {!isEditing ? (
+        <div className="max-w-2xl space-y-6">
+          {/* Company Details - View */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Company Details</h2>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div>
+                <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Company Name</p>
+                <p className="text-[var(--color-text-primary)]">{watch('name') || '—'}</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Company Number</p>
+                  <p className="text-[var(--color-text-primary)]">{watch('company_number') || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Industry</p>
+                  <p className="text-[var(--color-text-primary)]">{watch('industry') || '—'}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Website</p>
+                <p className="text-[var(--color-text-primary)]">{watch('website') || '—'}</p>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Director Information - View */}
+          <Card>
+            <CardHeader>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Director Information</h2>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">First Name</p>
+                  <p className="text-[var(--color-text-primary)]">{watch('director_first_name') || '—'}</p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Last Name</p>
+                  <p className="text-[var(--color-text-primary)]">{watch('director_last_name') || '—'}</p>
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Address</p>
+                <p className="text-[var(--color-text-primary)]">
+                  {[
+                    watch('director_address_line_1'),
+                    watch('director_address_line_2'),
+                    watch('director_city'),
+                    watch('director_postcode'),
+                    watch('director_country'),
+                  ].filter(Boolean).join(', ') || '—'}
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Date of Birth</p>
+                  <p className="text-[var(--color-text-primary)]">
+                    {watch('director_dob') ? new Date(watch('director_dob')!).toLocaleDateString('en-GB') : '—'}
+                  </p>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Property Status</p>
+                  <p className="text-[var(--color-text-primary)] capitalize">{watch('property_status') || '—'}</p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      ) : (
+        <div className="max-w-2xl">
+          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Company Details */}
           <Card>
             <CardHeader>
@@ -370,9 +463,19 @@ export default function CompanyOnboardingPage() {
 
           {/* Submit */}
           <div className="flex items-center justify-end gap-3">
-            <Link href="/dashboard">
-              <Button variant="outline" type="button">Cancel</Button>
-            </Link>
+            <Button 
+              variant="outline" 
+              type="button"
+              onClick={() => {
+                if (companyId) {
+                  setIsEditing(false);
+                } else {
+                  router.push('/dashboard');
+                }
+              }}
+            >
+              Cancel
+            </Button>
             <Button
               type="submit"
               variant="primary"
@@ -384,6 +487,7 @@ export default function CompanyOnboardingPage() {
           </div>
         </form>
       </div>
+      )}
     </DashboardShell>
   );
 }

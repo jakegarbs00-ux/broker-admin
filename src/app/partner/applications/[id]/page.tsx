@@ -34,20 +34,6 @@ type Application = {
   } | null;
 };
 
-type Director = {
-  id: string;
-  first_name: string | null;
-  last_name: string | null;
-  email: string | null;
-  phone: string | null;
-  date_of_birth: string | null;
-  address_line_1: string | null;
-  address_line_2: string | null;
-  city: string | null;
-  postcode: string | null;
-  country: string | null;
-};
-
 type Offer = {
   id: string;
   amount: number;
@@ -85,7 +71,6 @@ export default function PartnerApplicationDetailPage() {
   const supabase = getSupabaseClient();
 
   const [application, setApplication] = useState<Application | null>(null);
-  const [directors, setDirectors] = useState<Director[]>([]);
   const [offers, setOffers] = useState<Offer[]>([]);
   const [documents, setDocuments] = useState<Document[]>([]);
   const [infoRequests, setInfoRequests] = useState<InfoRequest[]>([]);
@@ -136,7 +121,7 @@ export default function PartnerApplicationDetailPage() {
             website,
             referred_by
           ),
-          lender:lender_id(id, name)
+          lender:accepted_lender_id(id, name)
         `)
         .eq('id', id)
         .single();
@@ -165,16 +150,6 @@ export default function PartnerApplicationDetailPage() {
           .eq('application_id', id)
           .order('created_at', { ascending: false });
         setOffers(offersData || []);
-      }
-
-      // Fetch directors
-      if (appData.company_id) {
-        const { data: directorsData } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('company_id', appData.company_id)
-          .eq('role', 'CLIENT');
-        setDirectors(directorsData || []);
       }
 
       // Fetch documents
@@ -320,116 +295,6 @@ export default function PartnerApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Company Info */}
-          {application.company && (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-[var(--color-text-primary)]">Company Information</h2>
-              </CardHeader>
-              <CardContent>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Company Name</p>
-                    <p className="text-[var(--color-text-primary)]">{application.company.name}</p>
-                  </div>
-                  {application.company.company_number && (
-                    <div>
-                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Company Number</p>
-                      <p className="text-[var(--color-text-primary)]">{application.company.company_number}</p>
-                    </div>
-                  )}
-                  {application.company.address_line_1 && (
-                    <div className="sm:col-span-2">
-                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Address</p>
-                      <p className="text-[var(--color-text-primary)]">
-                        {[
-                          application.company.address_line_1,
-                          application.company.address_line_2,
-                          application.company.city,
-                          application.company.postcode,
-                        ]
-                          .filter(Boolean)
-                          .join(', ')}
-                      </p>
-                    </div>
-                  )}
-                  {application.company.website && (
-                    <div>
-                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Website</p>
-                      <a
-                        href={application.company.website}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="text-[var(--color-accent)] hover:underline"
-                      >
-                        {application.company.website}
-                      </a>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Directors */}
-          {directors.length > 0 && (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-[var(--color-text-primary)]">Directors</h2>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {directors.map((director) => (
-                    <div key={director.id} className="border-b pb-4 last:border-0 last:pb-0">
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div>
-                          <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Name</p>
-                          <p className="text-[var(--color-text-primary)]">
-                            {director.first_name} {director.last_name}
-                          </p>
-                        </div>
-                        <div>
-                          <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Email</p>
-                          <p className="text-[var(--color-text-primary)]">{director.email || '—'}</p>
-                        </div>
-                        {director.phone && (
-                          <div>
-                            <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Phone</p>
-                            <p className="text-[var(--color-text-primary)]">{director.phone}</p>
-                          </div>
-                        )}
-                        {director.date_of_birth && (
-                          <div>
-                            <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Date of Birth</p>
-                            <p className="text-[var(--color-text-primary)]">
-                              {new Date(director.date_of_birth).toLocaleDateString('en-GB')}
-                            </p>
-                          </div>
-                        )}
-                        {director.address_line_1 && (
-                          <div className="sm:col-span-2">
-                            <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Address</p>
-                            <p className="text-[var(--color-text-primary)]">
-                              {[
-                                director.address_line_1,
-                                director.address_line_2,
-                                director.city,
-                                director.postcode,
-                                director.country,
-                              ]
-                                .filter(Boolean)
-                                .join(', ')}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
           {/* Documents */}
           <Card>
             <CardHeader>
@@ -504,13 +369,53 @@ export default function PartnerApplicationDetailPage() {
 
         {/* Sidebar */}
         <div className="space-y-6">
-          {application.lender && (
+          {/* Company Info */}
+          {application.company && (
             <Card>
               <CardHeader>
-                <h2 className="font-medium text-[var(--color-text-primary)]">Assigned Lender</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">Company Information</h2>
               </CardHeader>
               <CardContent>
-                <p className="text-[var(--color-text-primary)]">{application.lender.name}</p>
+                <div className="space-y-3">
+                  <div>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Company Name</p>
+                    <p className="text-[var(--color-text-primary)]">{application.company.name}</p>
+                  </div>
+                  {application.company.company_number && (
+                    <div>
+                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Company Number</p>
+                      <p className="text-[var(--color-text-primary)]">{application.company.company_number}</p>
+                    </div>
+                  )}
+                  {application.company.address_line_1 && (
+                    <div>
+                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Address</p>
+                      <p className="text-[var(--color-text-primary)]">
+                        {[
+                          application.company.address_line_1,
+                          application.company.address_line_2,
+                          application.company.city,
+                          application.company.postcode,
+                        ]
+                          .filter(Boolean)
+                          .join(', ')}
+                      </p>
+                    </div>
+                  )}
+                  {application.company.website && (
+                    <div>
+                      <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Website</p>
+                      <a
+                        href={application.company.website}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[var(--color-accent)] hover:underline"
+                      >
+                        {application.company.website}
+                      </a>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
           )}

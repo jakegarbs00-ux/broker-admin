@@ -76,7 +76,7 @@ export default function ApplicationsListPage() {
           created_at,
           submitted_at,
           company:company_id(id, name),
-          lender:lender_id(id, name)
+          lender:accepted_lender_id(id, name)
         `)
         .eq('company_id', profile.company_id)
         .order('created_at', { ascending: false });

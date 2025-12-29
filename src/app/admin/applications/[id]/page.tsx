@@ -17,7 +17,7 @@ type Application = {
   purpose: string | null;
   is_hidden: boolean;
   admin_notes: string | null;
-  lender_id: string | null;
+  accepted_lender_id: string | null;
   created_at: string;
   company_id: string | null;
   owner_id: string | null;
@@ -191,7 +191,7 @@ export default function AdminApplicationDetailPage() {
               partner_company:partner_company_id(id, name)
             )
           ),
-          lender:lender_id(id, name)
+          lender:accepted_lender_id(id, name)
         `)
         .eq('id', id)
         .single();
@@ -883,6 +883,11 @@ export default function AdminApplicationDetailPage() {
                       <span className="font-medium">Client Email:</span> {company.owner[0].email}
                     </p>
                   )}
+                  {application.purpose && (
+                    <p>
+                      <span className="font-medium">Purpose:</span> {application.purpose}
+                    </p>
+                  )}
                 </div>
               ) : (
                 <p className="text-[var(--color-text-tertiary)]">No company information available</p>
@@ -927,18 +932,6 @@ export default function AdminApplicationDetailPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Purpose */}
-          {application.purpose && (
-            <Card>
-              <CardHeader>
-                <h2 className="font-medium text-[var(--color-text-primary)]">Purpose of Funding</h2>
-              </CardHeader>
-              <CardContent>
-                <p className="text-[var(--color-text-primary)] whitespace-pre-line">{application.purpose}</p>
-              </CardContent>
-            </Card>
-          )}
 
           {/* Information Requests */}
           <Card>

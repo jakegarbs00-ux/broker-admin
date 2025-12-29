@@ -16,11 +16,12 @@ type AdminApp = {
   workflow_status: string | null;
   created_at: string;
   is_hidden: boolean;
-  lender_id: string | null;
+  accepted_lender_id: string | null;
   company_id: string | null;
   prospective_client_email: string | null;
   company?: { id: string; name: string } | null;
   lender?: { id: string; name: string } | null;
+  lender_submissions?: { id: string; lender?: { id: string; name: string } | null }[];
 };
 
 type Lender = {
@@ -87,7 +88,8 @@ export default function AdminApplicationsPage() {
           *,
           workflow_status,
           company:company_id(id, name),
-          lender:lender_id(id, name)
+          lender:accepted_lender_id(id, name),
+          lender_submissions(id, lender:lender_id(id, name))
         `)
         .order('created_at', { ascending: false });
 
@@ -122,8 +124,8 @@ export default function AdminApplicationsPage() {
 
   const filteredApps = apps.filter((a) => {
     if (stageFilter !== 'all' && a.stage !== stageFilter) return false;
-    if (lenderFilter === 'none' && a.lender_id) return false;
-    if (lenderFilter !== 'all' && lenderFilter !== 'none' && a.lender_id !== lenderFilter)
+    if (lenderFilter === 'none' && a.accepted_lender_id) return false;
+    if (lenderFilter !== 'all' && lenderFilter !== 'none' && a.accepted_lender_id !== lenderFilter)
       return false;
     if (workflowFilter !== 'all' && a.workflow_status !== workflowFilter) return false;
     return true;
@@ -237,7 +239,7 @@ export default function AdminApplicationsPage() {
           </div>
         ) : (
           filteredApps.map((a) => {
-            const lender = a.lender_id ? (a.lender as { id: string; name: string } | undefined) : undefined;
+            const lender = a.accepted_lender_id ? (a.lender as { id: string; name: string } | undefined) : undefined;
             const companyName = a.company?.name;
             const companyId = a.company?.id;
             const clientEmail = a.prospective_client_email;
@@ -278,6 +280,19 @@ export default function AdminApplicationsPage() {
                     <div className="flex items-center gap-2">
                       {a.is_hidden && (
                         <Badge variant="warning">Draft</Badge>
+                      )}
+                      {a.lender_submissions && a.lender_submissions.length > 0 && (
+                        <>
+                          {a.lender_submissions
+                            .filter((sub) => sub.lender)
+                            .slice(0, 3)
+                            .map((sub) => (
+                              <Badge key={sub.id} variant="default">{sub.lender!.name}</Badge>
+                            ))}
+                          {a.lender_submissions.filter((sub) => sub.lender).length > 3 && (
+                            <Badge variant="default">+{a.lender_submissions.filter((sub) => sub.lender).length - 3}</Badge>
+                          )}
+                        </>
                       )}
                       {lender && (
                         <Badge variant="info">{lender.name}</Badge>

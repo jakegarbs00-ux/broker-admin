@@ -7,7 +7,7 @@ import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
 import { Card, CardContent, CardHeader, PageHeader, Button } from '@/components/ui';
 
-export default function PartnerNewCompanyPage() {
+export default function AdminNewCompanyPage() {
   const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
   const router = useRouter();
@@ -65,69 +65,66 @@ export default function PartnerNewCompanyPage() {
     setSaving(true);
     setError(null);
 
-    // Check if client exists, if not we'll create a placeholder profile
-    let clientId: string | null = null;
+    // Create company directly
+    const { data: newCompany, error: companyError } = await supabase
+      .from('companies')
+      .insert({
+        name: formData.name.trim(),
+        company_number: formData.company_number.trim() || null,
+        industry: formData.industry.trim() || null,
+        website: formData.website.trim() || null,
+      })
+      .select('id')
+      .single();
 
-    const { data: existingClient } = await supabase
+    if (companyError) {
+      setError('Error creating company: ' + companyError.message);
+      setSaving(false);
+      return;
+    }
+
+    // Create or link client profile
+    // Check if email exists
+    const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
       .eq('email', formData.client_email.trim())
       .maybeSingle();
 
-    if (existingClient) {
-      clientId = existingClient.id;
-
-      // Update referred_by if not already set
+    if (existingProfile) {
+      // Update existing profile to link to company
       await supabase
         .from('profiles')
-        .update({ referred_by: user.id })
-        .eq('id', clientId)
-        .is('referred_by', null);
+        .update({
+          company_id: newCompany.id,
+          is_primary_director: true,
+          first_name: formData.director_first_name.trim() || null,
+          last_name: formData.director_last_name.trim() || null,
+          date_of_birth: formData.director_dob || null,
+          address_line_1: formData.director_address_line_1.trim() || null,
+          address_line_2: formData.director_address_line_2.trim() || null,
+          city: formData.director_city.trim() || null,
+          postcode: formData.director_postcode.trim() || null,
+          country: formData.director_country || 'United Kingdom',
+          property_status: formData.property_status || null,
+        })
+        .eq('id', existingProfile.id);
     } else {
-      // Create invitation record - the client will claim this when they sign up
-      // For now, we'll create the company without an owner and link later
-      // Or we can use prospective_client_email pattern
-    }
-
-    // Use API route to create company with director info
-    const response = await fetch('/api/companies/create', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        name: formData.name.trim(),
-        company_number: formData.company_number.trim() || null,
-        industry: formData.industry.trim() || null,
-        website: formData.website.trim() || null,
-        director_first_name: formData.director_first_name.trim() || null,
-        director_last_name: formData.director_last_name.trim() || null,
-        director_address_line_1: formData.director_address_line_1.trim() || null,
-        director_address_line_2: formData.director_address_line_2.trim() || null,
-        director_city: formData.director_city.trim() || null,
-        director_postcode: formData.director_postcode.trim() || null,
-        director_country: formData.director_country || 'United Kingdom',
-        director_dob: formData.director_dob || null,
-        property_status: formData.property_status || null,
-        client_email: formData.client_email.trim(),
-        partner_id: user.id,
-      }),
-    });
-
-    const result = await response.json();
-    
-    if (!response.ok || result.error) {
-      setError(result.error || 'Error creating company');
-      setSaving(false);
-      return;
+      // Store email on company for later linking (prospective client pattern)
+      await supabase
+        .from('companies')
+        .update({ prospective_client_email: formData.client_email.trim() })
+        .eq('id', newCompany.id);
     }
 
     // Create application if checkbox is checked
     if (createApplication && formData.requested_amount) {
-      const { data: newApp, error: appError } = await supabase
+      const { error: appError } = await supabase
         .from('applications')
         .insert({
-          company_id: result.companyId,
+          company_id: newCompany.id,
           requested_amount: parseFloat(formData.requested_amount),
-          loan_type: formData.loan_type || 'term_loan',
+          loan_type: formData.loan_type,
           purpose: formData.purpose || null,
           urgency: formData.urgency || null,
           monthly_revenue: formData.monthly_revenue ? parseFloat(formData.monthly_revenue) : null,
@@ -135,9 +132,7 @@ export default function PartnerNewCompanyPage() {
           stage: 'created',
           workflow_status: 'pending',
           created_by: user.id,
-        })
-        .select('id')
-        .single();
+        });
 
       if (appError) {
         setError('Company created but error creating application: ' + appError.message);
@@ -145,13 +140,13 @@ export default function PartnerNewCompanyPage() {
         return;
       }
 
-      // Redirect to the new application
-      router.push(`/partner/applications/${newApp.id}`);
+      // Redirect to applications list if application was created
+      router.push('/admin/applications');
       return;
     }
 
-    // Redirect to company detail page
-    router.push(`/partner/companies/${result.companyId}`);
+    // Redirect to company detail page if no application
+    router.push(`/admin/companies/${newCompany.id}`);
   };
 
   if (loading) {
@@ -167,7 +162,7 @@ export default function PartnerNewCompanyPage() {
     );
   }
 
-  if (profile?.role !== 'PARTNER') {
+  if (profile?.role !== 'ADMIN') {
     return (
       <DashboardShell>
         <div className="text-center py-12">
@@ -181,8 +176,8 @@ export default function PartnerNewCompanyPage() {
   return (
     <DashboardShell>
       <PageHeader
-        title="Add New Company"
-        description="Create a company for a client you're referring"
+        title="Create Company"
+        description="Create a new company and optionally start an application"
       />
 
       {error && (
@@ -417,27 +412,27 @@ export default function PartnerNewCompanyPage() {
         </div>
 
         {/* Application Details */}
-        <Card className="mt-6">
-          <CardHeader>
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="createApplication"
-                checked={createApplication}
-                onChange={(e) => setCreateApplication(e.target.checked)}
-                className="rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
-              />
-              <label htmlFor="createApplication" className="font-medium text-[var(--color-text-primary)] cursor-pointer">
-                Create application for this company
-              </label>
-            </div>
-          </CardHeader>
-          {createApplication && (
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-2 gap-4">
+        <div className="mt-6">
+          <Card>
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="createApplication"
+                  checked={createApplication}
+                  onChange={(e) => setCreateApplication(e.target.checked)}
+                  className="w-4 h-4 rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
+                />
+                <label htmlFor="createApplication" className="font-medium text-[var(--color-text-primary)] cursor-pointer">
+                  Create application for this company
+                </label>
+              </div>
+            </CardHeader>
+            {createApplication && (
+              <CardContent className="space-y-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                    Requested Amount <span className="text-[var(--color-error)]">*</span>
+                    Requested Amount (£) <span className="text-[var(--color-error)]">*</span>
                   </label>
                   <input
                     type="number"
@@ -449,6 +444,7 @@ export default function PartnerNewCompanyPage() {
                     required={createApplication}
                   />
                 </div>
+
                 <div>
                   <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Loan Type
@@ -457,7 +453,7 @@ export default function PartnerNewCompanyPage() {
                     name="loan_type"
                     value={formData.loan_type}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   >
                     <option value="term_loan">Term Loan</option>
                     <option value="revolving">Revolving Credit</option>
@@ -466,23 +462,21 @@ export default function PartnerNewCompanyPage() {
                     <option value="merchant_cash_advance">Merchant Cash Advance</option>
                   </select>
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Purpose of Funding
-                </label>
-                <textarea
-                  name="purpose"
-                  value={formData.purpose}
-                  onChange={(e) => setFormData(prev => ({ ...prev, purpose: e.target.value }))}
-                  rows={3}
-                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
-                  placeholder="What will the funding be used for?"
-                />
-              </div>
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                    Purpose of Funding
+                  </label>
+                  <textarea
+                    name="purpose"
+                    value={formData.purpose}
+                    onChange={handleChange}
+                    rows={4}
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                    placeholder="Describe what the funding will be used for..."
+                  />
+                </div>
 
-              <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
                     Urgency
@@ -491,7 +485,7 @@ export default function PartnerNewCompanyPage() {
                     name="urgency"
                     value={formData.urgency}
                     onChange={handleChange}
-                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   >
                     <option value="">Select...</option>
                     <option value="asap">ASAP</option>
@@ -500,37 +494,39 @@ export default function PartnerNewCompanyPage() {
                     <option value="no_rush">No Rush</option>
                   </select>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                    Monthly Revenue
-                  </label>
-                  <input
-                    type="number"
-                    name="monthly_revenue"
-                    value={formData.monthly_revenue}
-                    onChange={handleChange}
-                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
-                    placeholder="10000"
-                  />
-                </div>
-              </div>
 
-              <div>
-                <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
-                  Trading History (months)
-                </label>
-                <input
-                  type="number"
-                  name="trading_months"
-                  value={formData.trading_months}
-                  onChange={handleChange}
-                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
-                  placeholder="24"
-                />
-              </div>
-            </CardContent>
-          )}
-        </Card>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                      Monthly Revenue (£)
+                    </label>
+                    <input
+                      type="number"
+                      name="monthly_revenue"
+                      value={formData.monthly_revenue}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                      placeholder="50000"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-1">
+                      Trading History (months)
+                    </label>
+                    <input
+                      type="number"
+                      name="trading_months"
+                      value={formData.trading_months}
+                      onChange={handleChange}
+                      className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                      placeholder="24"
+                    />
+                  </div>
+                </div>
+              </CardContent>
+            )}
+          </Card>
+        </div>
 
         {/* Submit */}
         <div className="mt-6 flex justify-end gap-3">
@@ -546,10 +542,11 @@ export default function PartnerNewCompanyPage() {
             variant="primary"
             disabled={saving}
           >
-            {saving ? 'Creating...' : createApplication ? 'Create Company & Application' : 'Create Company'}
+            {saving ? 'Creating...' : 'Create Company'}
           </Button>
         </div>
       </form>
     </DashboardShell>
   );
 }
+
