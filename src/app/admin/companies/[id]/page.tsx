@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -47,6 +47,7 @@ type Document = {
 
 export default function AdminCompanyDetailPage() {
   const { id } = useParams<{ id: string }>();
+  const router = useRouter();
   const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
 
@@ -63,6 +64,10 @@ export default function AdminCompanyDetailPage() {
   const [directorData, setDirectorData] = useState<any>(null);
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState('');
+
+  // Delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -193,6 +198,65 @@ export default function AdminCompanyDetailPage() {
     if (director) setDirectorData({ ...director });
     setIsEditing(false);
     setMessage('');
+  };
+
+  const handleDeleteCompany = async () => {
+    if (!company) return;
+    setDeleting(true);
+
+    try {
+      // Get all applications for this company
+      const { data: apps } = await supabase
+        .from('applications')
+        .select('id')
+        .eq('company_id', company.id);
+
+      if (apps && apps.length > 0) {
+        const appIds = apps.map(a => a.id);
+        
+        // Get all documents for these applications
+        const { data: docs } = await supabase
+          .from('documents')
+          .select('storage_path')
+          .in('application_id', appIds);
+        
+        // Delete documents from storage
+        if (docs && docs.length > 0) {
+          const paths = docs.map(d => d.storage_path);
+          await supabase.storage.from('application-documents').remove(paths);
+        }
+
+        // Delete related records for all applications
+        await supabase.from('documents').delete().in('application_id', appIds);
+        await supabase.from('information_requests').delete().in('application_id', appIds);
+        await supabase.from('lender_submissions').delete().in('application_id', appIds);
+        await supabase.from('offers').delete().in('application_id', appIds);
+        
+        // Delete applications
+        await supabase.from('applications').delete().eq('company_id', company.id);
+      }
+
+      // Unlink profiles from this company (don't delete the profiles)
+      await supabase
+        .from('profiles')
+        .update({ company_id: null, is_primary_director: false })
+        .eq('company_id', company.id);
+
+      // Delete the company
+      const { error } = await supabase.from('companies').delete().eq('id', company.id);
+
+      if (error) {
+        alert('Error deleting company: ' + error.message);
+        setDeleting(false);
+        return;
+      }
+
+      router.push('/admin/companies');
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Error deleting company');
+      setDeleting(false);
+    }
   };
 
   const handleSave = async () => {
@@ -337,9 +401,18 @@ export default function AdminCompanyDetailPage() {
         title={company.name}
         description={`Client: ${company.owner?.[0]?.email ?? 'Unknown'}`}
         actions={
-          <Link href="/admin/applications">
-            <Button variant="outline">← Back to Applications</Button>
-          </Link>
+          <div className="flex gap-2">
+            <Link href="/admin/applications">
+              <Button variant="outline">← Back to Applications</Button>
+            </Link>
+            <Button
+              variant="outline"
+              className="text-red-600 border-red-200 hover:bg-red-50"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              Delete Company
+            </Button>
+          </div>
         }
       />
 
@@ -714,6 +787,35 @@ export default function AdminCompanyDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[var(--color-surface)] rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">Delete Company?</h3>
+            <p className="text-[var(--color-text-secondary)] mb-4">
+              This will permanently delete this company along with all its applications, documents, and related data. User accounts will be preserved but unlinked from this company. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleDeleteCompany}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete Company'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }

@@ -169,6 +169,10 @@ export default function AdminApplicationDetailPage() {
   const [uploadCategory, setUploadCategory] = useState('bank_statements');
   const [uploadFile, setUploadFile] = useState<File | null>(null);
 
+  // Delete confirmation
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
   useEffect(() => {
     if (loading) return;
     if (profile?.role !== 'ADMIN') {
@@ -499,6 +503,40 @@ export default function AdminApplicationDetailPage() {
     }
   };
 
+  const handleDeleteApplication = async () => {
+    if (!application) return;
+    setDeleting(true);
+
+    try {
+      // Delete related documents from storage first
+      if (documents.length > 0) {
+        const paths = documents.map(d => d.storage_path);
+        await supabase.storage.from('application-documents').remove(paths);
+      }
+
+      // Delete related records (order matters for foreign keys)
+      await supabase.from('documents').delete().eq('application_id', id);
+      await supabase.from('information_requests').delete().eq('application_id', id);
+      await supabase.from('lender_submissions').delete().eq('application_id', id);
+      await supabase.from('offers').delete().eq('application_id', id);
+      
+      // Delete the application
+      const { error } = await supabase.from('applications').delete().eq('id', id);
+
+      if (error) {
+        alert('Error deleting application: ' + error.message);
+        setDeleting(false);
+        return;
+      }
+
+      router.push('/admin/applications');
+    } catch (err) {
+      console.error('Delete error:', err);
+      alert('Error deleting application');
+      setDeleting(false);
+    }
+  };
+
   if (loading || loadingData) {
     return (
       <DashboardShell>
@@ -641,6 +679,13 @@ export default function AdminApplicationDetailPage() {
                     </Button>
                   </>
                 )}
+                <Button
+                  variant="outline"
+                  className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                  onClick={() => setShowDeleteConfirm(true)}
+                >
+                  Delete Application
+                </Button>
               </div>
             </CardContent>
           </Card>
@@ -1157,6 +1202,35 @@ export default function AdminApplicationDetailPage() {
           </Card>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+          <div className="bg-[var(--color-surface)] rounded-xl p-6 max-w-md w-full mx-4 shadow-xl">
+            <h3 className="text-lg font-semibold text-[var(--color-text-primary)] mb-2">Delete Application?</h3>
+            <p className="text-[var(--color-text-secondary)] mb-4">
+              This will permanently delete this application and all associated documents, information requests, lender submissions, and offers. This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setShowDeleteConfirm(false)}
+                disabled={deleting}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                className="bg-red-600 hover:bg-red-700"
+                onClick={handleDeleteApplication}
+                disabled={deleting}
+              >
+                {deleting ? 'Deleting...' : 'Delete Application'}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </DashboardShell>
   );
 }
