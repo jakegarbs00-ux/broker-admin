@@ -124,6 +124,13 @@ const STAGES = [
   'withdrawn',
 ];
 
+const DOCUMENT_CATEGORIES = [
+  { value: 'bank_statements', label: '6 months bank statements' },
+  { value: 'management_accounts', label: 'Management accounts' },
+  { value: 'cashflow_forecast', label: 'Cashflow forecasts' },
+  { value: 'other', label: 'Other' },
+];
+
 export default function AdminApplicationDetailPage() {
   const params = useParams();
   const id = params.id as string;
@@ -156,6 +163,11 @@ export default function AdminApplicationDetailPage() {
   // New info request form
   const [requestMessage, setRequestMessage] = useState('');
   const [creatingRequest, setCreatingRequest] = useState(false);
+
+  // Document upload
+  const [uploading, setUploading] = useState(false);
+  const [uploadCategory, setUploadCategory] = useState('bank_statements');
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
 
   useEffect(() => {
     if (loading) return;
@@ -445,6 +457,46 @@ export default function AdminApplicationDetailPage() {
   const getDocumentUrl = (storagePath: string) => {
     const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
     return data.publicUrl;
+  };
+
+  const handleUpload = async () => {
+    if (!user || !id || !uploadFile) return;
+    setUploading(true);
+    try {
+      const fileExt = uploadFile.name.split('.').pop();
+      const path = `${user.id}/${id}/${Date.now()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from('application-documents')
+        .upload(path, uploadFile);
+
+      if (uploadError) {
+        alert('Error uploading file: ' + uploadError.message);
+        setUploading(false);
+        return;
+      }
+
+      const { data, error: insertError } = await supabase
+        .from('documents')
+        .insert({
+          application_id: id,
+          category: uploadCategory,
+          original_filename: uploadFile.name,
+          storage_path: path,
+          uploaded_by: user.id,
+        })
+        .select('id, category, original_filename, storage_path, created_at')
+        .single();
+
+      if (insertError) {
+        alert('Error saving document record: ' + insertError.message);
+      } else if (data) {
+        setDocuments((prev) => [data as Document, ...prev]);
+        setUploadFile(null);
+      }
+    } finally {
+      setUploading(false);
+    }
   };
 
   if (loading || loadingData) {
@@ -1017,7 +1069,38 @@ export default function AdminApplicationDetailPage() {
                 <Badge variant="default">{documents.length}</Badge>
               </div>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-4">
+              {/* Upload form */}
+              <div className="space-y-3 pb-4 border-b border-[var(--color-border)]">
+                <p className="text-sm font-medium text-[var(--color-text-primary)]">Upload Document</p>
+                <select
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  value={uploadCategory}
+                  onChange={(e) => setUploadCategory(e.target.value)}
+                >
+                  {DOCUMENT_CATEGORIES.map((cat) => (
+                    <option key={cat.value} value={cat.value}>
+                      {cat.label}
+                    </option>
+                  ))}
+                </select>
+                <input
+                  type="file"
+                  className="w-full text-sm text-[var(--color-text-tertiary)] file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-[var(--color-accent-light)] file:text-[var(--color-accent)] hover:file:bg-[var(--color-accent-light)]"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                />
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className="w-full"
+                  disabled={!uploadFile || uploading}
+                  onClick={handleUpload}
+                >
+                  {uploading ? 'Uploading…' : 'Upload Document'}
+                </Button>
+              </div>
+
+              {/* Documents list */}
               {documents.length === 0 ? (
                 <p className="text-sm text-[var(--color-text-tertiary)] text-center py-4">No documents uploaded</p>
               ) : (
