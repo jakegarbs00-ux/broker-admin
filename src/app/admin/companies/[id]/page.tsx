@@ -402,9 +402,9 @@ export default function AdminCompanyDetailPage() {
         description={`Client: ${company.owner?.[0]?.email ?? 'Unknown'}`}
         actions={
           <div className="flex gap-2">
-            <Link href="/admin/applications">
-              <Button variant="outline">← Back to Applications</Button>
-            </Link>
+          <Link href="/admin/applications">
+            <Button variant="outline">← Back to Applications</Button>
+          </Link>
             <Button
               variant="outline"
               className="text-red-600 border-red-200 hover:bg-red-50"
@@ -505,7 +505,7 @@ export default function AdminCompanyDetailPage() {
                     companyData?.website ? (
                       <a href={companyData.website} target="_blank" rel="noopener noreferrer" className="text-[var(--color-accent)] hover:underline">
                         {companyData.website}
-                      </a>
+                    </a>
                   ) : (
                     <p className="text-[var(--color-text-tertiary)]">—</p>
                     )

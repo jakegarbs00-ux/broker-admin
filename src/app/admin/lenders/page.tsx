@@ -15,6 +15,7 @@ type Lender = {
   status: string;
   created_at: string;
   lender_submissions?: Array<{ count: number }>;
+  is_eligible_panel?: boolean | null;
 };
 
 export default function AdminLendersPage() {
@@ -167,12 +168,17 @@ export default function AdminLendersPage() {
                       {lenders.map((l) => (
                         <tr key={l.id} className="hover:bg-[var(--color-bg-secondary)] transition-colors">
                           <td className="px-6 py-4 whitespace-nowrap">
-                            <Link
-                              href={`/admin/lenders/${l.id}`}
-                              className="font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)]"
-                            >
-                              {l.name}
-                            </Link>
+                            <div className="flex items-center gap-2">
+                              <Link
+                                href={`/admin/lenders/${l.id}`}
+                                className="font-medium text-[var(--color-text-primary)] hover:text-[var(--color-accent)]"
+                              >
+                                {l.name}
+                              </Link>
+                              {l.is_eligible_panel && (
+                                <Badge variant="success" size="sm">Eligible</Badge>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 whitespace-nowrap">
                             <span className="text-sm text-[var(--color-text-secondary)]">

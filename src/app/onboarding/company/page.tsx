@@ -197,9 +197,9 @@ export default function CompanyOnboardingPage() {
         description="Tell us about your business so we can match you with the right lenders."
         actions={
           <div className="flex gap-2">
-            <Link href="/dashboard">
-              <Button variant="outline">← Back to Dashboard</Button>
-            </Link>
+          <Link href="/dashboard">
+            <Button variant="outline">← Back to Dashboard</Button>
+          </Link>
             {companyId && !isEditing && (
               <Button variant="primary" onClick={() => { setIsEditing(true); setSuccessMessage(null); }}>
                 Edit
@@ -288,8 +288,8 @@ export default function CompanyOnboardingPage() {
           </Card>
         </div>
       ) : (
-        <div className="max-w-2xl">
-          <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+      <div className="max-w-2xl">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
           {/* Company Details */}
           <Card>
             <CardHeader>

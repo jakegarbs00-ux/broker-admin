@@ -1,0 +1,32 @@
+-- Add eligibility criteria columns to lenders table
+
+ALTER TABLE lenders
+ADD COLUMN IF NOT EXISTS min_trading_months INTEGER,
+ADD COLUMN IF NOT EXISTS min_monthly_revenue INTEGER,
+ADD COLUMN IF NOT EXISTS max_monthly_revenue_multiple DECIMAL(10,2),
+ADD COLUMN IF NOT EXISTS max_annual_revenue_percentage INTEGER,
+ADD COLUMN IF NOT EXISTS absolute_min_loan INTEGER,
+ADD COLUMN IF NOT EXISTS absolute_max_loan INTEGER,
+ADD COLUMN IF NOT EXISTS accepted_business_types TEXT[],
+ADD COLUMN IF NOT EXISTS prohibited_industries TEXT[],
+ADD COLUMN IF NOT EXISTS requires_filed_accounts BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS min_filed_accounts_years INTEGER,
+ADD COLUMN IF NOT EXISTS accepts_ccjs BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS max_ccj_value INTEGER,
+ADD COLUMN IF NOT EXISTS requires_homeowner BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS homeowner_min_loan INTEGER,
+ADD COLUMN IF NOT EXISTS requires_card_payments BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS min_card_payment_percentage INTEGER,
+ADD COLUMN IF NOT EXISTS requires_existing_lending BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS max_existing_lenders INTEGER,
+ADD COLUMN IF NOT EXISTS min_term_months INTEGER,
+ADD COLUMN IF NOT EXISTS max_term_months INTEGER,
+ADD COLUMN IF NOT EXISTS funding_speed TEXT,
+ADD COLUMN IF NOT EXISTS repayment_type TEXT,
+ADD COLUMN IF NOT EXISTS product_type TEXT,
+ADD COLUMN IF NOT EXISTS is_eligible_panel BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS min_profit_margin_percentage DECIMAL(5,2),
+ADD COLUMN IF NOT EXISTS requires_profitable BOOLEAN DEFAULT false,
+ADD COLUMN IF NOT EXISTS min_net_assets_ratio DECIMAL(5,2),
+ADD COLUMN IF NOT EXISTS requires_positive_net_assets BOOLEAN DEFAULT false;
+

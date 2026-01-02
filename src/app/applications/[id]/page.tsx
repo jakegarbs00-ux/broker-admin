@@ -539,17 +539,17 @@ export default function ApplicationDetailPage() {
                         <div className="mt-3 p-3 bg-[var(--color-surface)] rounded border border-[var(--color-border)]">
                           <p className="text-sm text-[var(--color-text-secondary)] mb-1">Your response:</p>
                           <p className="text-[var(--color-text-primary)]">{request.client_response_text}</p>
-                        </div>
-                      )}
-                      
+                          </div>
+                        )}
+
                       {/* Show response form if open/pending */}
                       {(request.status === 'pending' || request.status === 'open') && (
                         <div className="mt-3 space-y-3">
-                          <textarea
+                            <textarea
                             value={responseText[request.id] || ''}
                             onChange={(e) => setResponseText({ ...responseText, [request.id]: e.target.value })}
                             placeholder="Type your response here..."
-                            rows={3}
+                              rows={3}
                             className="w-full px-3 py-2 border border-[var(--color-border)] rounded-lg bg-[var(--color-surface)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)]"
                           />
                           <button
@@ -559,9 +559,9 @@ export default function ApplicationDetailPage() {
                           >
                             {submittingResponse ? 'Submitting...' : 'Submit Response'}
                           </button>
-                        </div>
-                      )}
-                    </div>
+                          </div>
+                        )}
+                      </div>
                   ))}
                 </div>
               )}
