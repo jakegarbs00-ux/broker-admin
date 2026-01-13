@@ -1,5 +1,6 @@
 'use client';
 
+import type React from 'react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
@@ -30,6 +31,11 @@ export default function AdminCreatePartnerPage() {
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdPartnerId, setCreatedPartnerId] = useState<string | null>(null);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
   const [formData, setFormData] = useState<PartnerCompanyFormData>({
     name: '',
     registration_number: '',
@@ -87,8 +93,56 @@ export default function AdminCreatePartnerPage() {
       return;
     }
 
-    // Redirect to the new partner company detail page
-    router.push(`/admin/partners/${newPartner.id}`);
+    setCreatedPartnerId(newPartner.id as string);
+    setSaving(false);
+  };
+
+  const handleInvite = async () => {
+    if (!createdPartnerId) return;
+    setInviteError(null);
+    setInviteStatus(null);
+
+    const email = inviteEmail.trim();
+    if (!email) {
+      setInviteError('Email is required');
+      return;
+    }
+
+    setInviting(true);
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      setInviteError('Unable to verify your session. Please refresh and try again.');
+      setInviting(false);
+      return;
+    }
+
+    const response = await fetch('/api/admin/invite-partner-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        email,
+        partner_company_id: createdPartnerId,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      setInviteError(data.error || 'Error sending invite');
+    } else {
+      setInviteStatus('Invitation sent successfully');
+      setInviteEmail('');
+    }
+
+    setInviting(false);
   };
 
   if (loading) {
@@ -286,11 +340,63 @@ export default function AdminCreatePartnerPage() {
                   Cancel
                 </Button>
               </Link>
-              <Button variant="primary" type="submit" disabled={saving}>
-                {saving ? 'Creating...' : 'Create Partner Company'}
+              <Button variant="primary" type="submit" disabled={saving || !!createdPartnerId}>
+                {createdPartnerId ? 'Partner Created' : saving ? 'Creating...' : 'Create Partner Company'}
               </Button>
             </div>
           </form>
+
+          {createdPartnerId && (
+            <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
+              <div className="lg:col-span-2">
+                <Card>
+                  <CardHeader>
+                    <h2 className="text-lg font-semibold">Invite a User</h2>
+                    <p className="text-sm text-[var(--color-text-tertiary)]">
+                      Optional: invite a partner user to access this company.
+                    </p>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">
+                          User Email
+                        </label>
+                        <input
+                          type="email"
+                          value={inviteEmail}
+                          onChange={(e) => setInviteEmail(e.target.value)}
+                          placeholder="user@example.com"
+                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
+                        />
+                      </div>
+                      {inviteError && (
+                        <p className="text-sm text-red-600">{inviteError}</p>
+                      )}
+                      {inviteStatus && !inviteError && (
+                        <p className="text-sm text-green-600">{inviteStatus}</p>
+                      )}
+                      <div className="flex justify-end gap-3">
+                        <Link href={`/admin/partners/${createdPartnerId}`}>
+                          <Button variant="secondary" type="button">
+                            Skip for now
+                          </Button>
+                        </Link>
+                        <Button
+                          variant="primary"
+                          type="button"
+                          onClick={handleInvite}
+                          disabled={inviting}
+                        >
+                          {inviting ? 'Sending...' : 'Send Invite'}
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </DashboardShell>

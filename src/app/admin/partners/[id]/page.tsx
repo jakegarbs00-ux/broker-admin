@@ -74,6 +74,11 @@ export default function AdminPartnerCompanyDetailPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<Partial<PartnerCompany>>({});
+  const [inviteModalOpen, setInviteModalOpen] = useState(false);
+  const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
+  const [inviting, setInviting] = useState(false);
 
   useEffect(() => {
     if (loading) return;
@@ -171,6 +176,54 @@ export default function AdminPartnerCompanyDetailPage() {
     }
 
     setSaving(false);
+  };
+
+  const handleInviteUser = async () => {
+    if (!partnerCompany) return;
+    setInviteError(null);
+    setInviteStatus(null);
+
+    const email = inviteEmail.trim();
+    if (!email) {
+      setInviteError('Email is required');
+      return;
+    }
+
+    setInviting(true);
+
+    const {
+      data: { session },
+      error: sessionError,
+    } = await supabase.auth.getSession();
+
+    if (sessionError || !session?.access_token) {
+      setInviteError('Unable to verify your session. Please refresh and try again.');
+      setInviting(false);
+      return;
+    }
+
+    const response = await fetch('/api/admin/invite-partner-user', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      body: JSON.stringify({
+        email,
+        partner_company_id: partnerCompany.id,
+      }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || data.error) {
+      setInviteError(data.error || 'Error sending invite');
+    } else {
+      setInviteStatus('Invitation sent successfully');
+      setInviteEmail('');
+    }
+
+    setInviting(false);
   };
 
   if (loading || loadingData) {
@@ -504,7 +557,20 @@ export default function AdminPartnerCompanyDetailPage() {
             <div className="bg-white rounded-lg border p-6">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="font-semibold">Users</h3>
-                <span className="text-[var(--color-text-tertiary)] text-sm">{users.length}</span>
+                <div className="flex items-center gap-3">
+                  <span className="text-[var(--color-text-tertiary)] text-sm">{users.length}</span>
+                  <Button
+                    variant="primary"
+                    size="sm"
+                    onClick={() => {
+                      setInviteModalOpen(true);
+                      setInviteError(null);
+                      setInviteStatus(null);
+                    }}
+                  >
+                    Invite User
+                  </Button>
+                </div>
               </div>
               {users.length > 0 ? (
                 <div className="space-y-2">
@@ -551,6 +617,77 @@ export default function AdminPartnerCompanyDetailPage() {
             </div>
           </div>
         </div>
+
+        {inviteModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+            <div className="bg-white rounded-lg shadow-lg w-full max-w-md p-6">
+              <div className="flex items-start justify-between mb-4">
+                <div>
+                  <h2 className="text-lg font-semibold">Invite Partner User</h2>
+                  <p className="text-sm text-[var(--color-text-tertiary)] mt-1">
+                    Send an invitation email to add a user to this partner company.
+                  </p>
+                </div>
+                <button
+                  className="text-[var(--color-text-tertiary)] hover:text-[var(--color-text-primary)]"
+                  onClick={() => {
+                    setInviteModalOpen(false);
+                    setInviteEmail('');
+                    setInviteError(null);
+                    setInviteStatus(null);
+                  }}
+                >
+                  ✕
+                </button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">
+                    User Email
+                  </label>
+                  <input
+                    type="email"
+                    value={inviteEmail}
+                    onChange={(e) => setInviteEmail(e.target.value)}
+                    placeholder="user@example.com"
+                    className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
+                  />
+                </div>
+
+                {inviteError && (
+                  <p className="text-sm text-red-600">{inviteError}</p>
+                )}
+                {inviteStatus && !inviteError && (
+                  <p className="text-sm text-green-600">{inviteStatus}</p>
+                )}
+
+                <div className="flex justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    className="px-4 py-2 text-sm rounded border border-[var(--color-border)] text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]"
+                    onClick={() => {
+                      setInviteModalOpen(false);
+                      setInviteEmail('');
+                      setInviteError(null);
+                      setInviteStatus(null);
+                    }}
+                  >
+                    Close
+                  </button>
+                  <Button
+                    variant="primary"
+                    type="button"
+                    onClick={handleInviteUser}
+                    disabled={inviting}
+                  >
+                    {inviting ? 'Sending...' : 'Send Invite'}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </DashboardShell>
   );
