@@ -6,7 +6,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
+import { Card, CardContent, CardHeader, Badge, getStageBadgeVariant, formatStage, Button } from '@/components/ui';
 
 type Company = {
   id: string;
@@ -37,18 +37,21 @@ type Application = {
   created_at: string;
 };
 
-type Director = {
+type CompanyUser = {
   id: string;
   first_name: string | null;
   last_name: string | null;
   email: string | null;
   phone: string | null;
   date_of_birth: string | null;
+  property_status: string | null;
   address_line_1: string | null;
   address_line_2: string | null;
   city: string | null;
   postcode: string | null;
   country: string | null;
+  is_primary_director: boolean | null;
+  created_at: string;
 };
 
 export default function PartnerCompanyDetailPage() {
@@ -58,7 +61,7 @@ export default function PartnerCompanyDetailPage() {
   const supabase = getSupabaseClient();
 
   const [company, setCompany] = useState<Company | null>(null);
-  const [director, setDirector] = useState<Director | null>(null);
+  const [companyUsers, setCompanyUsers] = useState<CompanyUser[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -97,17 +100,27 @@ export default function PartnerCompanyDetailPage() {
 
       setApplications((appsData || []) as Application[]);
 
-      // Fetch client/director
-      const { data: directorData } = await supabase
+      // Fetch ALL users associated with this company
+      const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*')
         .eq('company_id', id)
-        .eq('is_primary_director', true)
-        .maybeSingle();
+        .order('created_at', { ascending: true });
 
-      if (directorData) {
-        setDirector(directorData as Director);
+      if (usersError) {
+        console.error('Error fetching company users:', usersError);
+      } else {
+        console.log('Company users fetched:', usersData?.length || 0, usersData);
       }
+
+      // Sort users: primary directors first, then by creation date
+      const sortedUsers = (usersData || []).sort((a, b) => {
+        if (a.is_primary_director && !b.is_primary_director) return -1;
+        if (!a.is_primary_director && b.is_primary_director) return 1;
+        return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
+      });
+
+      setCompanyUsers(sortedUsers as CompanyUser[]);
 
       setLoadingData(false);
     };
@@ -144,6 +157,10 @@ export default function PartnerCompanyDetailPage() {
   const closedStages = ['funded', 'declined', 'withdrawn'];
   const openApplications = applications.filter((a) => !closedStages.includes(a.stage));
   const totalRequested = applications.reduce((sum, a) => sum + (a.requested_amount || 0), 0);
+  
+  // Check if company is eligible for a new application
+  // Eligible if: no applications OR no open applications
+  const canCreateApplication = applications.length === 0 || openApplications.length === 0;
 
   return (
     <DashboardShell>
@@ -204,83 +221,114 @@ export default function PartnerCompanyDetailPage() {
                     </dd>
                   </div>
                 )}
-                {director && (
-                  <div>
-                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Client Email</dt>
-                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{director.email || '—'}</dd>
+                {(company.address_line_1 || company.city || company.postcode) && (
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Company Address</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">
+                      {[
+                        company.address_line_1,
+                        company.address_line_2,
+                        company.city,
+                        company.postcode,
+                        company.country,
+                      ]
+                        .filter(Boolean)
+                        .join(', ') || '—'}
+                    </dd>
+                  </div>
+                )}
+                {company.referrer && (
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Referred By</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">
+                      {company.referrer.first_name} {company.referrer.last_name}
+                      {company.referrer.email && (
+                        <span className="text-[var(--color-text-secondary)] ml-2">({company.referrer.email})</span>
+                      )}
+                    </dd>
                   </div>
                 )}
               </dl>
             </CardContent>
           </Card>
 
-          {/* Director Information */}
-          {director && (
-            <Card>
+          {/* Company Users */}
+          {companyUsers.length > 0 && companyUsers.map((user, index) => (
+            <Card key={user.id}>
               <CardHeader>
-                <h2 className="font-medium text-[var(--color-text-primary)]">Director Information</h2>
+                <h2 className="font-medium text-[var(--color-text-primary)]">
+                  {user.is_primary_director ? 'Director Information' : `User Information${companyUsers.length > 1 ? ` (${index + 1})` : ''}`}
+                </h2>
               </CardHeader>
               <CardContent>
                 <dl className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Name</dt>
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Full Name</dt>
                     <dd className="text-sm font-medium text-[var(--color-text-primary)]">
-                      {director.first_name} {director.last_name}
+                      {[user.first_name, user.last_name].filter(Boolean).join(' ') || '—'}
                     </dd>
                   </div>
-                  {director.email && (
-                    <div>
-                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Email</dt>
-                      <dd className="text-sm font-medium text-[var(--color-text-primary)]">{director.email}</dd>
-                    </div>
-                  )}
-                  {director.phone && (
-                    <div>
-                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Phone</dt>
-                      <dd className="text-sm font-medium text-[var(--color-text-primary)]">{director.phone}</dd>
-                    </div>
-                  )}
-                  {director.date_of_birth && (
-                    <div>
-                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Date of Birth</dt>
-                      <dd className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {new Date(director.date_of_birth).toLocaleDateString('en-GB')}
-                      </dd>
-                    </div>
-                  )}
-                  {director.address_line_1 && (
-                    <div className="sm:col-span-2">
-                      <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Address</dt>
-                      <dd className="text-sm font-medium text-[var(--color-text-primary)]">
-                        {[
-                          director.address_line_1,
-                          director.address_line_2,
-                          director.city,
-                          director.postcode,
-                          director.country,
-                        ]
-                          .filter(Boolean)
-                          .join(', ')}
-                      </dd>
-                    </div>
-                  )}
+                  <div>
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Phone</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{user.phone || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Email</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">{user.email || '—'}</dd>
+                  </div>
+                  <div>
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Date of Birth</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">
+                      {user.date_of_birth ? new Date(user.date_of_birth).toLocaleDateString('en-GB') : '—'}
+                    </dd>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <dt className="text-xs text-[var(--color-text-tertiary)] uppercase">Address</dt>
+                    <dd className="text-sm font-medium text-[var(--color-text-primary)]">
+                      {user.address_line_1 || user.address_line_2 || user.city || user.postcode || user.country ? (
+                        <div className="space-y-0.5">
+                          {user.address_line_1 && <div>{user.address_line_1}</div>}
+                          {user.address_line_2 && <div>{user.address_line_2}</div>}
+                          {user.city && <div>{user.city}</div>}
+                          {user.postcode && <div>{user.postcode}</div>}
+                          {user.country && <div>{user.country}</div>}
+                        </div>
+                      ) : (
+                        '—'
+                      )}
+                    </dd>
+                  </div>
                 </dl>
               </CardContent>
             </Card>
-          )}
+          ))}
 
           {/* Applications */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <h2 className="font-medium text-[var(--color-text-primary)]">Applications</h2>
-                <Badge variant="default">{applications.length}</Badge>
+                <div className="flex items-center gap-3">
+                  <Badge variant="default">{applications.length}</Badge>
+                  {canCreateApplication && (
+                    <Link href={`/partner/applications/new?company_id=${id}`}>
+                      <Button variant="primary" size="sm">
+                        + New Application
+                      </Button>
+                    </Link>
+                  )}
+                </div>
               </div>
             </CardHeader>
             <CardContent className="p-0">
               {applications.length === 0 ? (
                 <div className="p-6 text-center">
-                  <p className="text-sm text-[var(--color-text-tertiary)]">No applications yet</p>
+                  <p className="text-sm text-[var(--color-text-tertiary)] mb-4">No applications yet</p>
+                  {canCreateApplication && (
+                    <Link href={`/partner/applications/new?company_id=${id}`}>
+                      <Button variant="primary">Create First Application</Button>
+                    </Link>
+                  )}
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">

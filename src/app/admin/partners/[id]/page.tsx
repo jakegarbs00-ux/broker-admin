@@ -603,18 +603,6 @@ export default function AdminPartnerCompanyDetailPage() {
               )}
             </div>
 
-            {/* Quick Actions */}
-            <div className="bg-white rounded-lg border p-6">
-              <h3 className="font-semibold mb-4">Quick Actions</h3>
-              <div className="space-y-2">
-                <Link
-                  href={`/admin/partners/${partnerCompanyId}/users/add`}
-                  className="block w-full px-4 py-2 text-left text-sm border rounded hover:bg-gray-50"
-                >
-                  Add User to Company
-                </Link>
-              </div>
-            </div>
           </div>
         </div>
 

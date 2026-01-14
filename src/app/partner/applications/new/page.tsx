@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
@@ -44,6 +44,8 @@ export default function PartnerNewApplicationPage() {
   const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const companyIdParam = searchParams.get('company_id');
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [companies, setCompanies] = useState<{ id: string; name: string }[]>([]);
   const [loadingCompanies, setLoadingCompanies] = useState(true);
@@ -51,12 +53,14 @@ export default function PartnerNewApplicationPage() {
   const {
     register,
     handleSubmit,
+    setValue,
+    watch,
     formState: { errors, isSubmitting },
   } = useForm<FormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       is_hidden: true, // Draft by default
-      company_id: '',
+      company_id: companyIdParam || '',
     },
   });
 
@@ -97,12 +101,25 @@ export default function PartnerNewApplicationPage() {
         .in('referred_by', partnerUserIds)
         .order('name', { ascending: true });
 
-      setCompanies(companiesData || []);
+      const companiesList = companiesData || [];
+      setCompanies(companiesList);
+      
+      // If company_id param is provided and company exists in list, pre-select it
+      if (companyIdParam && companiesList.length > 0) {
+        const companyExists = companiesList.some(c => c.id === companyIdParam);
+        if (companyExists) {
+          // Use setTimeout to ensure form is ready
+          setTimeout(() => {
+            setValue('company_id', companyIdParam);
+          }, 0);
+        }
+      }
+      
       setLoadingCompanies(false);
     };
 
     loadCompanies();
-  }, [user, profile?.role, supabase]);
+  }, [user, profile?.role, supabase, companyIdParam, setValue]);
 
   const onSubmit = async (values: FormValues) => {
     if (!user) return;

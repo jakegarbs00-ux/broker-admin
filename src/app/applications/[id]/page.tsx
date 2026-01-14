@@ -528,8 +528,8 @@ export default function ApplicationDetailPage() {
                         }`}>
                           {request.status === 'completed' ? 'Completed' : 'Open'}
                         </span>
-                      </div>
-                      
+                        </div>
+
                       <p className="text-sm text-[var(--color-text-tertiary)] mb-3">
                         Requested {new Date(request.created_at).toLocaleDateString('en-GB')}
                       </p>
