@@ -22,6 +22,25 @@ export default function ApplyPage() {
           return;
         }
 
+        // Check for existing open application (not closed)
+        const closedStages = ['funded', 'declined', 'withdrawn'];
+        
+        const { data: existingApp } = await supabase
+          .from('applications')
+          .select('id, stage')
+          .eq('created_by', user.id)
+          .not('stage', 'in', `(${closedStages.join(',')})`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (existingApp && existingApp.stage !== 'created') {
+          // User has an in-progress application (submitted, in_credit, etc.) - redirect to it
+          router.push(`/applications/${existingApp.id}`);
+          return;
+        }
+
+        // No open application (or only draft) - allow new one or continue draft
         setIsAuthChecked(true);
       } catch (err) {
         console.error('Error checking auth:', err);

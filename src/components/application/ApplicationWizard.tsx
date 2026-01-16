@@ -87,61 +87,71 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
   const totalSteps = 5;
 
   // Load all data and pre-populate fields (always start at step 1)
+  // Self-contained initialization - doesn't depend on useUserProfile hook state
   useEffect(() => {
-    // Wait for useUserProfile to finish loading
-    if (profileLoading) {
-      return;
-    }
-
-    // If no user, redirect will happen from useRequireAuth
-    if (!user) {
-      setIsLoadingData(false);
-      return;
-    }
-
-    // If no profile yet, that's okay - just show wizard with empty fields immediately
-    // Don't wait for profile - it might be created by trigger soon
-    if (!profile) {
-      setIsLoadingData(false);
-      return;
-    }
-
-    // We have user and profile - load data to pre-populate
-    setIsLoadingData(true);
-
-    const loadDataAndPrepopulate = async () => {
-
+    const initWizard = async () => {
       try {
         const supabase = getSupabaseClient();
+        
+        // Check auth directly - don't rely on hook state
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        
+        if (authError || !authUser) {
+          // Not authenticated - let the page handle redirect
+          setIsLoadingData(false);
+          return;
+        }
+
+        // Check if user has any in-progress application (not draft, not closed)
+        const closedStages = ['funded', 'declined', 'withdrawn'];
+        
+        const { data: inProgressApp } = await supabase
+          .from('applications')
+          .select('id, stage')
+          .eq('created_by', authUser.id)
+          .not('stage', 'in', `(created,${closedStages.join(',')})`)
+          .limit(1)
+          .maybeSingle();
+
+        if (inProgressApp) {
+          // User has an in-progress application - redirect to it, can't create new one
+          router.push(`/applications/${inProgressApp.id}`);
+          return;
+        }
+
+        // Query profile directly - might not exist for new users
+        const { data: profileData } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', authUser.id)
+          .maybeSingle();
+        
+        if (!profileData) {
+          // New user - no profile yet, show empty wizard immediately
+          setIsLoadingData(false);
+          setCurrentStep(1);
+          return;
+        }
+
+        // Profile exists - load and pre-populate data
         const initialData: ApplicationFormData = {};
 
         // Pre-fill Personal Details from profile
-        const profileWithDetails = profile as typeof profile & {
-          first_name?: string | null;
-          last_name?: string | null;
-          phone?: string | null;
-          date_of_birth?: string | null;
-          property_status?: string | null;
-        };
-        if (profileWithDetails.first_name) initialData.firstName = profileWithDetails.first_name;
-        if (profileWithDetails.last_name) initialData.lastName = profileWithDetails.last_name;
-        if (profileWithDetails.phone) initialData.phone = profileWithDetails.phone;
-        if (profileWithDetails.date_of_birth) initialData.dateOfBirth = profileWithDetails.date_of_birth;
-        if (profileWithDetails.property_status) initialData.propertyStatus = profileWithDetails.property_status;
+        if (profileData.first_name) initialData.firstName = profileData.first_name;
+        if (profileData.last_name) initialData.lastName = profileData.last_name;
+        if (profileData.phone) initialData.phone = profileData.phone;
+        if (profileData.date_of_birth) initialData.dateOfBirth = profileData.date_of_birth;
+        if (profileData.property_status) initialData.propertyStatus = profileData.property_status;
 
-        // Load company data
-        let company = null;
-        if (profile.company_id) {
+        // Load company data if company_id exists
+        if (profileData.company_id) {
           const { data: companyData, error: companyError } = await supabase
             .from('companies')
             .select('id, name, company_number, industry, website')
-            .eq('id', profile.company_id)
-            .maybeSingle(); // Use maybeSingle to avoid 400 errors
+            .eq('id', profileData.company_id)
+            .maybeSingle();
 
-          if (companyError) {
-            console.error('[Step Detection] Error loading company:', companyError);
-          } else if (companyData) {
-            company = companyData;
+          if (!companyError && companyData) {
             initialData.companyName = companyData.name;
             initialData.companyNumber = companyData.company_number || undefined;
             initialData.industry = companyData.industry || undefined;
@@ -150,7 +160,6 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         }
 
         // Load application data (check for existing or use propApplicationId)
-        let application = null;
         let appId = propApplicationId;
 
         if (!appId) {
@@ -158,42 +167,37 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
           const { data: existingApp, error: appError } = await supabase
             .from('applications')
             .select('id, requested_amount, purpose, admin_notes, stage, company_id')
-            .eq('created_by', user.id) // Use created_by instead of owner_id
+            .eq('created_by', authUser.id)
             .eq('stage', 'created')
             .order('created_at', { ascending: false })
             .limit(1)
             .maybeSingle();
 
-          if (appError) {
-            console.error('[Step Detection] Error loading application:', appError);
-          } else if (existingApp) {
-            application = existingApp;
+          if (!appError && existingApp) {
             appId = existingApp.id;
+            initialData.fundingNeeded = existingApp.requested_amount;
+            initialData.fundingPurpose = existingApp.purpose || undefined;
+            initialData.briefDescription = existingApp.admin_notes || undefined;
+            initialData.applicationId = existingApp.id;
+            setApplicationId(existingApp.id);
           }
         } else {
           const { data: appData, error: appError2 } = await supabase
             .from('applications')
             .select('id, requested_amount, purpose, admin_notes, stage, company_id')
             .eq('id', appId)
-            .maybeSingle(); // Use maybeSingle to avoid 400 errors
+            .maybeSingle();
 
-          if (appError2) {
-            console.error('[Step Detection] Error loading application by ID:', appError2);
-          } else if (appData) {
-            application = appData;
+          if (!appError2 && appData) {
+            initialData.fundingNeeded = appData.requested_amount;
+            initialData.fundingPurpose = appData.purpose || undefined;
+            initialData.briefDescription = appData.admin_notes || undefined;
+            initialData.applicationId = appData.id;
+            setApplicationId(appData.id);
           }
         }
 
-        if (application) {
-          initialData.fundingNeeded = application.requested_amount;
-          initialData.fundingPurpose = application.purpose || undefined;
-          initialData.briefDescription = application.admin_notes || undefined;
-          initialData.applicationId = application.id;
-          setApplicationId(application.id);
-        }
-
         // Load documents if application exists
-        let documents: any[] = [];
         if (appId) {
           const { data: docs, error: docsError } = await supabase
             .from('documents')
@@ -201,9 +205,7 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
             .eq('application_id', appId);
 
           if (docsError) {
-            console.error('[Step Detection] Error loading documents:', docsError);
-          } else if (docs) {
-            documents = docs;
+            console.error('[ApplicationWizard] Error loading documents:', docsError);
           }
         }
 
@@ -214,18 +216,15 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         setCurrentStep(1);
         setIsLoadingData(false);
       } catch (error) {
-        console.error('[ApplicationWizard] Error loading data:', error);
-        // On error, still show wizard at step 1
+        console.error('[ApplicationWizard] Error initializing:', error);
+        // On error, show empty wizard at step 1
         setCurrentStep(1);
         setIsLoadingData(false);
       }
     };
 
-    // Only call async function if we have both user and profile
-    if (user && profile) {
-      loadDataAndPrepopulate();
-    }
-  }, [user, profile, profileLoading, propApplicationId]);
+    initWizard();
+  }, []); // Empty deps - run once on mount
 
   const updateFormData = (field: keyof ApplicationFormData, value: any) => {
     setFormData((prev) => ({
@@ -287,7 +286,7 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         
         if (!appIdToCheck) {
           // Ensure we have required data to create application
-          if (!formData.fundingNeeded || !profile) {
+          if (!formData.fundingNeeded) {
             setError('Please complete the funding request step first');
             return false;
           }
@@ -327,49 +326,53 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
   };
 
   const saveProgress = async () => {
-    if (!user || !profile) return;
-
     try {
       setIsLoading(true);
       const supabase = getSupabaseClient();
 
+      // Get current authenticated user directly
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+        toast.error('You must be logged in to save progress');
+        setIsLoading(false);
+        return;
+      }
+
+      // Load existing profile to check for changes (may not exist yet)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('first_name, last_name, phone, date_of_birth, property_status')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
       // Save personal details to profile - only update changed fields
-      const profileWithDetails = profile as typeof profile & {
-        first_name?: string | null;
-        last_name?: string | null;
-        phone?: string | null;
-        date_of_birth?: string | null;
-        property_status?: string | null;
-      };
       const profileUpdate: Record<string, any> = {};
-      if (formData.firstName && formData.firstName !== profileWithDetails.first_name) {
+      if (formData.firstName && formData.firstName !== existingProfile?.first_name) {
         profileUpdate.first_name = formData.firstName;
       }
-      if (formData.lastName && formData.lastName !== profileWithDetails.last_name) {
+      if (formData.lastName && formData.lastName !== existingProfile?.last_name) {
         profileUpdate.last_name = formData.lastName;
       }
-      if (formData.phone && formData.phone !== profileWithDetails.phone) {
+      if (formData.phone && formData.phone !== existingProfile?.phone) {
         profileUpdate.phone = formData.phone;
       }
-      if (formData.dateOfBirth && formData.dateOfBirth !== profileWithDetails.date_of_birth) {
+      if (formData.dateOfBirth && formData.dateOfBirth !== existingProfile?.date_of_birth) {
         profileUpdate.date_of_birth = formData.dateOfBirth;
       }
-      if (formData.propertyStatus && formData.propertyStatus !== profileWithDetails.property_status) {
+      if (formData.propertyStatus && formData.propertyStatus !== existingProfile?.property_status) {
         profileUpdate.property_status = formData.propertyStatus;
       }
 
-      if (Object.keys(profileUpdate).length > 0 && user) {
-        // CRITICAL: Verify user is authenticated and use their ID
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (!currentUser || currentUser.id !== user.id) {
-          console.error('[ApplicationWizard] SECURITY: User ID mismatch during profile update');
-          return;
-        }
-        
+      if (Object.keys(profileUpdate).length > 0) {
         await supabase
           .from('profiles')
-          .update(profileUpdate)
-          .eq('id', currentUser.id); // Use authenticated user ID
+          .upsert({
+            id: currentUser.id,
+            email: currentUser.email || '',
+            ...profileUpdate,
+          }, {
+            onConflict: 'id',
+          });
       }
 
       // Save company if provided and changed
@@ -396,17 +399,31 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
   };
 
   const saveCompany = async () => {
-    if (!profile || !formData.companyName) return;
+    if (!formData.companyName) return;
 
     const supabase = getSupabaseClient();
     
     try {
+      // Get current authenticated user directly
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+        console.error('Error: User not authenticated');
+        return;
+      }
+
+      // Load existing profile to check for company_id (may not exist yet)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
       // If company exists, check what changed
-      if (profile.company_id) {
+      if (existingProfile?.company_id) {
         const { data: existingCompany, error: companyError } = await supabase
           .from('companies')
-          .select('id, name, company_number, industry, website')
-          .eq('id', profile.company_id)
+          .select('id, name, company_number, industry, website, companies_house_data')
+          .eq('id', existingProfile.company_id)
           .maybeSingle();
         
         if (companyError) {
@@ -429,13 +446,16 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
           if ((formData.website?.trim() || null) !== existingCompany.website) {
             companyUpdate.website = formData.website?.trim() || null;
           }
-          // Note: companies_house_data doesn't exist in companies table, skip it
+          // Update Companies House data if provided
+          if (formData.companiesHouseData && JSON.stringify(formData.companiesHouseData) !== JSON.stringify(existingCompany.companies_house_data)) {
+            companyUpdate.companies_house_data = formData.companiesHouseData;
+          }
 
           if (Object.keys(companyUpdate).length > 0) {
             await supabase
               .from('companies')
               .update(companyUpdate)
-              .eq('id', profile.company_id);
+              .eq('id', existingProfile.company_id);
           }
         }
       } else {
@@ -445,7 +465,7 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
           company_number: formData.companyNumber?.trim() || null,
           industry: formData.industry || null,
           website: formData.website?.trim() || null,
-          // Note: companies_house_data doesn't exist in companies table
+          companies_house_data: formData.companiesHouseData || null,
         };
 
         const { data: newCompany } = await supabase
@@ -455,15 +475,19 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
           .single();
 
         if (newCompany) {
+          // Update or create profile with company_id
           await supabase
             .from('profiles')
-            .update({ 
+            .upsert({
+              id: currentUser.id,
+              email: currentUser.email || '',
               company_id: newCompany.id,
               is_primary_director: true,
-              first_name: formData.firstName,
-              last_name: formData.lastName,
-            })
-            .eq('id', profile.id);
+              first_name: formData.firstName || null,
+              last_name: formData.lastName || null,
+            }, {
+              onConflict: 'id',
+            });
         }
       }
     } catch (err) {
@@ -472,18 +496,32 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
   };
 
   const saveApplication = async (): Promise<string | null> => {
-    if (!profile || !formData.fundingNeeded) return null;
+    if (!formData.fundingNeeded) return null;
 
     const supabase = getSupabaseClient();
     
     try {
+      // Get current authenticated user directly
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+        console.error('Error: User not authenticated');
+        return null;
+      }
+
+      // Load profile to get company_id (may not exist yet)
+      const { data: existingProfile } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', currentUser.id)
+        .maybeSingle();
+
       if (applicationId) {
         // Check what changed
         const { data: existingApp } = await supabase
           .from('applications')
           .select('*')
           .eq('id', applicationId)
-          .single();
+          .maybeSingle();
 
         if (existingApp) {
           const appUpdate: any = {};
@@ -509,14 +547,15 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
       
       // Create new application
       const applicationPayload: any = {
-        company_id: profile.company_id || null,
-        created_by: profile.id, // Use created_by instead of owner_id
+        company_id: existingProfile?.company_id || null,
+        created_by: currentUser.id,
         requested_amount: formData.fundingNeeded,
         purpose: formData.fundingPurpose || null,
         admin_notes: formData.briefDescription?.trim() || null,
         stage: 'created',
         loan_type: 'term_loan', // Default to term_loan (required field, can be updated later)
-        urgency: null,
+        urgency: null, // NOTE: Urgency not currently collected in simplified form (ApplicationDetailsStep)
+        // To add urgency back: 1) Add urgency?: string to ApplicationFormData, 2) Add field to ApplicationDetailsStep, 3) Update formData.urgency here
         monthly_revenue: null,
         trading_months: null,
       };
@@ -563,6 +602,14 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
     } else if (currentStep === 2) {
       // NEW: Step 2 is Personal Details
       const supabase = getSupabaseClient();
+      
+      // Get current authenticated user directly
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+        setError('You must be logged in to continue');
+        return;
+      }
+
       const profileUpdate: any = {};
       if (formData.firstName) profileUpdate.first_name = formData.firstName;
       if (formData.lastName) profileUpdate.last_name = formData.lastName;
@@ -570,18 +617,17 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
       if (formData.dateOfBirth) profileUpdate.date_of_birth = formData.dateOfBirth;
       if (formData.propertyStatus) profileUpdate.property_status = formData.propertyStatus;
 
-      if (Object.keys(profileUpdate).length > 0 && user) {
-        // CRITICAL: Verify user is authenticated and use their ID
-        const { data: { user: currentUser } } = await supabase.auth.getUser();
-        if (!currentUser || currentUser.id !== user.id) {
-          console.error('[ApplicationWizard] SECURITY: User ID mismatch during profile update');
-          return;
-        }
-        
+      if (Object.keys(profileUpdate).length > 0) {
+        // Upsert profile (create if doesn't exist, update if it does)
         await supabase
           .from('profiles')
-          .update(profileUpdate)
-          .eq('id', currentUser.id); // Use authenticated user ID
+          .upsert({
+            id: currentUser.id,
+            email: currentUser.email || '',
+            ...profileUpdate,
+          }, {
+            onConflict: 'id',
+          });
       }
     } else if (currentStep === 3) {
       try {
@@ -606,7 +652,7 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
   };
 
   const handleFinalSubmit = async () => {
-    if (!user || !profile || !applicationId) {
+    if (!applicationId) {
       setError('Please complete all steps before submitting');
       return;
     }
@@ -616,6 +662,12 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
 
     try {
       const supabase = getSupabaseClient();
+
+      // Get current authenticated user directly
+      const { data: { user: currentUser }, error: authError } = await supabase.auth.getUser();
+      if (authError || !currentUser) {
+        throw new Error('You must be logged in to submit');
+      }
 
       // Update application to submitted
       const { error: appError } = await supabase
@@ -630,26 +682,25 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         throw appError;
       }
 
-      // Update profile
-      // CRITICAL: Verify user is authenticated and use their ID
-      const { data: { user: currentUser } } = await supabase.auth.getUser();
-      if (!currentUser || currentUser.id !== user.id) {
-        console.error('[ApplicationWizard] SECURITY: User ID mismatch during final submit');
-        throw new Error('Authentication error');
-      }
-
+      // Update profile with final data
       const profileUpdate: any = {
-        first_name: formData.firstName,
-        last_name: formData.lastName,
-        phone: formData.phone,
+        first_name: formData.firstName || null,
+        last_name: formData.lastName || null,
+        phone: formData.phone || null,
         date_of_birth: formData.dateOfBirth || null,
         property_status: formData.propertyStatus || null,
       };
 
+      // Upsert profile (create if doesn't exist, update if it does)
       await supabase
         .from('profiles')
-        .update(profileUpdate)
-        .eq('id', currentUser.id); // Use authenticated user ID
+        .upsert({
+          id: currentUser.id,
+          email: currentUser.email || '',
+          ...profileUpdate,
+        }, {
+          onConflict: 'id',
+        });
 
       toast.success("Application submitted! We'll be in touch within 24-48 hours.");
 

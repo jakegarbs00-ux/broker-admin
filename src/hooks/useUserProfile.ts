@@ -108,6 +108,20 @@ export function useUserProfile() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, refreshKey]); // Removed user?.id dependency - always get fresh user
 
+  // Failsafe: if still loading after 5 seconds, stop loading (prevents infinite loading)
+  useEffect(() => {
+    if (!loading) return;
+    
+    const timeout = setTimeout(() => {
+      if (loading) {
+        console.warn('[useUserProfile] Loading timeout - forcing completion');
+        setLoading(false);
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeout);
+  }, [loading]);
+
   // Expose refresh function
   const refresh = () => {
     setLoading(true);

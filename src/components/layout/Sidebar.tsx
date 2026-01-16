@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { 
@@ -10,10 +10,8 @@ import {
   Users, 
   Settings, 
   DollarSign,
-  UserPlus,
-  Folder
+  UserPlus
 } from 'lucide-react';
-import { getSupabaseClient } from '@/lib/supabaseClient';
 
 type UserRole = 'CLIENT' | 'PARTNER' | 'ADMIN';
 
@@ -99,14 +97,8 @@ const clientNavItems: NavItem[] = [
   },
   {
     label: 'My Application',
-    href: '/application', // Will be updated dynamically if user has an application
+    href: '/applications', // Link to applications list page
     icon: <FileText className="w-5 h-5" />,
-    roles: ['CLIENT'],
-  },
-  {
-    label: 'Documents',
-    href: '/documents',
-    icon: <Folder className="w-5 h-5" />,
     roles: ['CLIENT'],
   },
   {
@@ -115,66 +107,16 @@ const clientNavItems: NavItem[] = [
     icon: <Building2 className="w-5 h-5" />,
     roles: ['CLIENT'],
   },
-  {
-    label: 'Settings',
-    href: '/settings',
-    icon: <Settings className="w-5 h-5" />,
-    roles: ['CLIENT'],
-  },
 ];
 
 export default function Sidebar({ role, userId, email, onClose }: SidebarProps) {
   const pathname = usePathname();
-  const [applicationId, setApplicationId] = useState<string | null>(null);
-  const [hasApplication, setHasApplication] = useState(false);
-
-  // Fetch CLIENT user's application ID
-  useEffect(() => {
-    if (role === 'CLIENT' && userId) {
-      const fetchApplicationId = async () => {
-        const supabase = getSupabaseClient();
-        const { data } = await supabase
-          .from('applications')
-          .select('id')
-          .eq('owner_id', userId)
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .maybeSingle();
-
-        if (data?.id) {
-          setApplicationId(data.id);
-          setHasApplication(true);
-        } else {
-          setHasApplication(false);
-        }
-      };
-
-      fetchApplicationId();
-    }
-  }, [role, userId]);
 
   // Get navigation items based on role
   const getNavItems = (): (NavItem & { disabled?: boolean })[] => {
     if (role === 'CLIENT') {
-      // For CLIENT, use simplified navigation and update hrefs/disabled states
-      return clientNavItems.map((item) => {
-        const navItem: NavItem & { disabled?: boolean } = { ...item };
-        
-        if (item.label === 'My Application') {
-          if (applicationId) {
-            navItem.href = `/applications/${applicationId}`;
-            navItem.disabled = false;
-          } else {
-            navItem.disabled = true;
-          }
-        }
-        
-        if (item.label === 'Documents') {
-          navItem.disabled = !hasApplication;
-        }
-        
-        return navItem;
-      });
+      // For CLIENT, use simplified navigation
+      return clientNavItems;
     } else {
       // For ADMIN and PARTNER, use the full navigation
       return adminPartnerNavItems.filter((item) => item.roles.includes(role));

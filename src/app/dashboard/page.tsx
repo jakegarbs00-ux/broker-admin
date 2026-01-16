@@ -64,7 +64,7 @@ type ReferredClient = {
 function ClientDashboardContent({ userId }: { userId: string }) {
   const router = useRouter();
   const supabase = useMemo(() => getSupabaseClient(), []);
-  const { profile } = useUserProfile();
+  // Removed useUserProfile dependency - query profile directly in useEffect
   const [application, setApplication] = useState<Application | null>(null);
   const [company, setCompany] = useState<{ id: string; name: string; company_number?: string | null; industry?: string | null } | null>(null);
   const [infoRequests, setInfoRequests] = useState<InfoRequest[]>([]);
@@ -83,13 +83,20 @@ function ClientDashboardContent({ userId }: { userId: string }) {
         return;
       }
 
-      // First, check if user has a company
-      if (profile?.company_id) {
-      const { data: companyData } = await supabase
-        .from('companies')
-          .select('id, name, company_number, industry')
-          .eq('id', profile.company_id)
+      // Query profile directly - don't depend on hook state
+      const { data: profileData } = await supabase
+        .from('profiles')
+        .select('company_id')
+        .eq('id', currentUser.id)
         .maybeSingle();
+
+      // First, check if user has a company
+      if (profileData?.company_id) {
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('id, name, company_number, industry')
+          .eq('id', profileData.company_id)
+          .maybeSingle();
 
         if (companyData) {
           setCompany(companyData);
@@ -163,11 +170,12 @@ function ClientDashboardContent({ userId }: { userId: string }) {
     };
 
     loadData();
-  }, [supabase, userId, profile]);
+  }, [supabase, userId]); // Removed profile dependency - query it directly
 
-  // Load in-progress application if no submitted application exists
+  // Load open application if no submitted application exists
+  // Open = any application not in closed stages (funded, declined, withdrawn)
   useEffect(() => {
-    const loadInProgressApp = async () => {
+    const loadOpenApp = async () => {
       if (application) return; // Don't load if we already have a submitted app
       
       // CRITICAL: Verify authenticated user ID
@@ -176,22 +184,25 @@ function ClientDashboardContent({ userId }: { userId: string }) {
         return;
       }
 
-      const { data: app } = await supabase
+      // Check for any open application (not closed)
+      const closedStages = ['funded', 'declined', 'withdrawn'];
+      
+      const { data: openApp } = await supabase
         .from('applications')
         .select('id, requested_amount, purpose, stage, created_at')
-        .eq('created_by', currentUser.id) // Use created_by instead of owner_id
-        .eq('stage', 'created')
+        .eq('created_by', currentUser.id)
+        .not('stage', 'in', `(${closedStages.join(',')})`)
         .order('created_at', { ascending: false })
         .limit(1)
         .maybeSingle();
       
-      if (app) {
-        setInProgressApp(app as Application);
+      if (openApp) {
+        setInProgressApp(openApp as Application);
       }
     };
     
     if (!loading) {
-      loadInProgressApp();
+      loadOpenApp();
     }
   }, [application, userId, supabase, loading]);
 
@@ -338,23 +349,29 @@ function ClientDashboardContent({ userId }: { userId: string }) {
   }
 
   if (!application && inProgressApp) {
+    // Check if it's a draft (created) or in-progress (submitted, etc.)
+    const isDraft = inProgressApp.stage === 'created';
+    
     return (
       <>
         <PageHeader
           title="Dashboard"
-          description="Continue your application or start a new one."
+          description={isDraft ? "Continue your application or start a new one." : "View your application status."}
         />
         <Card className="max-w-2xl mx-auto border-l-4 border-l-[var(--color-accent)]">
           <CardContent className="p-6">
             <h2 className="text-xl font-semibold text-[var(--color-text-primary)] mb-2">
-              Continue your application
+              {isDraft ? 'Continue your application' : 'Your application is in progress'}
             </h2>
             <p className="text-sm text-[var(--color-text-secondary)] mb-4">
-              You have an application in progress. Continue where you left off.
+              {isDraft 
+                ? 'You have an application in progress. Continue where you left off.'
+                : 'Your application is being reviewed. Click below to view details and status.'
+              }
             </p>
-            <Link href="/apply">
+            <Link href={isDraft ? '/apply' : `/applications/${inProgressApp.id}`}>
               <Button variant="primary">
-                Continue Application
+                {isDraft ? 'Continue Application' : 'View Application'}
               </Button>
             </Link>
           </CardContent>
