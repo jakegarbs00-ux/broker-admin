@@ -110,14 +110,21 @@ export function DocumentUploadStep({ formData, updateFormData, applicationId }: 
         const fileExt = file.name.split('.').pop();
         const timestamp = Date.now();
         const randomId = Math.random().toString(36).substring(7);
-        const path = `${user.id}/${applicationId}/${category}/${timestamp}_${randomId}.${fileExt}`;
+        // Ensure category is URL-safe (replace spaces/special chars with underscores)
+        const safeCategory = category.replace(/[^a-z0-9_]/gi, '_');
+        const path = `${user.id}/${applicationId}/${safeCategory}/${timestamp}_${randomId}.${fileExt}`;
 
         // Upload to Supabase Storage
         const { error: uploadError } = await supabase.storage
           .from('application-documents')
-          .upload(path, file);
+          .upload(path, file, {
+            cacheControl: '3600',
+            upsert: false,
+          });
 
         if (uploadError) {
+          console.error('Storage upload error:', uploadError);
+          console.error('Upload details:', { path, fileSize: file.size, fileType: file.type, category });
           toast.error(`Error uploading ${file.name}: ${uploadError.message}`);
           continue;
         }
@@ -251,7 +258,7 @@ export function DocumentUploadStep({ formData, updateFormData, applicationId }: 
               <Upload className={`w-12 h-12 mx-auto mb-3 ${isDragOverBankStatements ? 'text-[var(--color-accent)]' : 'text-slate-400'}`} />
               <label className="cursor-pointer">
                 <input
-                  ref={(el) => (fileInputRefs.current['bank_statements'] = el)}
+                  ref={(el) => { fileInputRefs.current['bank_statements'] = el; }}
                   type="file"
                   multiple
                   onChange={(e) => handleFileSelect('bank_statements', e.target.files)}
@@ -372,7 +379,7 @@ export function DocumentUploadStep({ formData, updateFormData, applicationId }: 
                     <Upload className={`w-8 h-8 mx-auto mb-2 ${isDragOver ? 'text-[var(--color-accent)]' : 'text-slate-400'}`} />
                     <label className="cursor-pointer">
                       <input
-                        ref={(el) => (fileInputRefs.current[category.id] = el)}
+                        ref={(el) => { fileInputRefs.current[category.id] = el; }}
                         type="file"
                         multiple
                         onChange={(e) => handleFileSelect(category.id, e.target.files)}

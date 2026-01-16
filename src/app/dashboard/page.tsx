@@ -63,7 +63,7 @@ type ReferredClient = {
 
 function ClientDashboardContent({ userId }: { userId: string }) {
   const router = useRouter();
-  const supabase = getSupabaseClient();
+  const supabase = useMemo(() => getSupabaseClient(), []);
   const { profile } = useUserProfile();
   const [application, setApplication] = useState<Application | null>(null);
   const [company, setCompany] = useState<{ id: string; name: string; company_number?: string | null; industry?: string | null } | null>(null);
@@ -244,6 +244,24 @@ function ClientDashboardContent({ userId }: { userId: string }) {
     }).format(value);
   };
 
+  const formatFundingPurpose = (purpose: string | null | undefined): string => {
+    if (!purpose) return 'Funding';
+    
+    const labels: Record<string, string> = {
+      'working-capital': 'Working Capital',
+      'working_capital': 'Working Capital',
+      'stock-inventory': 'Stock/Inventory',
+      'stock_inventory': 'Stock/Inventory',
+      'equipment': 'Equipment',
+      'expansion': 'Expansion',
+      'cash-flow': 'Cash Flow',
+      'cash_flow': 'Cash Flow',
+      'other': 'Other',
+    };
+    
+    return labels[purpose] || purpose;
+  };
+
   const formatLoanType = (type: string) => {
     const types: Record<string, string> = {
       term_loan: 'Term Loan',
@@ -293,14 +311,13 @@ function ClientDashboardContent({ userId }: { userId: string }) {
     );
   }
 
-
   if (!application && !inProgressApp) {
   return (
     <>
       <PageHeader
         title="Dashboard"
-        description="Get matched with lenders in minutes."
-      />
+          description="Get matched with lenders in minutes."
+        />
         <Card className="max-w-2xl mx-auto">
           <CardContent className="p-12 text-center">
             <h2 className="text-2xl font-semibold text-[var(--color-text-primary)] mb-3">
@@ -346,6 +363,11 @@ function ClientDashboardContent({ userId }: { userId: string }) {
     );
   }
 
+  // At this point, application must be non-null (guarded by early returns above)
+  if (!application) {
+    return null;
+  }
+
   const stageStatus = getStageStatus(application.stage);
   const groupedDocuments = groupDocumentsByCategory();
 
@@ -372,7 +394,7 @@ function ClientDashboardContent({ userId }: { userId: string }) {
 
               <div className="space-y-3 mb-6">
                 <div className="text-lg font-semibold text-[var(--color-text-primary)]">
-                  {formatCurrency(application.requested_amount)} for {application.purpose ? getFundingPurposeLabel(application.purpose) : 'Funding'}
+                  {formatCurrency(application.requested_amount)} for {formatFundingPurpose(application.purpose)}
                 </div>
                 {application.submitted_at && (
                   <div className="flex items-center gap-4 text-sm">
@@ -460,7 +482,7 @@ function ClientDashboardContent({ userId }: { userId: string }) {
               <Link href={`/applications/${application.id}`}>
                 <Button variant="primary" className="w-full">
                   View Full Details
-              </Button>
+                </Button>
               </Link>
             </div>
           </div>
@@ -691,7 +713,7 @@ function ClientDashboardContent({ userId }: { userId: string }) {
                   <p className="text-sm text-[var(--color-text-secondary)] mb-3">
                     No company information
                   </p>
-                  <Link href="/onboarding">
+                  <Link href="/apply">
                     <Button variant="primary" size="sm">
                       Complete Profile
                     </Button>
@@ -707,7 +729,7 @@ function ClientDashboardContent({ userId }: { userId: string }) {
 }
 
 function PartnerDashboardContent({ userId }: { userId: string }) {
-  const supabase = getSupabaseClient();
+  const supabase = useMemo(() => getSupabaseClient(), []);
   const [referralLink, setReferralLink] = useState('');
   const [clients, setClients] = useState<ReferredClient[]>([]);
   const [applications, setApplications] = useState<Application[]>([]);
@@ -1053,24 +1075,21 @@ export default function DashboardPage() {
 
       const supabase = getSupabaseClient();
 
-      // Check if CLIENT user has company_id
-      if (!profile.company_id) {
-        router.push('/onboarding');
-        return;
-      }
-
       // CRITICAL: Verify authenticated user ID
       const { data: { user: currentUser } } = await supabase.auth.getUser();
       if (!currentUser || currentUser.id !== user.id) {
         console.error('[Dashboard] SECURITY: User ID mismatch');
+        setCheckingClient(false);
         return;
       }
 
-      // Check if CLIENT user has any applications
+      // Check if CLIENT user has any applications (submitted or in progress)
       const { data: applications, error } = await supabase
         .from('applications')
-        .select('id')
+        .select('id, stage')
         .eq('created_by', currentUser.id) // Use created_by instead of owner_id
+        .order('submitted_at', { ascending: false, nullsFirst: false })
+        .order('created_at', { ascending: false })
         .limit(1);
 
       if (error) {
@@ -1079,9 +1098,18 @@ export default function DashboardPage() {
         return;
       }
 
-      // If no applications, redirect to onboarding
-      if (!applications || applications.length === 0) {
-        router.push('/onboarding');
+      // Only redirect to /apply if:
+      // 1. User has no company_id AND no applications, OR
+      // 2. User has company_id but no applications at all
+      if (!profile.company_id && (!applications || applications.length === 0)) {
+        router.push('/apply');
+        return;
+      }
+
+      if (profile.company_id && (!applications || applications.length === 0)) {
+        // User has company but no application - let them see dashboard with "Start Application" prompt
+        // Don't redirect, just show the prompt
+        setCheckingClient(false);
         return;
       }
 
@@ -1091,24 +1119,20 @@ export default function DashboardPage() {
     checkClientRequirements();
   }, [user, profile, loading, router]);
 
-  useEffect(() => {
-    if (!loading && profile) {
-      // Check if onboarding is completed
-      const profileWithOnboarding = profile as typeof profile & { onboarding_completed?: boolean };
-      if (profileWithOnboarding.onboarding_completed === false) {
-        router.push('/onboarding');
-      }
-    }
-  }, [profile, loading, router]);
-
-  if (loading || checkingClient) return null;
-  if (!user || !profile) return null;
-
-  // Redirect if onboarding not completed
-  const profileWithOnboarding = profile as typeof profile & { onboarding_completed?: boolean };
-  if (profileWithOnboarding.onboarding_completed === false) {
-    return null; // Will redirect via useEffect
+  if (loading || checkingClient) {
+    return (
+      <DashboardShell>
+        <div className="flex items-center justify-center py-12">
+          <div className="flex flex-col items-center gap-3">
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+            <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
+          </div>
+        </div>
+      </DashboardShell>
+    );
   }
+  
+  if (!user || !profile) return null;
 
   const role = profile.role as 'CLIENT' | 'PARTNER' | 'ADMIN';
 
@@ -1119,6 +1143,9 @@ export default function DashboardPage() {
     }
     return null;
   }
+
+  // CLIENT users should use the client dashboard (handled by route group)
+  // This page is for PARTNER users only
 
   return (
     <DashboardShell>

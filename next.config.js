@@ -1,9 +1,21 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Next.js dev mode uses eval for hot module replacement
-  // This is normal and safe in development
-  // If you see CSP errors, they're likely from browser extensions or server-level CSP
   reactStrictMode: true,
+  async headers() {
+    return [
+      {
+        source: '/(.*)',
+        headers: [
+          {
+            key: 'Content-Security-Policy',
+            value: process.env.NODE_ENV === 'production'
+              ? "script-src 'self' 'unsafe-inline'; object-src 'none'; base-uri 'self';"
+              : "script-src 'self' 'unsafe-eval' 'unsafe-inline'; object-src 'none'; base-uri 'self';",
+          },
+        ],
+      },
+    ];
+  },
 };
 
 module.exports = nextConfig;

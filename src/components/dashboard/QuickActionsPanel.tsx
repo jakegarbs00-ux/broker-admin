@@ -10,9 +10,9 @@ interface QuickActionsPanelProps {
 export function QuickActionsPanel({ role, hasCompany = false }: QuickActionsPanelProps) {
   const actions = {
     CLIENT: [
-      { label: 'New Application', href: '/applications/new', icon: Plus, enabled: hasCompany },
-      { label: 'View Applications', href: '/applications', icon: FileText, enabled: true },
-      { label: 'Company Info', href: '/onboarding/company', icon: Building2, enabled: true },
+      { label: 'Start Application', href: '/apply', icon: Plus, enabled: true },
+      { label: 'My Application', href: '/application', icon: FileText, enabled: true },
+      { label: 'Company', href: '/company', icon: Building2, enabled: true },
     ],
     PARTNER: [
       { label: 'New Company', href: '/partner/companies/new', icon: Plus, enabled: true },

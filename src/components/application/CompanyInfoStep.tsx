@@ -248,6 +248,12 @@ export function CompanyInfoStep({ formData, updateFormData, profile }: CompanyIn
       clearTimeout(searchTimeoutRef.current);
     }
 
+    // Don't search if a company is already selected (prevents dropdown reopening)
+    if (selectedCompany) {
+      setShowResults(false);
+      return;
+    }
+
     if (searchQuery.length < 2) {
       setSearchResults([]);
       setShowResults(false);
@@ -278,7 +284,7 @@ export function CompanyInfoStep({ formData, updateFormData, profile }: CompanyIn
         clearTimeout(searchTimeoutRef.current);
       }
     };
-  }, [searchQuery]);
+  }, [searchQuery, selectedCompany]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -406,14 +412,26 @@ export function CompanyInfoStep({ formData, updateFormData, profile }: CompanyIn
                   type="text"
                   value={searchQuery}
                   onChange={(e) => {
-                    setSearchQuery(e.target.value);
-                    if (!e.target.value) {
+                    const newValue = e.target.value;
+                    setSearchQuery(newValue);
+                    // Clear selected company if user starts typing a different value
+                    if (selectedCompany && newValue !== selectedCompany.company_name) {
                       setSelectedCompany(null);
                       setCompanyDetails(null);
                       setSelectedDirector(null);
                       setShowManualName(false);
                       updateFormData('companyName', '');
                       updateFormData('companyNumber', '');
+                      updateFormData('companiesHouseData', null);
+                    }
+                    if (!newValue) {
+                      setSelectedCompany(null);
+                      setCompanyDetails(null);
+                      setSelectedDirector(null);
+                      setShowManualName(false);
+                      updateFormData('companyName', '');
+                      updateFormData('companyNumber', '');
+                      updateFormData('companiesHouseData', null);
                     }
                   }}
                   placeholder="Start typing company name..."

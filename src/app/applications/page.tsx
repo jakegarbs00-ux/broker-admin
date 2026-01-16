@@ -122,8 +122,8 @@ export default function ApplicationsListPage() {
         title="Your Applications"
         description="View and manage all your funding applications."
         actions={
-          <Link href="/applications/new">
-            <Button variant="primary">New Application</Button>
+          <Link href="/apply">
+            <Button variant="primary">Start Application</Button>
           </Link>
         }
       />
@@ -145,8 +145,8 @@ export default function ApplicationsListPage() {
               title="No applications yet"
               description="Start your funding journey by creating your first application."
               action={
-                <Link href="/applications/new">
-                  <Button variant="primary">Create Application</Button>
+                <Link href="/apply">
+                  <Button variant="primary">Start Application</Button>
                 </Link>
               }
             />

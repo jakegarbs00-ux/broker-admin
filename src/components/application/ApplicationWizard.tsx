@@ -70,85 +70,46 @@ const STEP_CONFIG: Record<number, StepConfig> = {
 };
 
 interface ApplicationWizardProps {
-  initialStep?: number;
   applicationId?: string;
 }
 
-export function ApplicationWizard({ initialStep, applicationId: propApplicationId }: ApplicationWizardProps) {
+export function ApplicationWizard({ applicationId: propApplicationId }: ApplicationWizardProps) {
   const router = useRouter();
-  const { profile, user, refresh } = useUserProfile();
+  const { profile, user, loading: profileLoading, refresh } = useUserProfile();
   const toast = useToastContext();
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState<ApplicationFormData>({});
   const [isLoading, setIsLoading] = useState(false);
-  const [isDeterminingStep, setIsDeterminingStep] = useState(true); // New: track step determination
+  const [isLoadingData, setIsLoadingData] = useState(true); // Track data loading
   const [error, setError] = useState<string | null>(null);
   const [applicationId, setApplicationId] = useState<string | undefined>(propApplicationId);
-  const [stepDetermined, setStepDetermined] = useState(false);
 
   const totalSteps = 5;
 
-  // Determine start step based on completion criteria
-  // NEW FLOW: Company → Personal → Funding → Documents → Review
-  // STRICT: All fields must be non-empty strings/values
-  const determineStartStep = (
-    formData: ApplicationFormData,
-    profile: any,
-    company: any,
-    application: any,
-    documents: any[]
-  ): number => {
-    // Step 1: Company - MUST have name AND industry (both non-empty strings)
-    const step1Complete = 
-      formData.companyName && 
-      formData.companyName.trim() !== '' &&
-      formData.industry && 
-      formData.industry.trim() !== '';
-
-    if (!step1Complete) {
-      return 1;
-    }
-
-    // Step 2: Personal Details - ALL must be filled (non-empty strings)
-    const step2Complete = 
-      formData.firstName && formData.firstName.trim() !== '' &&
-      formData.lastName && formData.lastName.trim() !== '' &&
-      formData.phone && formData.phone.trim() !== '' &&
-      formData.dateOfBirth && formData.dateOfBirth.trim() !== '' &&
-      formData.propertyStatus && formData.propertyStatus.trim() !== '';
-
-    if (!step2Complete) {
-      return 2;
-    }
-
-    // Step 3: Funding Request - MUST have amount > 0 AND purpose
-    const step3Complete = 
-      formData.fundingNeeded && 
-      formData.fundingNeeded > 0 && 
-      formData.fundingPurpose && 
-      formData.fundingPurpose.trim() !== '';
-
-    if (!step3Complete) {
-      return 3;
-    }
-
-    // Step 4: Documents - MUST have at least 1 document
-    const step4Complete = documents && documents.length > 0;
-
-    if (!step4Complete) {
-      return 4;
-    }
-
-    // All complete - go to review
-    return 5;
-  };
-
-  // Load all data and determine start step
+  // Load all data and pre-populate fields (always start at step 1)
   useEffect(() => {
-    const loadDataAndDetermineStep = async () => {
-      if (!user || !profile || stepDetermined) return;
+    // Wait for useUserProfile to finish loading
+    if (profileLoading) {
+      return;
+    }
 
-      setIsDeterminingStep(true);
+    // If no user, redirect will happen from useRequireAuth
+    if (!user) {
+      setIsLoadingData(false);
+      return;
+    }
+
+    // If no profile yet, that's okay - just show wizard with empty fields immediately
+    // Don't wait for profile - it might be created by trigger soon
+    if (!profile) {
+      setIsLoadingData(false);
+      return;
+    }
+
+    // We have user and profile - load data to pre-populate
+    setIsLoadingData(true);
+
+    const loadDataAndPrepopulate = async () => {
 
       try {
         const supabase = getSupabaseClient();
@@ -246,34 +207,25 @@ export function ApplicationWizard({ initialStep, applicationId: propApplicationI
           }
         }
 
-        // Update form data
+        // Update form data (pre-populate fields)
         setFormData(initialData);
 
-        // Determine start step AFTER all data is loaded
-        const startStep = determineStartStep(initialData, profile, company, application, documents);
-        
-        // Use initialStep if provided, otherwise use determined step
-        const finalStep = initialStep ? Math.max(1, Math.min(5, initialStep)) : startStep;
-        
-        setCurrentStep(finalStep);
-        setStepDetermined(true);
-        setIsDeterminingStep(false);
-      } catch (error) {
-        console.error('[Step Detection] Error in loadDataAndDetermineStep:', error);
-        // On error, default to step 1
+        // Always start at step 1
         setCurrentStep(1);
-        setStepDetermined(true);
-        setIsDeterminingStep(false);
+        setIsLoadingData(false);
+      } catch (error) {
+        console.error('[ApplicationWizard] Error loading data:', error);
+        // On error, still show wizard at step 1
+        setCurrentStep(1);
+        setIsLoadingData(false);
       }
     };
 
+    // Only call async function if we have both user and profile
     if (user && profile) {
-      loadDataAndDetermineStep();
-    } else {
-      // If no user/profile yet, show loading
-      setIsDeterminingStep(true);
+      loadDataAndPrepopulate();
     }
-  }, [user, profile, propApplicationId, initialStep, stepDetermined]);
+  }, [user, profile, profileLoading, propApplicationId]);
 
   const updateFormData = (field: keyof ApplicationFormData, value: any) => {
     setFormData((prev) => ({
@@ -701,10 +653,9 @@ export function ApplicationWizard({ initialStep, applicationId: propApplicationI
 
       toast.success("Application submitted! We'll be in touch within 24-48 hours.");
 
-      // Redirect to dashboard
-      setTimeout(() => {
-        router.push('/dashboard');
-      }, 1500);
+      // Redirect to dashboard immediately
+      router.push('/dashboard');
+      router.refresh(); // Ensure dashboard refreshes to show updated application
     } catch (err: any) {
       console.error('Error submitting application:', err);
       const errorMessage = err?.message || 'Failed to submit application. Please try again.';
@@ -766,8 +717,8 @@ export function ApplicationWizard({ initialStep, applicationId: propApplicationI
 
   const stepConfig = STEP_CONFIG[currentStep];
 
-  // Show loading while determining step
-  if (isDeterminingStep) {
+  // Show loading while loading data
+  if (isLoadingData) {
     return (
       <div className="max-w-4xl mx-auto">
         <div className="flex items-center justify-center min-h-[400px]">
