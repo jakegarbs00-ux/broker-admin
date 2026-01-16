@@ -49,7 +49,7 @@ export function ReactiveBackground() {
       <div
         className="absolute inset-0 transition-opacity duration-1000"
         style={{
-          background: `radial-gradient(circle 600px at var(--cursor-x, 50%) var(--cursor-y, 50%), rgba(8, 145, 178, 0.2), transparent 70%)`,
+          background: `radial-gradient(circle 600px at var(--cursor-x, 50%) var(--cursor-y, 50%), rgba(59, 130, 246, 0.15), transparent 70%)`,
         }}
       />
       {/* Subtle grain overlay */}

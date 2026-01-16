@@ -41,12 +41,20 @@ export default function ApplicationsListPage() {
     const loadApplications = async () => {
       console.log('Loading applications for user:', user.id);
 
+      // CRITICAL: Verify authenticated user ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser || currentUser.id !== user.id) {
+        console.error('[ApplicationsPage] SECURITY: User ID mismatch');
+        setLoading(false);
+        return;
+      }
+
       // Get user's profile to find their company_id
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('company_id')
-        .eq('id', user.id)
-        .single();
+        .eq('id', currentUser.id) // Use authenticated user ID
+        .maybeSingle(); // Use maybeSingle to avoid errors
 
       if (profileError) {
         console.error('Error fetching profile:', profileError);

@@ -54,12 +54,19 @@ export default function NewApplicationPage() {
   useEffect(() => {
     if (!user) return;
     const loadCompany = async () => {
+      // CRITICAL: Verify authenticated user ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser || currentUser.id !== user.id) {
+        console.error('[NewApplicationPage] SECURITY: User ID mismatch');
+        return;
+      }
+
       // Check if user has a company via their profile
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('company_id')
-        .eq('id', user.id)
-        .single();
+        .eq('id', currentUser.id) // Use authenticated user ID
+        .maybeSingle(); // Use maybeSingle to avoid errors
 
       if (profileError) {
         console.error('Error loading profile', profileError);

@@ -5,23 +5,23 @@ interface BadgeProps {
 }
 
 const variantStyles = {
-  default: 'bg-[var(--color-info-light)] text-[var(--color-info)]',
-  success: 'bg-[var(--color-success-light)] text-[var(--color-success)]',
-  warning: 'bg-[var(--color-warning-light)] text-[var(--color-warning)]',
-  error: 'bg-[var(--color-error-light)] text-[var(--color-error)]',
-  info: 'bg-[var(--color-info-light)] text-[var(--color-info)]',
+  default: 'bg-[#f1f5f9] text-[#475569]',
+  success: 'bg-[#d1fae5] text-[#065f46]',
+  warning: 'bg-[#fef3c7] text-[#92400e]',
+  error: 'bg-[#fee2e2] text-[#991b1b]',
+  info: 'bg-[#dbeafe] text-[#1e40af]',
   purple: 'bg-[var(--color-accent-light)] text-[var(--color-accent)]',
 };
 
 const sizeStyles = {
-  sm: 'px-2 py-0.5 text-xs',
-  md: 'px-2.5 py-1 text-sm',
+  sm: 'px-3 py-1 text-xs',
+  md: 'px-3 py-1 text-xs',
 };
 
 export function Badge({ children, variant = 'default', size = 'sm' }: BadgeProps) {
   return (
     <span
-      className={`inline-flex items-center font-medium rounded-full ${variantStyles[variant]} ${sizeStyles[size]}`}
+      className={`inline-flex items-center font-medium rounded-[9999px] ${variantStyles[variant]} ${sizeStyles[size]}`}
     >
       {children}
     </span>
@@ -32,14 +32,18 @@ export function Badge({ children, variant = 'default', size = 'sm' }: BadgeProps
 export function getStageBadgeVariant(stage: string): BadgeProps['variant'] {
   switch (stage) {
     case 'created':
+    case 'open':
       return 'default';
     case 'submitted':
-      return 'info';
+    case 'pending':
+      return 'warning';
     case 'in_credit':
-      return 'purple';
+    case 'processing':
+      return 'info';
     case 'info_required':
       return 'warning';
     case 'approved':
+    case 'shipped':
       return 'success';
     case 'onboarding':
       return 'info';

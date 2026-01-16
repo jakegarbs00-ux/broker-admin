@@ -7,7 +7,7 @@ interface CardProps {
 
 export function Card({ children, className = '' }: CardProps) {
   return (
-    <div className={`bg-[var(--color-surface)] rounded-xl border border-[var(--color-border)] shadow-sm ${className}`}>
+    <div className={`bg-white rounded-[12px] shadow-[0_1px_3px_rgba(0,0,0,0.08),0_1px_2px_rgba(0,0,0,0.06)] ${className}`}>
       {children}
     </div>
   );
@@ -20,7 +20,7 @@ interface CardHeaderProps {
 
 export function CardHeader({ children, className = '' }: CardHeaderProps) {
   return (
-    <div className={`px-6 py-4 border-b border-[var(--color-border)] ${className}`}>
+    <div className={`card-header px-5 py-5 border-b border-[var(--color-border)] ${className}`}>
       {children}
     </div>
   );
@@ -32,7 +32,7 @@ interface CardContentProps {
 }
 
 export function CardContent({ children, className = '' }: CardContentProps) {
-  return <div className={`px-6 py-4 ${className}`}>{children}</div>;
+  return <div className={`px-5 py-5 ${className}`}>{children}</div>;
 }
 
 interface CardFooterProps {
@@ -42,7 +42,7 @@ interface CardFooterProps {
 
 export function CardFooter({ children, className = '' }: CardFooterProps) {
   return (
-    <div className={`px-6 py-4 border-t border-[var(--color-border)] bg-[var(--color-bg-secondary)] rounded-b-xl ${className}`}>
+    <div className={`px-5 py-5 border-t border-[var(--color-border)] bg-[var(--color-bg-tertiary)] rounded-b-[12px] ${className}`}>
       {children}
     </div>
   );

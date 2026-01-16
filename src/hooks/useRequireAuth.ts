@@ -14,31 +14,70 @@ export function useRequireAuth() {
   useEffect(() => {
     let mounted = true;
 
-    const getInitialSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+    const getInitialUser = async () => {
+      // CRITICAL: Always use getUser() for fresh user data, not getSession()
+      const { data: { user: currentUser }, error } = await supabase.auth.getUser();
       
       if (!mounted) return;
 
-      if (session?.user) {
-        setUser(session.user);
-        setLoading(false);
-      } else {
+      if (error || !currentUser) {
+        // Clear all cached data on auth error
+        setUser(null);
+        if (typeof window !== 'undefined') {
+          localStorage.clear();
+          sessionStorage.clear();
+        }
         router.replace('/auth/login');
+        setLoading(false);
+        return;
       }
+
+      setUser(currentUser);
+      setLoading(false);
     };
 
-    getInitialSession();
+    getInitialUser();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (event, session) => {
+      async (event, session) => {
         if (!mounted) return;
         
         if (event === 'SIGNED_OUT' || !session?.user) {
+          // CRITICAL: Clear ALL cached data on logout
           setUser(null);
+          if (typeof window !== 'undefined') {
+            localStorage.clear();
+            sessionStorage.clear();
+          }
           router.replace('/auth/login');
-        } else if (session?.user) {
-          setUser(session.user);
           setLoading(false);
+        } else if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+          // CRITICAL: Always get fresh user on sign in or token refresh
+          const { data: { user: currentUser }, error } = await supabase.auth.getUser();
+          if (!mounted) return;
+          
+          if (error || !currentUser) {
+            setUser(null);
+            if (typeof window !== 'undefined') {
+              localStorage.clear();
+              sessionStorage.clear();
+            }
+            router.replace('/auth/login');
+            setLoading(false);
+            return;
+          }
+
+          setUser(currentUser);
+          setLoading(false);
+        } else if (session?.user) {
+          // For other events, use session user but verify it's fresh
+          const { data: { user: currentUser } } = await supabase.auth.getUser();
+          if (!mounted) return;
+          
+          if (currentUser) {
+            setUser(currentUser);
+            setLoading(false);
+          }
         }
       }
     );

@@ -1,6 +1,5 @@
 /** @type {import('tailwindcss').Config} */
 module.exports = {
-  darkMode: "class",
   content: [
     "./src/**/*.{js,ts,jsx,tsx,mdx}",
   ],
@@ -27,11 +26,15 @@ module.exports = {
           subtle: 'var(--color-border-subtle)',
           strong: 'var(--color-border-strong)',
         },
+        primary: {
+          DEFAULT: 'var(--color-primary)',
+          light: 'var(--color-primary-light)',
+          dark: 'var(--color-primary-dark)',
+        },
         accent: {
           DEFAULT: 'var(--color-accent)',
           hover: 'var(--color-accent-hover)',
           light: 'var(--color-accent-light)',
-          dark: 'var(--color-accent-dark)',
         },
         success: {
           DEFAULT: 'var(--color-success)',

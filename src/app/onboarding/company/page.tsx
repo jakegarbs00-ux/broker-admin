@@ -52,12 +52,20 @@ export default function CompanyOnboardingPage() {
     if (!user) return;
 
     const fetchCompany = async () => {
+      // CRITICAL: Verify authenticated user ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser || currentUser.id !== user.id) {
+        console.error('[CompanyOnboardingPage] SECURITY: User ID mismatch');
+        setLoadingCompany(false);
+        return;
+      }
+
       // Get profile with company_id
       const { data: profileData, error: profileError } = await supabase
         .from('profiles')
         .select('*, company:company_id(*)')
-        .eq('id', user.id)
-        .single();
+        .eq('id', currentUser.id) // Use authenticated user ID
+        .maybeSingle(); // Use maybeSingle to avoid errors
 
       if (profileError) {
         console.error('Error loading profile', profileError);
@@ -161,10 +169,18 @@ export default function CompanyOnboardingPage() {
         property_status: values.property_status || null,
       };
 
+      // CRITICAL: Verify authenticated user ID
+      const { data: { user: currentUser } } = await supabase.auth.getUser();
+      if (!currentUser || currentUser.id !== user.id) {
+        console.error('[CompanyOnboardingPage] SECURITY: User ID mismatch during profile update');
+        alert('Authentication error');
+        return;
+      }
+
       const { error: profileError } = await supabase
         .from('profiles')
         .update(profilePayload)
-        .eq('id', user.id);
+        .eq('id', currentUser.id); // Use authenticated user ID
 
       if (profileError) {
         alert('Error saving director information: ' + profileError.message);

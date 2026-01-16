@@ -1,11 +1,10 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
-import { ThemeProvider } from "@/components/ThemeProvider";
 import { ReactiveBackground } from "@/components/ReactiveBackground";
 
 export const metadata: Metadata = {
-  title: "Floka",
+  title: "Broker Portal",
   description: "Business funding, secured.",
 };
 
@@ -15,16 +14,14 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en">
       <body className="bg-[var(--color-bg-primary)]">
-        <ThemeProvider>
-          <ReactiveBackground />
-          <div className="relative z-10 min-h-screen">
-            <Providers>
-              {children}
-            </Providers>
-          </div>
-        </ThemeProvider>
+        <ReactiveBackground />
+        <div className="relative z-10 min-h-screen">
+          <Providers>
+            {children}
+          </Providers>
+        </div>
       </body>
     </html>
   );

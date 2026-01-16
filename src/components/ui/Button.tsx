@@ -17,20 +17,20 @@ export function Button({
   children,
   ...props
 }: ButtonProps) {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-colors';
+  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-lg focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed transition-all';
   
   const variantClasses = {
-    primary: 'bg-[var(--color-accent)] text-white hover:bg-[var(--color-accent-hover)] focus:ring-[var(--color-accent)]',
-    secondary: 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-primary)] hover:bg-[var(--color-border-strong)] focus:ring-[var(--color-border-strong)]',
-    outline: 'border border-[var(--color-border)] bg-[var(--color-surface)] text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] focus:ring-[var(--color-border)]',
+    primary: 'bg-[var(--color-primary)] text-white hover:bg-[var(--color-primary-light)] hover:shadow-sm focus:ring-[var(--color-primary)]',
+    secondary: 'bg-white border border-[var(--color-primary)] text-[var(--color-primary)] hover:bg-[var(--color-bg-tertiary)] focus:ring-[var(--color-primary)]',
+    outline: 'border border-[var(--color-border)] bg-white text-[var(--color-text-primary)] hover:bg-[var(--color-bg-tertiary)] focus:ring-[var(--color-border)]',
     ghost: 'text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)] hover:text-[var(--color-text-primary)] focus:ring-[var(--color-border)]',
-    danger: 'bg-[var(--color-error)] text-white hover:bg-[var(--color-error)] focus:ring-[var(--color-error)]',
+    danger: 'bg-[var(--color-error)] text-white hover:bg-[var(--color-error)] hover:shadow-sm focus:ring-[var(--color-error)]',
   };
 
   const sizeClasses = {
-    sm: 'px-3 py-1.5 text-sm',
-    md: 'px-4 py-2 text-sm',
-    lg: 'px-5 py-2.5 text-base',
+    sm: 'px-4 py-2 text-sm',
+    md: 'px-4 py-2.5 text-sm',
+    lg: 'px-4 py-2.5 text-base',
   };
 
   const allClasses = `${baseClasses} ${variantClasses[variant]} ${sizeClasses[size]} ${className}`;

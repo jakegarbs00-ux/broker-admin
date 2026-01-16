@@ -47,11 +47,11 @@ export default function DashboardShell({ children }: DashboardShellProps) {
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full'}
         lg:translate-x-0
       `}>
-        <Sidebar role={role} userId={user.id} onClose={() => setSidebarOpen(false)} />
+        <Sidebar role={role} userId={user.id} email={email} onClose={() => setSidebarOpen(false)} />
       </div>
 
       {/* Main content area - offset by sidebar width on desktop */}
-      <div className="lg:pl-60 flex flex-col min-h-screen">
+      <div className="lg:pl-[260px] flex flex-col min-h-screen">
         <Header 
           email={email} 
           role={role} 
@@ -59,7 +59,7 @@ export default function DashboardShell({ children }: DashboardShellProps) {
         />
         
         {/* Page content - full width, no max-width constraint */}
-        <main className="flex-1 p-4 sm:p-6 lg:p-8">
+        <main className="flex-1 pt-16 bg-[var(--color-bg-primary)] p-6">
           {children}
         </main>
       </div>
