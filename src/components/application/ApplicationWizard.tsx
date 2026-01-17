@@ -43,14 +43,14 @@ interface StepConfig {
 
 const STEP_CONFIG: Record<number, StepConfig> = {
   1: {
-    label: 'Your Company',
-    title: 'Find Your Company',
-    subtitle: 'Search Companies House to auto-fill your details',
-  },
-  2: {
     label: 'Your Details',
     title: 'Personal Information',
     subtitle: 'Just a few quick details',
+  },
+  2: {
+    label: 'Your Company',
+    title: 'Company Information',
+    subtitle: 'Verify your company details',
   },
   3: {
     label: 'Funding Request',
@@ -143,6 +143,9 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         if (profileData.date_of_birth) initialData.dateOfBirth = profileData.date_of_birth;
         if (profileData.property_status) initialData.propertyStatus = profileData.property_status;
 
+        // Determine starting step based on company existence
+        let startStep = 1;
+
         // Load company data if company_id exists
         if (profileData.company_id) {
           const { data: companyData, error: companyError } = await supabase
@@ -156,6 +159,7 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
             initialData.companyNumber = companyData.company_number || undefined;
             initialData.industry = companyData.industry || undefined;
             initialData.website = companyData.website || undefined;
+            // Company already exists - will skip company step validation, but start at step 1 (Personal Details)
           }
         }
 
@@ -212,8 +216,8 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         // Update form data (pre-populate fields)
         setFormData(initialData);
 
-        // Always start at step 1
-        setCurrentStep(1);
+        // Start at determined step (step 2 if company exists, otherwise step 1)
+        setCurrentStep(startStep);
         setIsLoadingData(false);
       } catch (error) {
         console.error('[ApplicationWizard] Error initializing:', error);
@@ -236,18 +240,7 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
   const validateStep = async (step: number): Promise<boolean> => {
     switch (step) {
       case 1:
-        // Step 1 is Company
-        if (!formData.companyName || !formData.industry) {
-          setError('Please provide your company name and industry');
-          return false;
-        }
-        if (!formData.firstName || !formData.lastName) {
-          setError('Please select yourself as a director or enter your name');
-          return false;
-        }
-        return true;
-      case 2:
-        // Step 2 is Personal Details
+        // Step 1 is Personal Details
         if (!formData.firstName || !formData.lastName || !formData.phone || !formData.dateOfBirth || !formData.propertyStatus) {
           setError('Please fill in all required fields');
           return false;
@@ -266,6 +259,17 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         const monthDiff = today.getMonth() - birthDate.getMonth();
         if (age < 18 || (age === 18 && monthDiff < 0) || (age === 18 && monthDiff === 0 && today.getDate() < birthDate.getDate())) {
           setError('You must be 18 or older to apply');
+          return false;
+        }
+        return true;
+      case 2:
+        // Step 2 is Company
+        // If company already exists (from signup), skip validation (data is from DB)
+        if (profile?.company_id) {
+          return true;
+        }
+        if (!formData.companyName || !formData.industry) {
+          setError('Please provide your company name and industry');
           return false;
         }
         return true;
@@ -645,10 +649,7 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
 
     // Save data at each step
     if (currentStep === 1) {
-      // Step 1 is Company - save company first
-      await saveCompany();
-    } else if (currentStep === 2) {
-      // NEW: Step 2 is Personal Details
+      // Step 1 is Personal Details - save profile
       const supabase = getSupabaseClient();
       
       // Get current authenticated user directly
@@ -677,6 +678,9 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
             onConflict: 'id',
           });
       }
+    } else if (currentStep === 2) {
+      // Step 2 is Company - save company
+      await saveCompany();
     } else if (currentStep === 3) {
       try {
         await saveApplication();
@@ -767,18 +771,18 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
   const renderStep = () => {
     switch (currentStep) {
       case 1:
-        // Company first (most valuable step)
+        // Personal Details first (with director selection)
         return (
-          <CompanyInfoStep
+          <PersonalDetailsStep
             formData={formData}
             updateFormData={updateFormData}
             profile={profile}
           />
         );
       case 2:
-        // Personal details second
+        // Company second (for verification/editing)
         return (
-          <PersonalDetailsStep
+          <CompanyInfoStep
             formData={formData}
             updateFormData={updateFormData}
             profile={profile}

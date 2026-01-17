@@ -1,175 +1,527 @@
 'use client';
 
-import { useState, useEffect, Suspense } from 'react';
+import { useState, useEffect, Suspense, useRef } from 'react';
 import { useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useRouter, useSearchParams } from 'next/navigation';
 
-const schema = z.object({
+const accountSchema = z.object({
   email: z.string().email('Please enter a valid email'),
   password: z.string().min(6, 'Password must be at least 6 characters'),
 });
 
-type FormValues = z.infer<typeof schema>;
+type AccountFormValues = z.infer<typeof accountSchema>;
+
+interface CompanyData {
+  name: string;
+  companyNumber: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  city?: string;
+  postcode?: string;
+  country?: string;
+  incorporationDate?: string;
+  sicCodes?: string[];
+  companiesHouseData?: any; // Full CH response
+}
 
 function SignupContent() {
   const router = useRouter();
   const supabase = getSupabaseClient();
   const searchParams = useSearchParams();
+  
+  const [step, setStep] = useState(1); // 1: Account, 2: Company, 3: Confirm
   const [referrerId, setReferrerId] = useState<string | null>(null);
   const [leadId, setLeadId] = useState<string | null>(null);
+  const [accountData, setAccountData] = useState<AccountFormValues | null>(null);
+  const [companyData, setCompanyData] = useState<CompanyData | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  // Companies House search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchResults, setSearchResults] = useState<any[]>([]);
+  const [isSearching, setIsSearching] = useState(false);
+  const [manualEntry, setManualEntry] = useState(false);
+  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const {
     register,
     handleSubmit,
-    formState: { errors, isSubmitting },
-  } = useForm<FormValues>({
-    resolver: zodResolver(schema),
+    formState: { errors },
+  } = useForm<AccountFormValues>({
+    resolver: zodResolver(accountSchema),
   });
-  const [formError, setFormError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
 
-  // Read ?ref=... and ?lead_id=... from URL once on load
+  // Get referrer and lead from URL
   useEffect(() => {
     const ref = searchParams.get('ref');
-    if (ref) {
-      setReferrerId(ref);
-    }
+    if (ref) setReferrerId(ref);
 
     const leadIdParam = searchParams.get('lead_id');
-    if (leadIdParam) {
-      setLeadId(leadIdParam);
-    }
+    if (leadIdParam) setLeadId(leadIdParam);
   }, [searchParams]);
 
-  const onSubmit = async (values: FormValues) => {
-    setFormError(null);
+  // Step 1: Save account details and move to step 2
+  const onAccountSubmit = (values: AccountFormValues) => {
+    setAccountData(values);
+    setStep(2);
+  };
+
+  // Debounced Companies House search
+  useEffect(() => {
+    if (searchTimeoutRef.current) {
+      clearTimeout(searchTimeoutRef.current);
+    }
+
+    if (!searchQuery.trim() || searchQuery.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+
+    searchTimeoutRef.current = setTimeout(() => {
+      searchCompaniesHouse();
+    }, 300);
+
+    return () => {
+      if (searchTimeoutRef.current) {
+        clearTimeout(searchTimeoutRef.current);
+      }
+    };
+  }, [searchQuery]);
+
+  // Step 2: Companies House search
+  const searchCompaniesHouse = async () => {
+    if (!searchQuery.trim() || searchQuery.length < 2) return;
+    
+    setIsSearching(true);
+    try {
+      const response = await fetch(`/api/companies-house/search?q=${encodeURIComponent(searchQuery)}`);
+      const data = await response.json();
+      
+      // API returns { results: [...] }
+      setSearchResults(data.results || []);
+    } catch (err) {
+      console.error('CH search error:', err);
+      setSearchResults([]);
+    } finally {
+      setIsSearching(false);
+    }
+  };
+
+  const selectCompany = async (company: any) => {
+    // Fetch full company details from Companies House
+    try {
+      const response = await fetch(`/api/companies-house/company/${company.company_number}`);
+      const data = await response.json();
+      
+      // API returns { company: {...}, officers: [...] }
+      const fullData = data.company;
+      const address = fullData.registered_office_address || {};
+      
+      setCompanyData({
+        name: fullData.company_name || company.company_name,
+        companyNumber: fullData.company_number || company.company_number,
+        addressLine1: address.address_line_1,
+        addressLine2: address.address_line_2,
+        city: address.locality,
+        postcode: address.postal_code,
+        country: address.country || 'United Kingdom',
+        incorporationDate: fullData.date_of_creation,
+        sicCodes: fullData.sic_codes || [],
+        companiesHouseData: fullData,
+      });
+      
+      setStep(3);
+    } catch (err) {
+      console.error('Error fetching company details:', err);
+      setFormError('Failed to fetch company details');
+    }
+  };
+
+  // Manual company entry
+  const onManualCompanySubmit = (data: CompanyData) => {
+    setCompanyData(data);
+    setStep(3);
+  };
+
+  // Step 3: Create account with company
+  const createAccount = async () => {
+    if (!accountData || !companyData) return;
+    
     setIsLoading(true);
-    const { email, password } = values;
+    setFormError(null);
 
     try {
-      console.log('[Signup] Starting signup process...');
-      const { data, error } = await supabase.auth.signUp({
-        email,
-        password,
+      // 1. Create auth user
+      const { data: authData, error: authError } = await supabase.auth.signUp({
+        email: accountData.email,
+        password: accountData.password,
       });
 
-      if (error) {
-        console.error('[Signup] Signup error:', error);
-        setFormError(error.message || 'Failed to create account. Please try again.');
-        setIsLoading(false);
-        return;
+      if (authError || !authData.user) {
+        throw new Error(authError?.message || 'Failed to create account');
       }
 
-      if (!data.user) {
-        console.error('[Signup] No user returned from signup');
-        setFormError('Failed to create user account. Please try again.');
-        setIsLoading(false);
-        return;
-      }
+      const userId = authData.user.id;
+      console.log('[Signup] User created:', userId);
 
-      console.log('[Signup] User created successfully:', data.user.id);
-
-      // Handle referrals and leads in background (non-blocking)
-      if (referrerId || leadId) {
-        Promise.resolve().then(async () => {
-          await new Promise(resolve => setTimeout(resolve, 500));
-          
-          // Store referrer ID in localStorage - will be applied to company when created
-          if (referrerId) {
-            localStorage.setItem('referrer_id', referrerId);
-            console.log('[Signup] Stored referrer ID in localStorage:', referrerId);
-          }
-          
-          if (leadId) {
-            const { error } = await supabase
-              .from('leads')
-              .update({
-                user_id: data.user!.id,
-                converted_at: new Date().toISOString(),
-                status: 'converted',
-              })
-              .eq('id', leadId);
-            if (error) console.error('Error updating lead:', error);
-          }
-        });
-      }
-
-      // Small delay to let trigger create profile
-      console.log('[Signup] Waiting for profile creation...');
+      // 2. Wait for profile trigger
       await new Promise(resolve => setTimeout(resolve, 500));
 
-      // Force navigation
+      // 3. Get referrer's partner_company_id if referred
+      let partnerCompanyId = null;
+      if (referrerId) {
+        const { data: referrerProfile } = await supabase
+          .from('profiles')
+          .select('partner_company_id')
+          .eq('id', referrerId)
+          .eq('role', 'PARTNER')
+          .maybeSingle();
+        
+        if (referrerProfile?.partner_company_id) {
+          partnerCompanyId = referrerProfile.partner_company_id;
+        }
+      }
+
+      // 4. Create company with referral attribution
+      const { data: newCompany, error: companyError } = await supabase
+        .from('companies')
+        .insert({
+          name: companyData.name,
+          company_number: companyData.companyNumber || null,
+          address_line_1: companyData.addressLine1 || null,
+          address_line_2: companyData.addressLine2 || null,
+          city: companyData.city || null,
+          postcode: companyData.postcode || null,
+          country: companyData.country || 'United Kingdom',
+          companies_house_data: companyData.companiesHouseData || null,
+          referred_by: referrerId || null,
+          partner_company_id: partnerCompanyId || null,
+        })
+        .select('id')
+        .single();
+
+      if (companyError) {
+        throw new Error(companyError.message);
+      }
+
+      console.log('[Signup] Company created:', newCompany.id);
+
+      // 5. Update profile with company_id
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          company_id: newCompany.id,
+          is_primary_director: true,
+        })
+        .eq('id', userId);
+
+      if (profileError) {
+        console.error('[Signup] Profile update error:', profileError);
+      }
+
+      // 6. Handle lead conversion if applicable
+      if (leadId) {
+        await supabase
+          .from('leads')
+          .update({
+            user_id: userId,
+            converted_at: new Date().toISOString(),
+            status: 'converted',
+          })
+          .eq('id', leadId);
+      }
+
+      // 7. Redirect to application wizard (will skip company step)
       console.log('[Signup] Redirecting to /apply');
       window.location.href = '/apply';
-    } catch (err) {
-      console.error('Error during signup:', err);
-      setFormError('Something went wrong. Please try again.');
+      
+    } catch (err: any) {
+      console.error('[Signup] Error:', err);
+      setFormError(err.message || 'Something went wrong');
       setIsLoading(false);
     }
   };
 
   return (
-    <main className="max-w-md mx-auto space-y-6 py-12">
-      <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Create your account</h1>
+    <main className="max-w-md mx-auto space-y-6 py-12 px-4">
+      {/* Progress indicator */}
+      <div className="flex items-center justify-center gap-2 mb-8">
+        {[1, 2, 3].map((s) => (
+          <div
+            key={s}
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium ${
+              s === step
+                ? 'bg-[var(--color-accent)] text-white'
+                : s < step
+                ? 'bg-[var(--color-success)] text-white'
+                : 'bg-[var(--color-bg-tertiary)] text-[var(--color-text-tertiary)]'
+            }`}
+          >
+            {s < step ? '✓' : s}
+          </div>
+        ))}
+      </div>
 
-      {referrerId && (
-        <p className="text-sm text-[var(--color-text-secondary)]">
-          You were referred by a partner. We&apos;ll attach your account to them
-          automatically.
-        </p>
+      {/* Step 1: Account Details */}
+      {step === 1 && (
+        <>
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Create your account</h1>
+          
+          {referrerId && (
+            <p className="text-sm text-[var(--color-text-secondary)]">
+              You were referred by a partner. We&apos;ll link your account automatically.
+            </p>
+          )}
+
+          <form onSubmit={handleSubmit(onAccountSubmit)} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                Email <span className="text-red-600">*</span>
+              </label>
+              <input 
+                className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]" 
+                placeholder="john@example.com" 
+                type="email"
+                {...register('email')} 
+              />
+              {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+                Password <span className="text-red-600">*</span>
+              </label>
+              <input
+                className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                placeholder="At least 6 characters"
+                type="password"
+                {...register('password')}
+              />
+              {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>}
+            </div>
+
+            <button
+              className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white p-2 rounded-lg disabled:opacity-50"
+              type="submit"
+            >
+              Continue
+            </button>
+          </form>
+        </>
       )}
 
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-        <div>
-          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-            Email <span className="text-red-600">*</span>
-          </label>
-          <input 
-            className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]" 
-            placeholder="john@example.com" 
-            type="email"
-            {...register('email')} 
-          />
-          {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
-        </div>
+      {/* Step 2: Find Company */}
+      {step === 2 && (
+        <>
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Find your company</h1>
+          <p className="text-sm text-[var(--color-text-secondary)]">
+            Search Companies House to auto-fill your details
+          </p>
 
-        <div>
-          <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
-            Password <span className="text-red-600">*</span>
-          </label>
-          <input
-            className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
-            placeholder="At least 6 characters"
-            type="password"
-            {...register('password')}
-          />
-          {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>}
-        </div>
+          {!manualEntry ? (
+            <div className="space-y-4">
+              <div className="relative">
+                <input
+                  className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  placeholder="Search by company name or number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {isSearching && (
+                  <div className="absolute right-3 top-1/2 transform -translate-y-1/2">
+                    <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+                  </div>
+                )}
+              </div>
 
-        {formError && (
-          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-            <p className="text-red-600 text-sm">{formError}</p>
+              {/* Search results */}
+              {searchResults.length > 0 && (
+                <div className="border border-[var(--color-border)] rounded-lg divide-y divide-[var(--color-border)] max-h-64 overflow-y-auto">
+                  {searchResults.map((company) => (
+                    <button
+                      key={company.company_number}
+                      onClick={() => selectCompany(company)}
+                      className="w-full p-3 text-left hover:bg-[var(--color-bg-tertiary)] transition-colors"
+                    >
+                      <p className="font-medium text-[var(--color-text-primary)]">{company.company_name}</p>
+                      <p className="text-sm text-[var(--color-text-secondary)]">
+                        {company.company_number} • {company.address || ''}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              <button
+                onClick={() => setManualEntry(true)}
+                className="text-sm text-[var(--color-accent)] hover:underline"
+              >
+                Can&apos;t find your company? Enter details manually
+              </button>
+            </div>
+          ) : (
+            /* Manual entry form */
+            <ManualCompanyForm 
+              onSubmit={onManualCompanySubmit}
+              onBack={() => setManualEntry(false)}
+            />
+          )}
+
+          <button
+            onClick={() => setStep(1)}
+            className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+          >
+            ← Back
+          </button>
+        </>
+      )}
+
+      {/* Step 3: Confirm */}
+      {step === 3 && companyData && (
+        <>
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Confirm details</h1>
+          
+          <div className="bg-[var(--color-bg-tertiary)] rounded-lg p-4 space-y-3">
+            <div>
+              <p className="text-sm text-[var(--color-text-tertiary)]">Email</p>
+              <p className="font-medium text-[var(--color-text-primary)]">{accountData?.email}</p>
+            </div>
+            
+            <div className="border-t border-[var(--color-border)] pt-3">
+              <p className="text-sm text-[var(--color-text-tertiary)]">Company</p>
+              <p className="font-medium text-[var(--color-text-primary)]">{companyData.name}</p>
+              {companyData.companyNumber && (
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  Company No: {companyData.companyNumber}
+                </p>
+              )}
+            </div>
+
+            {companyData.addressLine1 && (
+              <div className="border-t border-[var(--color-border)] pt-3">
+                <p className="text-sm text-[var(--color-text-tertiary)]">Registered Address</p>
+                <p className="text-sm text-[var(--color-text-primary)]">
+                  {[
+                    companyData.addressLine1,
+                    companyData.addressLine2,
+                    companyData.city,
+                    companyData.postcode,
+                  ].filter(Boolean).join(', ')}
+                </p>
+              </div>
+            )}
+
+            {companyData.incorporationDate && (
+              <div className="border-t border-[var(--color-border)] pt-3">
+                <p className="text-sm text-[var(--color-text-tertiary)]">Incorporated</p>
+                <p className="text-sm text-[var(--color-text-primary)]">
+                  {new Date(companyData.incorporationDate).toLocaleDateString('en-GB', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </p>
+              </div>
+            )}
           </div>
-        )}
 
-        <button
-          className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white p-2 rounded-lg disabled:opacity-50"
-          disabled={isLoading || isSubmitting}
-          type="submit"
-        >
-          {isLoading || isSubmitting ? 'Creating account…' : 'Sign up'}
-        </button>
-      </form>
+          {formError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-red-600 text-sm">{formError}</p>
+            </div>
+          )}
+
+          <button
+            onClick={createAccount}
+            disabled={isLoading}
+            className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white p-2 rounded-lg disabled:opacity-50"
+          >
+            {isLoading ? 'Creating account...' : 'Create account'}
+          </button>
+
+          <button
+            onClick={() => setStep(2)}
+            disabled={isLoading}
+            className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
+          >
+            ← Back
+          </button>
+        </>
+      )}
     </main>
+  );
+}
+
+// Manual company entry form component
+function ManualCompanyForm({ 
+  onSubmit, 
+  onBack 
+}: { 
+  onSubmit: (data: CompanyData) => void;
+  onBack: () => void;
+}) {
+  const [formData, setFormData] = useState<CompanyData>({
+    name: '',
+    companyNumber: '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.name.trim()) return;
+    onSubmit(formData);
+  };
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+          Company Name <span className="text-red-600">*</span>
+        </label>
+        <input
+          className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+          value={formData.name}
+          onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+          required
+        />
+      </div>
+
+      <div>
+        <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
+          Company Number
+        </label>
+        <input
+          className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+          value={formData.companyNumber}
+          onChange={(e) => setFormData({ ...formData, companyNumber: e.target.value })}
+        />
+      </div>
+
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex-1 border border-[var(--color-border)] text-[var(--color-text-primary)] p-2 rounded-lg hover:bg-[var(--color-bg-tertiary)]"
+        >
+          Back to search
+        </button>
+        <button
+          type="submit"
+          className="flex-1 bg-[var(--color-accent)] text-white p-2 rounded-lg hover:bg-[var(--color-accent-hover)]"
+        >
+          Continue
+        </button>
+      </div>
+    </form>
   );
 }
 
 export default function SignupPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen">Loading...</div>}>
       <SignupContent />
     </Suspense>
   );
