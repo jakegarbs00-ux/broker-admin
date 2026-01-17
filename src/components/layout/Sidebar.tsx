@@ -35,7 +35,13 @@ const adminPartnerNavItems: NavItem[] = [
     label: 'Dashboard',
     href: '/dashboard',
     icon: <Home className="w-5 h-5" />,
-    roles: ['PARTNER', 'ADMIN'],
+    roles: ['PARTNER'],
+  },
+  {
+    label: 'Dashboard',
+    href: '/admin/dashboard',
+    icon: <Home className="w-5 h-5" />,
+    roles: ['ADMIN'],
   },
   {
     label: 'Applications',
@@ -71,12 +77,6 @@ const adminPartnerNavItems: NavItem[] = [
     label: 'Partners',
     href: '/admin/partners',
     icon: <Users className="w-5 h-5" />,
-    roles: ['ADMIN'],
-  },
-  {
-    label: 'Leads',
-    href: '/admin/leads',
-    icon: <UserPlus className="w-5 h-5" />,
     roles: ['ADMIN'],
   },
   {

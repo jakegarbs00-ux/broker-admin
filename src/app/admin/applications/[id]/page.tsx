@@ -97,6 +97,11 @@ type Partner = {
   email: string;
 };
 
+type PartnerCompany = {
+  id: string;
+  name: string;
+};
+
 type LenderSubmission = {
   id: string;
   lender_id: string;
@@ -152,6 +157,18 @@ export default function AdminApplicationDetailPage() {
   const [selectedLenderIds, setSelectedLenderIds] = useState<string[]>([]);
   const [sendingToLenders, setSendingToLenders] = useState(false);
   const [referralPartner, setReferralPartner] = useState<Partner | null>(null);
+  const [partnerCompanies, setPartnerCompanies] = useState<PartnerCompany[]>([]);
+  const [partnerUsers, setPartnerUsers] = useState<Array<{
+    id: string;
+    email: string;
+    first_name: string | null;
+    last_name: string | null;
+    partner_company_id: string;
+    partner_company?: { id: string; name: string } | null;
+  }>>([]);
+  const [selectedPartnerUserId, setSelectedPartnerUserId] = useState<string | null>(null);
+  const [assigningPartner, setAssigningPartner] = useState(false);
+  const [lenderSearchQuery, setLenderSearchQuery] = useState('');
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -299,6 +316,35 @@ export default function AdminApplicationDetailPage() {
         .order('created_at', { ascending: false });
       setLenderSubmissions((submissionsData || []) as LenderSubmission[]);
 
+      // Load partner users grouped by company for assignment
+      const { data: partnerUsersData } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          email,
+          first_name,
+          last_name,
+          partner_company_id,
+          partner_company:partner_company_id(id, name)
+        `)
+        .eq('role', 'PARTNER')
+        .order('partner_company_id')
+        .order('first_name');
+      
+      setPartnerUsers((partnerUsersData || []) as any);
+
+      // Check if company has assigned partner user
+      if (appData.company_id) {
+        const { data: companyData } = await supabase
+          .from('companies')
+          .select('referred_by, partner_company_id')
+          .eq('id', appData.company_id)
+          .maybeSingle();
+        if (companyData?.referred_by) {
+          setSelectedPartnerUserId(companyData.referred_by);
+        }
+      }
+
       setLoadingData(false);
     };
 
@@ -308,6 +354,51 @@ export default function AdminApplicationDetailPage() {
   const availableLenders = lenders.filter(
     (l) => !lenderSubmissions.some((sub) => sub.lender_id === l.id)
   );
+
+  // Filter lenders by search query
+  const filteredLenders = availableLenders.filter((lender) =>
+    lender.name.toLowerCase().includes(lenderSearchQuery.toLowerCase())
+  );
+
+  const handleAssignPartner = async (partnerUserId: string | null) => {
+    if (!application?.company_id || !partnerUserId) return;
+    setAssigningPartner(true);
+
+    try {
+      // Get the partner user's partner_company_id
+      const { data: partnerUser } = await supabase
+        .from('profiles')
+        .select('partner_company_id')
+        .eq('id', partnerUserId)
+        .maybeSingle();
+      
+      if (!partnerUser?.partner_company_id) {
+        alert('Partner user not found or has no company');
+        setAssigningPartner(false);
+        return;
+      }
+
+      // Update the company with both referred_by and partner_company_id
+      const { error } = await supabase
+        .from('companies')
+        .update({
+          referred_by: partnerUserId,
+          partner_company_id: partnerUser.partner_company_id,
+        })
+        .eq('id', application.company_id);
+
+      if (error) {
+        alert('Error assigning partner: ' + error.message);
+      } else {
+        setSelectedPartnerUserId(partnerUserId);
+      }
+    } catch (err) {
+      console.error('Error assigning partner:', err);
+      alert('Error assigning partner');
+    } finally {
+      setAssigningPartner(false);
+    }
+  };
 
   const handleStageChange = async (newStage: string) => {
     if (!application) return;
@@ -694,6 +785,11 @@ export default function AdminApplicationDetailPage() {
           <Card>
             <CardHeader>
               <h2 className="font-medium text-[var(--color-text-primary)]">Send to Lenders</h2>
+              {filteredLenders.length > 0 && (
+                <p className="text-xs text-[var(--color-text-tertiary)] mt-1">
+                  {selectedLenderIds.length} of {filteredLenders.length} selected
+                </p>
+              )}
             </CardHeader>
             <CardContent className="space-y-4">
               {availableLenders.length === 0 ? (
@@ -702,33 +798,50 @@ export default function AdminApplicationDetailPage() {
                 </p>
               ) : (
                 <>
-                  <div className="space-y-2">
-                    {availableLenders.map((lender) => (
-                      <label key={lender.id} className="flex items-center gap-2 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
-                          checked={selectedLenderIds.includes(lender.id)}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedLenderIds([...selectedLenderIds, lender.id]);
-                            } else {
-                              setSelectedLenderIds(selectedLenderIds.filter((id) => id !== lender.id));
-                            }
-                          }}
-                        />
-                        <span className="text-sm text-[var(--color-text-primary)]">{lender.name}</span>
-                      </label>
-                    ))}
+                  {/* Search input */}
+                  <input
+                    type="text"
+                    placeholder="Search lenders..."
+                    value={lenderSearchQuery}
+                    onChange={(e) => setLenderSearchQuery(e.target.value)}
+                    className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] placeholder:text-[var(--color-text-tertiary)]"
+                  />
+                  
+                  {/* Lender list with scroll */}
+                  <div className="max-h-64 overflow-y-auto space-y-2 border border-[var(--color-border)] rounded-lg p-2">
+                    {filteredLenders.length === 0 ? (
+                      <p className="text-sm text-[var(--color-text-tertiary)] text-center py-4">
+                        No lenders match your search
+                      </p>
+                    ) : (
+                      filteredLenders.map((lender) => (
+                        <label key={lender.id} className="flex items-center gap-2 cursor-pointer hover:bg-[var(--color-bg-tertiary)] p-2 rounded">
+                          <input
+                            type="checkbox"
+                            className="rounded border-[var(--color-border)] text-[var(--color-accent)] focus:ring-[var(--color-accent)]"
+                            checked={selectedLenderIds.includes(lender.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setSelectedLenderIds([...selectedLenderIds, lender.id]);
+                              } else {
+                                setSelectedLenderIds(selectedLenderIds.filter((id) => id !== lender.id));
+                              }
+                            }}
+                          />
+                          <span className="text-sm text-[var(--color-text-primary)] flex-1">{lender.name}</span>
+                        </label>
+                      ))
+                    )}
                   </div>
                   
                   <div className="flex gap-2">
                     <Button
                       variant="secondary"
                       size="sm"
-                      onClick={() => setSelectedLenderIds(availableLenders.map((l) => l.id))}
+                      onClick={() => setSelectedLenderIds(filteredLenders.map((l) => l.id))}
+                      disabled={filteredLenders.length === 0}
                     >
-                      Select All
+                      Select All Matching
                     </Button>
                     <Button
                       variant="secondary"
@@ -752,60 +865,54 @@ export default function AdminApplicationDetailPage() {
             </CardContent>
           </Card>
 
-          {/* Workflow & Eligibility */}
+          {/* Partner Assignment */}
           <Card>
             <CardHeader>
-              <h2 className="font-medium text-[var(--color-text-primary)]">Workflow</h2>
+              <h2 className="font-medium text-[var(--color-text-primary)]">Partner Assignment</h2>
             </CardHeader>
-            <CardContent className="space-y-3">
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-[var(--color-text-secondary)]">Status</span>
-                <Badge variant={
-                  application.workflow_status === 'submitted_to_lenders' ? 'success' :
-                  application.workflow_status === 'failed' ? 'error' :
-                  application.workflow_status === 'eligible' ? 'info' : 'default'
-                }>
-                  {application.workflow_status || 'pending'}
-                </Badge>
+            <CardContent className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium text-[var(--color-text-secondary)] mb-2">
+                  Assign to Partner User
+                </label>
+                <select
+                  className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] px-3 py-2 text-sm focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)] disabled:opacity-50"
+                  value={selectedPartnerUserId || ''}
+                  disabled={assigningPartner || !application?.company_id}
+                  onChange={(e) => handleAssignPartner(e.target.value || null)}
+                >
+                  <option value="">No partner assigned</option>
+                  {(() => {
+                    // Group partner users by company
+                    const partnersByCompany = partnerUsers.reduce((acc, user) => {
+                      const companyName = user.partner_company?.name || 'Unknown';
+                      if (!acc[companyName]) acc[companyName] = [];
+                      acc[companyName].push(user);
+                      return acc;
+                    }, {} as Record<string, typeof partnerUsers>);
+
+                    return Object.entries(partnersByCompany).map(([companyName, users]) => (
+                      <optgroup key={companyName} label={companyName}>
+                        {users.map(user => (
+                          <option key={user.id} value={user.id}>
+                            {user.first_name} {user.last_name} ({user.email})
+                          </option>
+                        ))}
+                      </optgroup>
+                    ));
+                  })()}
+                </select>
+                {assigningPartner && (
+                  <p className="text-xs text-[var(--color-text-tertiary)] mt-1">Assigning...</p>
+                )}
               </div>
               
-              <div className="pt-2 border-t border-[var(--color-border)] space-y-2">
-                <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium">Eligibility Data</p>
-                <div className="flex justify-between">
-                  <span className="text-sm text-[var(--color-text-secondary)]">Monthly Revenue</span>
-                  <span className="text-sm font-medium">
-                    {application.monthly_revenue ? `£${application.monthly_revenue.toLocaleString()}` : '—'}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-sm text-[var(--color-text-secondary)]">Trading History</span>
-                  <span className="text-sm font-medium">
-                    {application.trading_months ? `${application.trading_months} months` : '—'}
-                  </span>
-                </div>
-              </div>
-
-              {application.eligibility_result && (
-                <div className="pt-2 border-t border-[var(--color-border)]">
-                  <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium mb-2">Check Results</p>
-                  <pre className="text-xs bg-[var(--color-bg-tertiary)] p-2 rounded overflow-auto max-h-32">
-                    {JSON.stringify(application.eligibility_result, null, 2)}
-                  </pre>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Referral Partner */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-[var(--color-text-primary)]">Referral Partner</h2>
-            </CardHeader>
-            <CardContent>
-              {application?.company?.referrer ? (
-                <div>
+              {/* Show current referral info if exists */}
+              {application?.company?.referrer && (
+                <div className="pt-3 border-t border-[var(--color-border)]">
+                  <p className="text-xs text-[var(--color-text-tertiary)] uppercase font-medium mb-2">Original Referrer</p>
                   {application.company.referrer.partner_company?.name && (
-                    <p className="font-medium text-[var(--color-text-primary)]">
+                    <p className="text-sm font-medium text-[var(--color-text-primary)]">
                       {application.company.referrer.partner_company.name}
                     </p>
                   )}
@@ -814,8 +921,6 @@ export default function AdminApplicationDetailPage() {
                   </p>
                   <p className="text-sm text-[var(--color-text-secondary)]">{application.company.referrer.email}</p>
                 </div>
-              ) : (
-                <p className="text-sm text-[var(--color-text-tertiary)]">No referral partner</p>
               )}
             </CardContent>
           </Card>

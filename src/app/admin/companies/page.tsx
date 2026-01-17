@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, PageHeader, Badge, Button, EmptyState } from '@/components/ui';
+import { Card, CardContent, CardHeader, PageHeader, Badge, Button, EmptyState, FilterButtons } from '@/components/ui';
 
 type Company = {
   id: string;
@@ -36,6 +36,7 @@ export default function AdminCompaniesPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed' | 'account_managed'>('all');
 
   useEffect(() => {
     const loadCompanies = async () => {
@@ -85,11 +86,40 @@ export default function AdminCompaniesPage() {
         }
       });
 
-      // Enrich companies with owner data
-      const enrichedCompanies = data.map((c: any) => ({
-        ...c,
-        owner: directorMap[c.id] ? [directorMap[c.id]] : null,
-      }));
+      // Enrich companies with owner data and calculate status
+      const closedStages = ['funded', 'withdrawn', 'declined'];
+      
+      const enrichedCompanies = data.map((c: any) => {
+        const apps = c.applications || [];
+        let status = 'no_applications';
+        
+        if (apps.length > 0) {
+          // Check for any open application (not closed)
+          const hasOpenApp = apps.some((app: any) => !closedStages.includes(app.stage));
+          
+          // Check for any funded application
+          const hasFundedApp = apps.some((app: any) => app.stage === 'funded');
+          
+          // Priority 1: If has open app → Open (even if previously funded)
+          if (hasOpenApp) {
+            status = 'open';
+          }
+          // Priority 2: If has funded app (and no open apps) → Account Managed
+          else if (hasFundedApp) {
+            status = 'account_managed';
+          }
+          // Priority 3: No open apps, no funded apps → Closed
+          else {
+            status = 'closed';
+          }
+        }
+        
+        return {
+          ...c,
+          owner: directorMap[c.id] ? [directorMap[c.id]] : null,
+          status,
+        };
+      });
 
       setCompanies(enrichedCompanies as Company[]);
       setLoadingData(false);
@@ -126,19 +156,47 @@ export default function AdminCompaniesPage() {
 
   if (!user) return null;
 
-  const filteredCompanies = companies.filter((c) => {
-    if (!searchTerm) return true;
-    const search = searchTerm.toLowerCase();
-    return (
-      c.name.toLowerCase().includes(search) ||
-      c.owner?.[0]?.email?.toLowerCase().includes(search) ||
-      c.company_number?.toLowerCase().includes(search)
-    );
+  // Calculate status counts
+  const statusCounts = {
+    all: companies.length,
+    open: companies.filter((c: any) => c.status === 'open').length,
+    closed: companies.filter((c: any) => c.status === 'closed').length,
+    account_managed: companies.filter((c: any) => c.status === 'account_managed').length,
+  };
+
+  const filteredCompanies = companies.filter((c: any) => {
+    // Status filter
+    if (statusFilter !== 'all' && c.status !== statusFilter) return false;
+    
+    // Search filter
+    if (searchTerm) {
+      const search = searchTerm.toLowerCase();
+      const matchesSearch = 
+        c.name.toLowerCase().includes(search) ||
+        c.owner?.[0]?.email?.toLowerCase().includes(search) ||
+        c.company_number?.toLowerCase().includes(search);
+      if (!matchesSearch) return false;
+    }
+    
+    return true;
   });
 
   const getOpenApplicationsCount = (apps: { id: string; stage: string }[]) => {
     const closedStages = ['funded', 'declined', 'withdrawn'];
     return apps.filter((a) => !closedStages.includes(a.stage)).length;
+  };
+
+  const CompanyStatusBadge = ({ status }: { status: string }) => {
+    switch (status) {
+      case 'account_managed':
+        return <Badge variant="success">Account Managed</Badge>;
+      case 'open':
+        return <Badge variant="warning">Open</Badge>;
+      case 'closed':
+        return <Badge variant="default">Closed</Badge>;
+      default:
+        return <Badge variant="default">No Applications</Badge>;
+    }
   };
 
   return (
@@ -158,6 +216,18 @@ export default function AdminCompaniesPage() {
           <p className="text-sm text-red-600">{error}</p>
         </div>
       )}
+
+      {/* Quick Status Filters */}
+      <FilterButtons
+        options={[
+          { value: 'all', label: 'All', count: statusCounts.all },
+          { value: 'open', label: 'Open', count: statusCounts.open },
+          { value: 'closed', label: 'Closed', count: statusCounts.closed },
+          { value: 'account_managed', label: 'Account Managed', count: statusCounts.account_managed },
+        ]}
+        value={statusFilter}
+        onChange={(v) => setStatusFilter(v as typeof statusFilter)}
+      />
 
       {/* Search */}
       <Card className="mb-6">
@@ -202,6 +272,9 @@ export default function AdminCompaniesPage() {
                       Company
                     </th>
                     <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
+                      Status
+                    </th>
+                    <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
                       Client Email
                     </th>
                     <th className="text-left text-xs font-medium text-[var(--color-text-tertiary)] uppercase tracking-wider px-6 py-3">
@@ -220,7 +293,7 @@ export default function AdminCompaniesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
-                  {filteredCompanies.map((c) => {
+                  {filteredCompanies.map((c: any) => {
                     const openApps = getOpenApplicationsCount(c.applications);
                     return (
                       <tr key={c.id} className="hover:bg-[var(--color-bg-tertiary)] transition-colors">
@@ -234,6 +307,9 @@ export default function AdminCompaniesPage() {
                               <p className="text-xs text-[var(--color-text-tertiary)]">{c.industry}</p>
                             )}
                           </div>
+                        </td>
+                        <td className="px-6 py-4">
+                          <CompanyStatusBadge status={c.status} />
                         </td>
                         <td className="px-6 py-4 whitespace-nowrap">
                           <span className="text-sm text-[var(--color-text-secondary)]">

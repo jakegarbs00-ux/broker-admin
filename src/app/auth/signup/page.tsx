@@ -77,12 +77,10 @@ function SignupContent() {
         Promise.resolve().then(async () => {
           await new Promise(resolve => setTimeout(resolve, 500));
           
+          // Store referrer ID in localStorage - will be applied to company when created
           if (referrerId) {
-            const { error } = await supabase
-              .from('profiles')
-              .update({ referred_by: referrerId })
-              .eq('id', data.user!.id);
-            if (error) console.error('Error updating referral:', error);
+            localStorage.setItem('referrer_id', referrerId);
+            console.log('[Signup] Stored referrer ID in localStorage:', referrerId);
           }
           
           if (leadId) {

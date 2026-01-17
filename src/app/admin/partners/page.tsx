@@ -149,7 +149,7 @@ export default function AdminPartnersPage() {
             <p className="text-[var(--color-text-secondary)]">{partnerCompanies.length} registered partner companies</p>
           </div>
           <Link href="/admin/partners/create">
-            <Button variant="primary">Create Partner Company</Button>
+            <Button variant="primary">+ Create Partner Company</Button>
           </Link>
         </div>
 

@@ -1,148 +1,92 @@
 'use client';
 
-import type React from 'react';
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, PageHeader, Button } from '@/components/ui';
+import { Card, CardContent, CardHeader, Button } from '@/components/ui';
+import { useToastContext } from '@/components/ui/ToastProvider';
 
 type PartnerCompanyFormData = {
   name: string;
-  registration_number: string;
-  address_line_1: string;
-  address_line_2: string;
+  registrationNumber: string;
+  addressLine1: string;
+  addressLine2: string;
   city: string;
   postcode: string;
   country: string;
   website: string;
-  bank_name: string;
-  bank_account_name: string;
-  bank_account_number: string;
-  bank_sort_code: string;
+  bankName: string;
+  bankAccountName: string;
+  bankAccountNumber: string;
+  bankSortCode: string;
+  defaultCommissionRate: number;
 };
 
-export default function AdminCreatePartnerPage() {
-  const { user, profile, loading } = useUserProfile();
-  const supabase = getSupabaseClient();
+export default function CreatePartnerCompanyPage() {
   const router = useRouter();
+  const { profile, loading } = useUserProfile();
+  const supabase = getSupabaseClient();
+  const toast = useToastContext();
 
-  const [saving, setSaving] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [createdPartnerId, setCreatedPartnerId] = useState<string | null>(null);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteStatus, setInviteStatus] = useState<string | null>(null);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviting, setInviting] = useState(false);
   const [formData, setFormData] = useState<PartnerCompanyFormData>({
     name: '',
-    registration_number: '',
-    address_line_1: '',
-    address_line_2: '',
+    registrationNumber: '',
+    addressLine1: '',
+    addressLine2: '',
     city: '',
     postcode: '',
     country: 'United Kingdom',
     website: '',
-    bank_name: '',
-    bank_account_name: '',
-    bank_account_number: '',
-    bank_sort_code: '',
+    bankName: '',
+    bankAccountName: '',
+    bankAccountNumber: '',
+    bankSortCode: '',
+    defaultCommissionRate: 0,
   });
-
-  const handleChange = (field: keyof PartnerCompanyFormData, value: string) => {
-    setFormData((prev) => ({ ...prev, [field]: value }));
-  };
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setIsSubmitting(true);
 
-    if (!formData.name.trim()) {
-      setError('Company name is required');
-      return;
+    try {
+      const { data: newCompany, error: insertError } = await supabase
+        .from('partner_companies')
+        .insert({
+          name: formData.name,
+          registration_number: formData.registrationNumber || null,
+          address_line_1: formData.addressLine1 || null,
+          address_line_2: formData.addressLine2 || null,
+          city: formData.city || null,
+          postcode: formData.postcode || null,
+          country: formData.country || 'United Kingdom',
+          website: formData.website || null,
+          bank_name: formData.bankName || null,
+          bank_account_name: formData.bankAccountName || null,
+          bank_account_number: formData.bankAccountNumber || null,
+          bank_sort_code: formData.bankSortCode || null,
+          default_commission_rate: formData.defaultCommissionRate || 0,
+        })
+        .select('id')
+        .single();
+
+      if (insertError) {
+        throw new Error(insertError.message);
+      }
+
+      toast.success('Partner company created successfully');
+      router.push(`/admin/partners/${newCompany.id}`);
+    } catch (err: any) {
+      console.error('Error creating partner company:', err);
+      setError(err.message || 'Failed to create partner company');
+      toast.error(err.message || 'Failed to create partner company');
+    } finally {
+      setIsSubmitting(false);
     }
-
-    setSaving(true);
-
-    const payload: any = {
-      name: formData.name.trim(),
-      registration_number: formData.registration_number.trim() || null,
-      address_line_1: formData.address_line_1.trim() || null,
-      address_line_2: formData.address_line_2.trim() || null,
-      city: formData.city.trim() || null,
-      postcode: formData.postcode.trim() || null,
-      country: formData.country.trim() || null,
-      website: formData.website.trim() || null,
-      bank_name: formData.bank_name.trim() || null,
-      bank_account_name: formData.bank_account_name.trim() || null,
-      bank_account_number: formData.bank_account_number.trim() || null,
-      bank_sort_code: formData.bank_sort_code.trim() || null,
-    };
-
-    const { data: newPartner, error: createError } = await supabase
-      .from('partner_companies')
-      .insert(payload)
-      .select('id')
-      .single();
-
-    if (createError || !newPartner) {
-      setError(createError?.message || 'Error creating partner company');
-      setSaving(false);
-      return;
-    }
-
-    setCreatedPartnerId(newPartner.id as string);
-    setSaving(false);
-  };
-
-  const handleInvite = async () => {
-    if (!createdPartnerId) return;
-    setInviteError(null);
-    setInviteStatus(null);
-
-    const email = inviteEmail.trim();
-    if (!email) {
-      setInviteError('Email is required');
-      return;
-    }
-
-    setInviting(true);
-
-    const {
-      data: { session },
-      error: sessionError,
-    } = await supabase.auth.getSession();
-
-    if (sessionError || !session?.access_token) {
-      setInviteError('Unable to verify your session. Please refresh and try again.');
-      setInviting(false);
-      return;
-    }
-
-    const response = await fetch('/api/admin/invite-partner-user', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${session.access_token}`,
-      },
-      body: JSON.stringify({
-        email,
-        partner_company_id: createdPartnerId,
-      }),
-    });
-
-    const data = await response.json();
-
-    if (!response.ok || data.error) {
-      setInviteError(data.error || 'Error sending invite');
-    } else {
-      setInviteStatus('Invitation sent successfully');
-      setInviteEmail('');
-    }
-
-    setInviting(false);
   };
 
   if (loading) {
@@ -150,7 +94,7 @@ export default function AdminCreatePartnerPage() {
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
           <div className="flex flex-col items-center gap-3">
-            <div className="w-8 h-8 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
             <p className="text-sm text-[var(--color-text-tertiary)]">Loading...</p>
           </div>
         </div>
@@ -158,7 +102,7 @@ export default function AdminCreatePartnerPage() {
     );
   }
 
-  if (profile?.role !== 'ADMIN') {
+  if (!loading && profile?.role !== 'ADMIN') {
     return (
       <DashboardShell>
         <div className="text-center py-12">
@@ -169,237 +113,230 @@ export default function AdminCreatePartnerPage() {
     );
   }
 
-  if (!user) return null;
-
   return (
     <DashboardShell>
-      <div className="p-6">
-        <PageHeader
-          title="Create Partner Company"
-          description="Add a new partner company to the system"
-        />
-        <div className="mt-6">
-          <Link href="/admin/partners" className="text-sm text-[var(--color-text-tertiary)] hover:underline mb-4 inline-block">
-            ← Back to Partners
-          </Link>
+      <div className="max-w-3xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Create Partner Company</h1>
+          <p className="text-sm text-[var(--color-text-tertiary)] mt-1">
+            Add a new partner company. You can add users to this company after creation.
+          </p>
+        </div>
 
-          {error && (
-            <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{error}</p>
-            </div>
-          )}
+        {error && (
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-sm text-red-600">{error}</p>
+          </div>
+        )}
 
-          <form onSubmit={handleSubmit}>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              {/* Main content - 2 columns */}
-              <div className="lg:col-span-2 space-y-6">
-                {/* Company Information */}
-                <Card>
-                  <CardHeader>
-                    <h2 className="text-lg font-semibold">Company Information</h2>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">
-                          Company Name <span className="text-red-500">*</span>
-                        </label>
-                        <input
-                          type="text"
-                          value={formData.name}
-                          onChange={(e) => handleChange('name', e.target.value)}
-                          required
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Registration Number</label>
-                        <input
-                          type="text"
-                          value={formData.registration_number}
-                          onChange={(e) => handleChange('registration_number', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Address Line 1</label>
-                        <input
-                          type="text"
-                          value={formData.address_line_1}
-                          onChange={(e) => handleChange('address_line_1', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Address Line 2</label>
-                        <input
-                          type="text"
-                          value={formData.address_line_2}
-                          onChange={(e) => handleChange('address_line_2', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">City</label>
-                        <input
-                          type="text"
-                          value={formData.city}
-                          onChange={(e) => handleChange('city', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Postcode</label>
-                        <input
-                          type="text"
-                          value={formData.postcode}
-                          onChange={(e) => handleChange('postcode', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Country</label>
-                        <input
-                          type="text"
-                          value={formData.country}
-                          onChange={(e) => handleChange('country', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Website</label>
-                        <input
-                          type="url"
-                          value={formData.website}
-                          onChange={(e) => handleChange('website', e.target.value)}
-                          placeholder="https://example.com"
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
+        <Card>
+          <CardHeader>
+            <h2 className="text-lg font-semibold">Company Details</h2>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Company Information */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-[var(--color-text-secondary)] border-b pb-2">Company Information</h3>
+                
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                    Company Name *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.name}
+                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                    Registration Number
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.registrationNumber}
+                    onChange={(e) => setFormData({ ...formData, registrationNumber: e.target.value })}
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                    Website
+                  </label>
+                  <input
+                    type="url"
+                    value={formData.website}
+                    onChange={(e) => setFormData({ ...formData, website: e.target.value })}
+                    placeholder="https://example.com"
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  />
+                </div>
               </div>
 
-              {/* Sidebar - 1 column */}
-              <div className="space-y-6">
-                {/* Bank Details */}
-                <Card>
-                  <CardHeader>
-                    <h3 className="font-semibold">Bank Details</h3>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-3">
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Bank Name</label>
-                        <input
-                          type="text"
-                          value={formData.bank_name}
-                          onChange={(e) => handleChange('bank_name', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] text-sm focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Account Name</label>
-                        <input
-                          type="text"
-                          value={formData.bank_account_name}
-                          onChange={(e) => handleChange('bank_account_name', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] text-sm focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Account Number</label>
-                        <input
-                          type="text"
-                          value={formData.bank_account_number}
-                          onChange={(e) => handleChange('bank_account_number', e.target.value)}
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] text-sm focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">Sort Code</label>
-                        <input
-                          type="text"
-                          value={formData.bank_sort_code}
-                          onChange={(e) => handleChange('bank_sort_code', e.target.value)}
-                          placeholder="00-00-00"
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] text-sm focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </div>
+              {/* Address */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-[var(--color-text-secondary)] border-b pb-2">Address</h3>
+                
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                    Address Line 1
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.addressLine1}
+                    onChange={(e) => setFormData({ ...formData, addressLine1: e.target.value })}
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  />
+                </div>
 
-            {/* Form Actions */}
-            <div className="mt-6 flex justify-end gap-4">
-              <Link href="/admin/partners">
-                <Button variant="secondary" type="button">
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                    Address Line 2
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.addressLine2}
+                    onChange={(e) => setFormData({ ...formData, addressLine2: e.target.value })}
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                      City
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.city}
+                      onChange={(e) => setFormData({ ...formData, city: e.target.value })}
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                      Postcode
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.postcode}
+                      onChange={(e) => setFormData({ ...formData, postcode: e.target.value })}
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                    Country
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.country}
+                    onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  />
+                </div>
+              </div>
+
+              {/* Bank Details */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-medium text-[var(--color-text-secondary)] border-b pb-2">Bank Details</h3>
+                
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                    Bank Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bankName}
+                    onChange={(e) => setFormData({ ...formData, bankName: e.target.value })}
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                    Account Name
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.bankAccountName}
+                    onChange={(e) => setFormData({ ...formData, bankAccountName: e.target.value })}
+                    className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                      Account Number
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bankAccountNumber}
+                      onChange={(e) => setFormData({ ...formData, bankAccountNumber: e.target.value })}
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                      Sort Code
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.bankSortCode}
+                      onChange={(e) => setFormData({ ...formData, bankSortCode: e.target.value })}
+                      className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Commission */}
+              <div>
+                <label className="block text-sm font-medium text-[var(--color-text-secondary)] mb-1">
+                  Default Commission Rate (%)
+                </label>
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  step="0.01"
+                  value={formData.defaultCommissionRate}
+                  onChange={(e) => setFormData({ ...formData, defaultCommissionRate: parseFloat(e.target.value) || 0 })}
+                  className="w-full rounded-lg border border-[var(--color-border)] px-3 py-2 text-sm bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+                />
+              </div>
+
+              <div className="flex gap-3 pt-4">
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={isSubmitting}
+                >
+                  {isSubmitting ? 'Creating...' : 'Create Partner Company'}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={() => router.back()}
+                  disabled={isSubmitting}
+                >
                   Cancel
                 </Button>
-              </Link>
-              <Button variant="primary" type="submit" disabled={saving || !!createdPartnerId}>
-                {createdPartnerId ? 'Partner Created' : saving ? 'Creating...' : 'Create Partner Company'}
-              </Button>
-            </div>
-          </form>
-
-          {createdPartnerId && (
-            <div className="mt-8 grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2">
-                <Card>
-                  <CardHeader>
-                    <h2 className="text-lg font-semibold">Invite a User</h2>
-                    <p className="text-sm text-[var(--color-text-tertiary)]">
-                      Optional: invite a partner user to access this company.
-                    </p>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4">
-                      <div>
-                        <label className="text-sm text-[var(--color-text-tertiary)] block mb-1">
-                          User Email
-                        </label>
-                        <input
-                          type="email"
-                          value={inviteEmail}
-                          onChange={(e) => setInviteEmail(e.target.value)}
-                          placeholder="user@example.com"
-                          className="w-full px-3 py-2 border border-[var(--color-border)] rounded bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] focus:ring-2 focus:ring-[var(--color-accent)]"
-                        />
-                      </div>
-                      {inviteError && (
-                        <p className="text-sm text-red-600">{inviteError}</p>
-                      )}
-                      {inviteStatus && !inviteError && (
-                        <p className="text-sm text-green-600">{inviteStatus}</p>
-                      )}
-                      <div className="flex justify-end gap-3">
-                        <Link href={`/admin/partners/${createdPartnerId}`}>
-                          <Button variant="secondary" type="button">
-                            Skip for now
-                          </Button>
-                        </Link>
-                        <Button
-                          variant="primary"
-                          type="button"
-                          onClick={handleInvite}
-                          disabled={inviting}
-                        >
-                          {inviting ? 'Sending...' : 'Send Invite'}
-                        </Button>
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
               </div>
-            </div>
-          )}
-        </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </DashboardShell>
   );
 }
-

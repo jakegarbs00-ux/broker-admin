@@ -422,7 +422,7 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
       if (existingProfile?.company_id) {
         const { data: existingCompany, error: companyError } = await supabase
           .from('companies')
-          .select('id, name, company_number, industry, website, companies_house_data')
+          .select('id, name, company_number, industry, website, companies_house_data, referred_by')
           .eq('id', existingProfile.company_id)
           .maybeSingle();
         
@@ -451,6 +451,28 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
             companyUpdate.companies_house_data = formData.companiesHouseData;
           }
 
+          // Only set referral fields if not already set and we have a referrer
+          const referrerId = typeof window !== 'undefined' ? localStorage.getItem('referrer_id') : null;
+          if (referrerId && !(existingCompany as any).referred_by) {
+            // Get the referrer's partner_company_id
+            const { data: referrerProfile } = await supabase
+              .from('profiles')
+              .select('partner_company_id')
+              .eq('id', referrerId)
+              .eq('role', 'PARTNER')
+              .maybeSingle();
+            
+            if (referrerProfile?.partner_company_id) {
+              companyUpdate.referred_by = referrerId;
+              companyUpdate.partner_company_id = referrerProfile.partner_company_id;
+            }
+            
+            // Clear stored referrer
+            if (typeof window !== 'undefined') {
+              localStorage.removeItem('referrer_id');
+            }
+          }
+
           if (Object.keys(companyUpdate).length > 0) {
             await supabase
               .from('companies')
@@ -460,12 +482,32 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         }
       } else {
         // Create new company
+        // Get stored referrer ID from localStorage (set during signup)
+        const referrerId = typeof window !== 'undefined' ? localStorage.getItem('referrer_id') : null;
+        
+        // If we have a referrer, get their partner_company_id
+        let partnerCompanyId = null;
+        if (referrerId) {
+          const { data: referrerProfile } = await supabase
+            .from('profiles')
+            .select('partner_company_id')
+            .eq('id', referrerId)
+            .eq('role', 'PARTNER')
+            .maybeSingle();
+          
+          if (referrerProfile?.partner_company_id) {
+            partnerCompanyId = referrerProfile.partner_company_id;
+          }
+        }
+        
         const companyPayload: any = {
           name: formData.companyName.trim(),
           company_number: formData.companyNumber?.trim() || null,
           industry: formData.industry || null,
           website: formData.website?.trim() || null,
           companies_house_data: formData.companiesHouseData || null,
+          referred_by: referrerId || null, // Set the referrer user ID
+          partner_company_id: partnerCompanyId || null, // Set the partner company ID
         };
 
         const { data: newCompany } = await supabase
@@ -473,6 +515,12 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
           .insert(companyPayload)
           .select('id')
           .single();
+
+        // Clear the stored referrer after using it
+        if (referrerId && typeof window !== 'undefined') {
+          localStorage.removeItem('referrer_id');
+          console.log('[ApplicationWizard] Applied referrer to company and cleared localStorage');
+        }
 
         if (newCompany) {
           // Update or create profile with company_id

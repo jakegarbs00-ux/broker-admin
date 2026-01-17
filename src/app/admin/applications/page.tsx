@@ -5,7 +5,7 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, Badge, getStageBadgeVariant, formatStage } from '@/components/ui';
+import { Card, CardContent, Badge, getStageBadgeVariant, formatStage, FilterButtons } from '@/components/ui';
 
 type AdminApp = {
   id: string;
@@ -52,6 +52,7 @@ export default function AdminApplicationsPage() {
   const [loadingLenders, setLoadingLenders] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [statusFilter, setStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
   const [stageFilter, setStageFilter] = useState<string>('all');
   const [lenderFilter, setLenderFilter] = useState<string>('all');
   const [workflowFilter, setWorkflowFilter] = useState<string>('all');
@@ -122,7 +123,17 @@ export default function AdminApplicationsPage() {
     return map;
   }, [lenders]);
 
+  const closedStages = ['funded', 'withdrawn', 'declined'];
+
   const filteredApps = apps.filter((a) => {
+    // Quick status filter (All/Open/Closed)
+    if (statusFilter === 'open') {
+      if (closedStages.includes(a.stage)) return false;
+    } else if (statusFilter === 'closed') {
+      if (!closedStages.includes(a.stage)) return false;
+    }
+    
+    // Existing filters
     if (stageFilter !== 'all' && a.stage !== stageFilter) return false;
     if (lenderFilter === 'none' && a.accepted_lender_id) return false;
     if (lenderFilter !== 'all' && lenderFilter !== 'none' && a.accepted_lender_id !== lenderFilter)
@@ -130,6 +141,13 @@ export default function AdminApplicationsPage() {
     if (workflowFilter !== 'all' && a.workflow_status !== workflowFilter) return false;
     return true;
   });
+
+  // Calculate counts for quick filters
+  const statusCounts = {
+    all: apps.length,
+    open: apps.filter((a) => !closedStages.includes(a.stage)).length,
+    closed: apps.filter((a) => closedStages.includes(a.stage)).length,
+  };
 
   if (loading || loadingApps || loadingLenders) {
     return (
@@ -171,7 +189,18 @@ export default function AdminApplicationsPage() {
         </div>
       )}
 
-      {/* Filters */}
+      {/* Quick Status Filters */}
+      <FilterButtons
+        options={[
+          { value: 'all', label: 'All', count: statusCounts.all },
+          { value: 'open', label: 'Open', count: statusCounts.open },
+          { value: 'closed', label: 'Closed', count: statusCounts.closed },
+        ]}
+        value={statusFilter}
+        onChange={(v) => setStatusFilter(v as typeof statusFilter)}
+      />
+
+      {/* Detailed Filters */}
       <div className="bg-[var(--color-surface)] rounded-lg border border-[var(--color-border)] p-4 mb-6">
         <div className="flex flex-wrap gap-4 items-center">
           <div>

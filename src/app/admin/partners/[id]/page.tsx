@@ -6,7 +6,8 @@ import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
 import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
-import { Card, CardContent, CardHeader, Badge, Button } from '@/components/ui';
+import { Card, CardContent, CardHeader, Badge, Button, FilterButtons } from '@/components/ui';
+import { useToastContext } from '@/components/ui/ToastProvider';
 
 type PartnerCompany = {
   id: string;
@@ -70,6 +71,7 @@ export default function AdminPartnerCompanyDetailPage() {
   const [applications, setApplications] = useState<Application[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState<'all' | 'open' | 'closed'>('all');
 
   const [isEditing, setIsEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -79,6 +81,8 @@ export default function AdminPartnerCompanyDetailPage() {
   const [inviteError, setInviteError] = useState<string | null>(null);
   const [inviteStatus, setInviteStatus] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [partnerUsers, setPartnerUsers] = useState<PartnerUser[]>([]);
+  const toast = useToastContext();
 
   useEffect(() => {
     if (loading) return;
@@ -114,40 +118,46 @@ export default function AdminPartnerCompanyDetailPage() {
         .order('is_primary_contact', { ascending: false });
 
       setUsers((usersData || []) as PartnerUser[]);
+      setPartnerUsers((usersData || []) as PartnerUser[]);
 
-      const userIds = usersData?.map((u) => u.id) || [];
-
-      // Get referred companies
-      const { data: referredCompaniesData } = await supabase
+      // Get assigned companies (via partner_company_id - admin assignment) with referrer info
+      const { data: assignedCompaniesData } = await supabase
         .from('companies')
         .select(`
           id,
           name,
           company_number,
           created_at,
-          referrer:referred_by(id, first_name, last_name)
+          referred_by,
+          referrer:referred_by(id, first_name, last_name, email)
         `)
-        .in('referred_by', userIds.length > 0 ? userIds : ['none'])
+        .eq('partner_company_id', partnerCompanyId)
         .order('created_at', { ascending: false });
 
-      setReferredCompanies((referredCompaniesData || []) as unknown as ReferredCompany[]);
+      setReferredCompanies((assignedCompaniesData || []) as unknown as ReferredCompany[]);
 
-      // Get applications from referred companies
-      const companyIds = referredCompaniesData?.map((c) => c.id) || [];
-      const { data: applicationsData } = await supabase
-        .from('applications')
-        .select(`
-          id,
-          requested_amount,
-          loan_type,
-          stage,
-          created_at,
-          company:company_id(id, name)
-        `)
-        .in('company_id', companyIds.length > 0 ? companyIds : ['none'])
-        .order('created_at', { ascending: false });
+      // Get applications from assigned companies
+      // First get company IDs, then query applications
+      const companyIds = assignedCompaniesData?.map((c) => c.id) || [];
+      
+      if (companyIds.length > 0) {
+        const { data: applicationsData } = await supabase
+          .from('applications')
+          .select(`
+            id,
+            requested_amount,
+            loan_type,
+            stage,
+            created_at,
+            company:company_id(id, name)
+          `)
+          .in('company_id', companyIds)
+          .order('created_at', { ascending: false });
 
-      setApplications((applicationsData || []) as unknown as Application[]);
+        setApplications((applicationsData || []) as unknown as Application[]);
+      } else {
+        setApplications([]);
+      }
 
       setLoadingData(false);
     };
@@ -263,6 +273,23 @@ export default function AdminPartnerCompanyDetailPage() {
     );
   }
 
+  const closedStages = ['funded', 'withdrawn', 'declined'];
+  
+  const filteredApplications = applications.filter((a) => {
+    if (applicationStatusFilter === 'open') {
+      return !closedStages.includes(a.stage);
+    } else if (applicationStatusFilter === 'closed') {
+      return closedStages.includes(a.stage);
+    }
+    return true;
+  });
+
+  const applicationStatusCounts = {
+    all: applications.length,
+    open: applications.filter((a) => !closedStages.includes(a.stage)).length,
+    closed: applications.filter((a) => closedStages.includes(a.stage)).length,
+  };
+
   const totalFunded = applications.filter((a) => a.stage === 'funded').length;
 
   return (
@@ -364,10 +391,10 @@ export default function AdminPartnerCompanyDetailPage() {
               )}
             </div>
 
-            {/* Referred Companies */}
+            {/* Assigned Companies */}
             <div className="bg-white rounded-lg border p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-lg font-semibold">Referred Companies</h2>
+                <h2 className="text-lg font-semibold">Assigned Companies</h2>
                 <span className="text-[var(--color-text-tertiary)]">{referredCompanies.length}</span>
               </div>
               {referredCompanies.length > 0 ? (
@@ -375,7 +402,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   <thead>
                     <tr className="text-left text-sm text-[var(--color-text-tertiary)] border-b">
                       <th className="pb-2">Company</th>
-                      <th className="pb-2">Referred By</th>
+                      <th className="pb-2">Original Referrer</th>
                       <th className="pb-2">Date</th>
                       <th className="pb-2"></th>
                     </tr>
@@ -385,7 +412,11 @@ export default function AdminPartnerCompanyDetailPage() {
                       <tr key={company.id} className="border-b">
                         <td className="py-3 font-medium">{company.name}</td>
                         <td className="py-3">
-                          {company.referrer?.first_name} {company.referrer?.last_name}
+                          {company.referrer ? (
+                            <span>{company.referrer.first_name} {company.referrer.last_name}</span>
+                          ) : (
+                            <span className="text-[var(--color-text-tertiary)]">—</span>
+                          )}
                         </td>
                         <td className="py-3">
                           {new Date(company.created_at).toLocaleDateString('en-GB')}
@@ -403,7 +434,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   </tbody>
                 </table>
               ) : (
-                <p className="text-[var(--color-text-tertiary)]">No referred companies yet</p>
+                <p className="text-[var(--color-text-tertiary)]">No assigned companies yet</p>
               )}
             </div>
 
@@ -413,7 +444,19 @@ export default function AdminPartnerCompanyDetailPage() {
                 <h2 className="text-lg font-semibold">Applications</h2>
                 <span className="text-[var(--color-text-tertiary)]">{applications.length}</span>
               </div>
-              {applications.length > 0 ? (
+              
+              {/* Quick Status Filters */}
+              <FilterButtons
+                options={[
+                  { value: 'all', label: 'All', count: applicationStatusCounts.all },
+                  { value: 'open', label: 'Open', count: applicationStatusCounts.open },
+                  { value: 'closed', label: 'Closed', count: applicationStatusCounts.closed },
+                ]}
+                value={applicationStatusFilter}
+                onChange={(v) => setApplicationStatusFilter(v as typeof applicationStatusFilter)}
+              />
+              
+              {filteredApplications.length > 0 ? (
                 <table className="w-full">
                   <thead>
                     <tr className="text-left text-sm text-[var(--color-text-tertiary)] border-b">
@@ -425,7 +468,7 @@ export default function AdminPartnerCompanyDetailPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {applications.map((app) => (
+                    {filteredApplications.map((app) => (
                       <tr key={app.id} className="border-b">
                         <td className="py-3">{app.company?.name}</td>
                         <td className="py-3">£{Number(app.requested_amount).toLocaleString()}</td>
@@ -458,7 +501,9 @@ export default function AdminPartnerCompanyDetailPage() {
                   </tbody>
                 </table>
               ) : (
-                <p className="text-[var(--color-text-tertiary)]">No applications yet</p>
+                <p className="text-[var(--color-text-tertiary)]">
+                  {applications.length === 0 ? 'No applications yet' : 'No applications match the selected filter'}
+                </p>
               )}
             </div>
           </div>
@@ -474,7 +519,7 @@ export default function AdminPartnerCompanyDetailPage() {
                   <span className="font-medium">{users.length}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span className="text-[var(--color-text-secondary)]">Total Referrals</span>
+                  <span className="text-[var(--color-text-secondary)]">Assigned Companies</span>
                   <span className="font-medium">{referredCompanies.length}</span>
                 </div>
                 <div className="flex justify-between">
@@ -559,8 +604,13 @@ export default function AdminPartnerCompanyDetailPage() {
                 <h3 className="font-semibold">Users</h3>
                 <div className="flex items-center gap-3">
                   <span className="text-[var(--color-text-tertiary)] text-sm">{users.length}</span>
+                  <Link href={`/admin/partners/new?companyId=${partnerCompanyId}`}>
+                    <Button variant="primary" size="sm">
+                      Add User
+                    </Button>
+                  </Link>
                   <Button
-                    variant="primary"
+                    variant="secondary"
                     size="sm"
                     onClick={() => {
                       setInviteModalOpen(true);
@@ -602,6 +652,79 @@ export default function AdminPartnerCompanyDetailPage() {
                 <p className="text-[var(--color-text-tertiary)] text-sm">No users in this partner company</p>
               )}
             </div>
+
+            {/* Partner Referral Links */}
+            {partnerUsers.length > 0 && (
+              <div className="bg-white rounded-lg border p-6">
+                <h3 className="font-semibold mb-4">Referral Links</h3>
+                <p className="text-sm text-[var(--color-text-tertiary)] mb-4">
+                  Share these unique referral links with partner users. When clients sign up using these links, they will be tracked as referrals.
+                </p>
+                <div className="space-y-3">
+                  {partnerUsers.map((user) => {
+                    const referralLink = typeof window !== 'undefined' 
+                      ? `${window.location.origin}/auth/signup?ref=${user.id}`
+                      : '';
+                    
+                    return (
+                      <div key={user.id} className="p-4 bg-[var(--color-bg-tertiary)] rounded-lg">
+                        <div className="flex items-center justify-between mb-2">
+                          <p className="font-medium text-sm">
+                            {user.first_name} {user.last_name} {user.email && `(${user.email})`}
+                          </p>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                const response = await fetch('/api/admin/reset-password', {
+                                  method: 'POST',
+                                  headers: { 'Content-Type': 'application/json' },
+                                  body: JSON.stringify({ email: user.email }),
+                                });
+                                
+                                if (response.ok) {
+                                  toast.success('Password reset email sent');
+                                } else {
+                                  const data = await response.json();
+                                  toast.error(data.error || 'Failed to send reset email');
+                                }
+                              } catch (err) {
+                                toast.error('Failed to send reset email');
+                              }
+                            }}
+                          >
+                            Reset Password
+                          </Button>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            readOnly
+                            value={referralLink}
+                            className="flex-1 px-3 py-2 bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg text-sm"
+                            onClick={(e) => (e.target as HTMLInputElement).select()}
+                          />
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            onClick={async () => {
+                              try {
+                                await navigator.clipboard.writeText(referralLink);
+                                toast.success('Referral link copied to clipboard');
+                              } catch (err) {
+                                toast.error('Failed to copy link');
+                              }
+                            }}
+                          >
+                            Copy
+                          </Button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
           </div>
         </div>

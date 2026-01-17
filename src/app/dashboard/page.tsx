@@ -25,6 +25,11 @@ type Application = {
   company_id?: string;
   company_name?: string;
   purpose?: string | null;
+  referrer?: {
+    first_name: string | null;
+    last_name: string | null;
+    email: string;
+  } | null;
 };
 
 type InfoRequest = {
@@ -92,11 +97,11 @@ function ClientDashboardContent({ userId }: { userId: string }) {
 
       // First, check if user has a company
       if (profileData?.company_id) {
-        const { data: companyData } = await supabase
-          .from('companies')
+      const { data: companyData } = await supabase
+        .from('companies')
           .select('id, name, company_number, industry')
           .eq('id', profileData.company_id)
-          .maybeSingle();
+        .maybeSingle();
 
         if (companyData) {
           setCompany(companyData);
@@ -617,13 +622,13 @@ function ClientDashboardContent({ userId }: { userId: string }) {
                     <Link href={`/applications/${application.id}`} className="flex-1">
                       <Button variant="secondary" className="w-full">
                         View Details
-                      </Button>
-                    </Link>
+                </Button>
+              </Link>
                     {offer.status === 'pending' && (
                       <Link href={`/applications/${application.id}`} className="flex-1">
                 <Button variant="primary" className="w-full">
                           Accept Offer
-                </Button>
+              </Button>
               </Link>
             )}
                   </div>
@@ -692,7 +697,7 @@ function ClientDashboardContent({ userId }: { userId: string }) {
         </div>
 
         {/* Company Info Card */}
-        <div>
+                  <div>
           <Card>
             <CardHeader>
               <div className="flex items-center gap-2">
@@ -723,7 +728,7 @@ function ClientDashboardContent({ userId }: { userId: string }) {
                       <ExternalLink className="w-4 h-4 mr-2" />
                       View Details
                     </Button>
-                  </Link>
+                </Link>
                 </div>
               ) : (
                 <div className="text-center py-4">
@@ -782,6 +787,14 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
         .maybeSingle(); // Use maybeSingle to avoid errors
 
       if (!userProfile?.partner_company_id) {
+        console.warn('[PartnerDashboard] No partner_company_id found for user');
+        // Initialize with empty stats for users without a partner company
+        setStats({
+          totalCompanies: 0,
+          totalApplications: 0,
+          openApplications: 0,
+          fundedAmount: 0,
+        });
         setLoading(false);
         return;
       }
@@ -796,15 +809,32 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
       const partnerUserIds = (partnerUsers || []).map((u) => u.id);
 
       if (partnerUserIds.length === 0) {
+        console.warn('[PartnerDashboard] No partner users found in company');
+        // Initialize with empty stats
+        setStats({
+          totalCompanies: 0,
+          totalApplications: 0,
+          openApplications: 0,
+          fundedAmount: 0,
+        });
         setLoading(false);
         return;
       }
 
-      // Get companies referred by any user in this partner company
+      // Get ALL companies under this partner company (via partner_company_id) with referrer info
       const { data: referredCompanies, error: companiesError } = await supabase
         .from('companies')
-        .select('id, name')
-        .in('referred_by', partnerUserIds);
+        .select(`
+          id,
+          name,
+          company_number,
+          industry,
+          created_at,
+          referred_by,
+          referrer:referred_by(id, first_name, last_name, email)
+        `)
+        .eq('partner_company_id', userProfile.partner_company_id)
+        .order('created_at', { ascending: false });
 
       if (companiesError) {
         console.error('Error loading referred companies', companiesError);
@@ -813,9 +843,12 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
       }
 
       const companyIds = (referredCompanies ?? []).map((c) => c.id) as string[];
-      const companyMap: Record<string, string> = {};
+      const companyMap: Record<string, { name: string; referrer?: { first_name: string | null; last_name: string | null; email: string } | null }> = {};
       (referredCompanies || []).forEach((c: any) => {
-        companyMap[c.id] = c.name;
+        companyMap[c.id] = {
+          name: c.name,
+          referrer: c.referrer || null,
+        };
       });
 
       // Load referred clients (profiles linked to these companies)
@@ -830,7 +863,7 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
           const enrichedClients = clientsData.map((c: any) => ({
             id: c.id,
             email: c.email,
-            companies: c.company_id ? [{ id: c.company_id, name: companyMap[c.company_id] || 'Unknown' }] : null,
+            companies: c.company_id ? [{ id: c.company_id, name: companyMap[c.company_id]?.name || 'Unknown' }] : null,
           }));
           setClients(enrichedClients as ReferredClient[]);
         }
@@ -846,7 +879,8 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
 
         const enrichedApps = (appsData || []).map((a: any) => ({
           ...a,
-          company_name: companyMap[a.company_id] || 'Unknown',
+          company_name: companyMap[a.company_id]?.name || 'Unknown',
+          referrer: companyMap[a.company_id]?.referrer || null,
         }));
 
         setApplications(enrichedApps);
@@ -858,10 +892,18 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
         const fundedTotal = fundedApps.reduce((sum: number, a: Application) => sum + (a.requested_amount || 0), 0);
 
         setStats({
-          totalCompanies: companyIds.length,
+          totalCompanies: (referredCompanies || []).length,
           totalApplications: enrichedApps.length,
           openApplications: openApps.length,
           fundedAmount: fundedTotal,
+        });
+      } else {
+        // No companies - initialize stats with empty data
+        setStats({
+          totalCompanies: (referredCompanies || []).length,
+          totalApplications: 0,
+          openApplications: 0,
+          fundedAmount: 0,
         });
       }
 
@@ -872,7 +914,14 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
   }, [supabase, userId]);
 
   if (loading) {
-    return <p className="text-gray-500">Loading...</p>;
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm text-[var(--color-text-tertiary)]">Loading partner dashboard...</p>
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -948,6 +997,11 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
                         <p className="text-sm text-gray-600">
                           £{app.requested_amount?.toLocaleString()} – {app.loan_type}
                         </p>
+                        {app.referrer && (
+                          <p className="text-xs text-gray-500 mt-1">
+                            Referred by: {app.referrer.first_name} {app.referrer.last_name}
+                          </p>
+                        )}
                         <p className="text-xs text-gray-400 mt-1">
                           {new Date(app.created_at).toLocaleDateString('en-GB')}
                         </p>
