@@ -10,7 +10,6 @@ import { Card, CardContent, CardHeader, PageHeader, Badge, getStageBadgeVariant,
 import { SummaryCard } from '@/components/dashboard/SummaryCard';
 import { ApplicationsChart } from '@/components/dashboard/ApplicationsChart';
 import { ApplicationsOverTimeChart } from '@/components/dashboard/ApplicationsOverTimeChart';
-import { QuickActionsPanel } from '@/components/dashboard/QuickActionsPanel';
 import { FileText, TrendingUp, PoundSterling, Calendar, CheckCircle2, Circle, AlertTriangle, Upload, Building2, ExternalLink, MessageSquare } from 'lucide-react';
 
 type Company = { id: string; name: string };
@@ -212,10 +211,10 @@ function ClientDashboardContent({ userId }: { userId: string }) {
   }, [application, userId, supabase, loading]);
 
   const getStageStatus = (stage: string) => {
-    const stages = ['created', 'submitted', 'in_credit', 'approved', 'funded'];
+    const stages = ['created', 'submitted', 'in_credit', 'info_required', 'approved', 'funded'];
     const currentIndex = stages.indexOf(stage);
     return {
-      currentIndex,
+      currentIndex: currentIndex >= 0 ? currentIndex : stages.length - 1,
       stages: stages.map((s, i) => ({
         name: s,
         label: formatStage(s),
@@ -400,6 +399,69 @@ function ClientDashboardContent({ userId }: { userId: string }) {
         description="Track your funding application status and manage your account."
       />
 
+      {/* Action Required Section - Show at top if there are open requests */}
+      {infoRequests.length > 0 && (
+        <Card className="mb-6 border-l-4 border-l-[var(--color-warning)] shadow-lg">
+            <CardHeader>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-[var(--color-warning)]" />
+                <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
+                  Action Required
+                </h2>
+                <span className="ml-2">
+                  <Badge variant="warning">
+                    {infoRequests.length} {infoRequests.length === 1 ? 'Request' : 'Requests'}
+                  </Badge>
+                </span>
+              </div>
+            </div>
+            </CardHeader>
+            <CardContent>
+            <p className="text-sm text-[var(--color-text-secondary)] mb-4">
+              We need additional information to continue processing your application. Please respond to the requests below.
+            </p>
+            <div className="space-y-4">
+              {infoRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="border border-[var(--color-border)] rounded-lg p-4 bg-[var(--color-bg-tertiary)] hover:bg-[var(--color-bg-secondary)] transition-colors"
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex-1">
+                      {request.title && (
+                        <h3 className="font-medium text-[var(--color-text-primary)] mb-2">
+                          {request.title}
+                        </h3>
+                      )}
+                      <p className="text-sm text-[var(--color-text-secondary)] mb-3">
+                        {request.message}
+                      </p>
+                      <p className="text-xs text-[var(--color-text-tertiary)]">
+                        Requested: {new Date(request.created_at).toLocaleDateString('en-GB', {
+                          day: 'numeric',
+                          month: 'long',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
+                    <Button
+                      variant="primary"
+                      size="sm"
+                      onClick={() => handleRespondToRequest(request.id)}
+                      className="flex-shrink-0"
+                    >
+                      <MessageSquare className="w-4 h-4 mr-2" />
+                      Respond
+                    </Button>
+                  </div>
+                </div>
+              ))}
+            </div>
+            </CardContent>
+          </Card>
+        )}
+
       {/* Application Status Hero Card */}
       <Card className="mb-6">
         <CardContent className="p-6">
@@ -435,13 +497,14 @@ function ClientDashboardContent({ userId }: { userId: string }) {
               {/* Stage Pipeline */}
               <div className="mb-6">
                 <div className="flex items-center gap-2 mb-3">
-                  {['created', 'submitted', 'in_credit', 'approved', 'funded'].map((stageName, index) => {
+                  {['created', 'submitted', 'in_credit', 'info_required', 'approved', 'funded'].map((stageName, index, array) => {
                     const isCompleted = stageStatus.currentIndex > index;
                     const isCurrent = stageStatus.currentIndex === index;
                     const labels: Record<string, string> = {
                       created: 'Created',
                       submitted: 'Submitted',
                       in_credit: 'Reviewing',
+                      info_required: 'Info Required',
                       approved: 'Approved',
                       funded: 'Funded',
                     };
@@ -454,7 +517,9 @@ function ClientDashboardContent({ userId }: { userId: string }) {
                               isCompleted
                                 ? 'bg-[var(--color-success)] border-[var(--color-success)] text-white'
                                 : isCurrent
-                                ? 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
+                                ? stageName === 'info_required'
+                                  ? 'bg-[var(--color-warning)] border-[var(--color-warning)] text-white'
+                                  : 'bg-[var(--color-accent)] border-[var(--color-accent)] text-white'
                                 : 'bg-white border-[var(--color-border)] text-[var(--color-text-tertiary)]'
                             }`}
                           >
@@ -468,7 +533,7 @@ function ClientDashboardContent({ userId }: { userId: string }) {
                             {labels[stageName]}
                           </span>
                         </div>
-                        {index < 4 && (
+                        {index < array.length - 1 && (
                           <div
                             className={`h-0.5 flex-1 mx-2 ${
                               isCompleted ? 'bg-[var(--color-success)]' : 'bg-[var(--color-border)]'
@@ -488,7 +553,52 @@ function ClientDashboardContent({ userId }: { userId: string }) {
                   </p>
                 </div>
               )}
-              {application.stage !== 'submitted' && (
+              {application.stage === 'info_required' && infoRequests.length > 0 && (
+                <div className="mt-4 p-4 bg-[var(--color-warning-light)] border-2 border-[var(--color-warning)] rounded-lg">
+                  <div className="flex items-start gap-3 mb-3">
+                    <AlertTriangle className="w-5 h-5 text-[var(--color-warning)] flex-shrink-0 mt-0.5" />
+                    <div className="flex-1">
+                      <p className="text-sm font-semibold text-[var(--color-text-primary)] mb-2">
+                        We need some additional information from you.
+                      </p>
+                      <div className="space-y-2 mb-3">
+                        {infoRequests.slice(0, 2).map((request) => (
+                          <div key={request.id} className="text-sm text-[var(--color-text-secondary)]">
+                            {request.title && (
+                              <span className="font-medium">{request.title}: </span>
+                            )}
+                            {request.message.length > 100 
+                              ? `${request.message.substring(0, 100)}...`
+                              : request.message
+                            }
+                          </div>
+                        ))}
+                        {infoRequests.length > 2 && (
+                          <p className="text-xs text-[var(--color-text-tertiary)]">
+                            +{infoRequests.length - 2} more request{infoRequests.length - 2 !== 1 ? 's' : ''}
+                          </p>
+                        )}
+                      </div>
+                      <Link href={`/applications/${application.id}`}>
+                        <Button variant="primary" size="sm" className="w-full sm:w-auto">
+                          View & Respond to Requests
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {application.stage !== 'submitted' && application.stage !== 'info_required' && (
+                <div className="space-y-2">
+                  <p className="text-sm font-medium text-[var(--color-text-primary)]">
+                    {getStatusMessage(application.stage)}
+                  </p>
+                  <p className="text-sm text-[var(--color-text-secondary)]">
+                    {getNextSteps(application.stage)}
+                  </p>
+                </div>
+              )}
+              {application.stage === 'info_required' && infoRequests.length === 0 && (
                 <div className="space-y-2">
                   <p className="text-sm font-medium text-[var(--color-text-primary)]">
                     {getStatusMessage(application.stage)}
@@ -508,56 +618,8 @@ function ClientDashboardContent({ userId }: { userId: string }) {
               </Link>
             </div>
           </div>
-            </CardContent>
-          </Card>
-
-      {/* Action Required Section */}
-      {infoRequests.length > 0 && (
-        <Card className="mb-6 border-l-4 border-l-[var(--color-warning)]">
-          <CardHeader>
-            <div className="flex items-center gap-2">
-              <AlertTriangle className="w-5 h-5 text-[var(--color-warning)]" />
-              <h2 className="text-lg font-semibold text-[var(--color-text-primary)]">
-                Action Required
-              </h2>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {infoRequests.map((request) => (
-                <div
-                  key={request.id}
-                  className="border border-[var(--color-border)] rounded-lg p-4 bg-[var(--color-bg-tertiary)]"
-                >
-                  <div className="flex items-start justify-between gap-4">
-                    <div className="flex-1">
-                      {request.title && (
-                        <h3 className="font-medium text-[var(--color-text-primary)] mb-2">
-                          {request.title}
-                        </h3>
-                      )}
-                      <p className="text-sm text-[var(--color-text-secondary)] mb-3">
-                        {request.message}
-                      </p>
-                      <p className="text-xs text-[var(--color-text-tertiary)]">
-                        Requested: {new Date(request.created_at).toLocaleDateString('en-GB')}
-                      </p>
-                    </div>
-                    <Button
-                      variant="primary"
-                      size="sm"
-                      onClick={() => handleRespondToRequest(request.id)}
-                    >
-                      <MessageSquare className="w-4 h-4 mr-2" />
-                      Respond
-                    </Button>
-                  </div>
-                </div>
-              ))}
-            </div>
           </CardContent>
         </Card>
-      )}
 
       {/* Offers Section */}
       {offers.length > 0 && (
@@ -1056,67 +1118,6 @@ function PartnerDashboardContent({ userId }: { userId: string }) {
                   Copy
                 </Button>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Quick Actions */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-gray-900">Quick Actions</h2>
-            </CardHeader>
-            <CardContent className="space-y-2">
-              <Link href="/partner/companies/new" className="block">
-                <Button variant="primary" className="w-full">
-                  + Add New Company
-                </Button>
-              </Link>
-              <Link href="/partner/companies" className="block">
-                <Button variant="secondary" className="w-full">
-                  View All Companies
-                </Button>
-              </Link>
-              <Link href="/partner/company" className="block">
-                <Button variant="secondary" className="w-full">
-                  Your Company Info
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-
-          {/* Companies summary */}
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <h2 className="font-medium text-gray-900">Your Companies</h2>
-                <Link href="/partner/companies" className="text-sm text-purple-600 hover:text-purple-700">
-                  View all →
-                </Link>
-              </div>
-            </CardHeader>
-            <CardContent className="p-0">
-              {clients.length === 0 ? (
-                <div className="p-4">
-                  <p className="text-sm text-gray-500">No companies referred yet</p>
-                </div>
-              ) : (
-                <div className="divide-y divide-gray-100">
-                  {clients.slice(0, 5).map((client) => (
-                    <div key={client.id} className="px-4 py-3">
-                      {client.companies && client.companies[0] ? (
-                        <Link
-                          href={`/partner/companies/${client.companies[0].id}`}
-                          className="font-medium text-gray-900 hover:text-purple-600"
-                        >
-                          {client.companies[0].name}
-                        </Link>
-                      ) : (
-                        <p className="text-gray-500">No company</p>
-                      )}
-                      <p className="text-xs text-gray-500">{client.email}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
             </CardContent>
           </Card>
         </div>

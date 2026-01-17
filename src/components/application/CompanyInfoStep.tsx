@@ -1,694 +1,381 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { ApplicationFormData } from './ApplicationWizard';
-import { Search, Loader2, CheckCircle2, Edit2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 import { getSupabaseClient } from '@/lib/supabaseClient';
+import { ApplicationFormData } from './ApplicationWizard';
+import { Building2, MapPin, Calendar, FileText, Globe, Edit2 } from 'lucide-react';
 
 interface CompanyInfoStepProps {
   formData: ApplicationFormData;
   updateFormData: (field: keyof ApplicationFormData, value: any) => void;
-  profile?: any;
-}
-
-interface CompanySearchResult {
-  company_number: string;
-  company_name: string;
-  status: string;
-  address: string;
-}
-
-interface Officer {
-  name: string;
-  forename: string;
-  surname: string;
-  date_of_birth?: {
-    month: number;
-    year: number;
-  } | null;
-  appointed_on: string;
-  nationality?: string;
-  occupation?: string;
+  profile: any;
 }
 
 interface CompanyDetails {
-  company: any;
-  officers: Officer[];
+  id: string;
+  name: string;
+  company_number: string | null;
+  industry: string | null;
+  website: string | null;
+  address_line_1: string | null;
+  address_line_2: string | null;
+  city: string | null;
+  postcode: string | null;
+  country: string | null;
+  companies_house_data: any | null;
+}
+
+// Map SIC codes to industry
+function mapSicCodeToIndustry(sicCode: string): string | null {
+  if (!sicCode) return null;
+  
+  const code = parseInt(sicCode.substring(0, 5)); // Get first 5 digits
+  if (isNaN(code)) return null;
+  
+  // Agriculture (01xxx - Crop and animal production, 02xxx - Forestry and logging, 03xxx - Fishing and aquaculture)
+  if (code >= 1000 && code <= 3999) return 'agriculture';
+  
+  // Manufacturing (10xxx - 33xxx)
+  if (code >= 10000 && code <= 33999) return 'manufacturing';
+  
+  // Construction (41xxx, 42xxx, 43xxx)
+  if (code >= 41000 && code <= 43999) return 'construction';
+  
+  // Retail (45xxx - Wholesale and retail trade and repair of motor vehicles)
+  if (code >= 45100 && code <= 47990) return 'retail';
+  
+  // Transport & Logistics (49xxx - Land transport and transport via pipelines, 50xxx - Water transport, 51xxx - Air transport, 52xxx - Warehousing and support activities for transportation, 53xxx - Postal and courier activities)
+  if (code >= 49000 && code <= 53999) return 'transport';
+  
+  // Hospitality (55xxx - Accommodation, 56xxx - Food and beverage service activities)
+  if (code >= 55100 && code <= 56302) return 'hospitality';
+  
+  // Technology (62xxx - Computer programming, consultancy and related activities, 63xxx - Information service activities)
+  if (code >= 62000 && code <= 63999) return 'technology';
+  
+  // Professional Services (69xxx - Legal and accounting activities, 70xxx - Activities of head offices, 71xxx - Architectural and engineering activities, 72xxx - Scientific research and development, 73xxx - Advertising and market research, 74xxx - Other professional, scientific and technical activities, 78xxx - Employment activities)
+  if ((code >= 69000 && code <= 70229) || (code >= 71000 && code <= 74990) || (code >= 78000 && code <= 78300)) return 'professional_services';
+  
+  // Property (68xxx - Real estate activities)
+  if (code >= 68000 && code <= 68320) return 'property';
+  
+  // Healthcare (86xxx - Human health activities, 87xxx - Residential care activities, 88xxx - Social work activities)
+  if (code >= 86000 && code <= 88999) return 'healthcare';
+  
+  return null;
 }
 
 export function CompanyInfoStep({ formData, updateFormData, profile }: CompanyInfoStepProps) {
-  const supabase = getSupabaseClient();
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchResults, setSearchResults] = useState<CompanySearchResult[]>([]);
-  const [isSearching, setIsSearching] = useState(false);
-  const [showResults, setShowResults] = useState(false);
-  const [selectedCompany, setSelectedCompany] = useState<CompanySearchResult | null>(null);
-  const [companyDetails, setCompanyDetails] = useState<CompanyDetails | null>(null);
-  const [selectedDirector, setSelectedDirector] = useState<string | null>(null);
-  const [showManualName, setShowManualName] = useState(false);
-  const [manualFirstName, setManualFirstName] = useState(formData.firstName || '');
-  const [manualLastName, setManualLastName] = useState(formData.lastName || '');
-  const [showSearch, setShowSearch] = useState(false);
-  const [existingCompanyLoaded, setExistingCompanyLoaded] = useState(false);
-  const [loadingOfficers, setLoadingOfficers] = useState(false);
-  const searchTimeoutRef = useRef<NodeJS.Timeout | null>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
+  const [company, setCompany] = useState<CompanyDetails | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedIndustry, setEditedIndustry] = useState('');
+  const [editedWebsite, setEditedWebsite] = useState('');
 
-  // Load existing company data if company_id exists
+  // Fetch company details
   useEffect(() => {
-    const loadExistingCompany = async () => {
-      if (!profile?.company_id || existingCompanyLoaded) return;
+    const fetchCompany = async () => {
+      if (!profile?.company_id) {
+        setLoading(false);
+        return;
+      }
 
-      const { data: company } = await supabase
+      const supabase = getSupabaseClient();
+      const { data } = await supabase
         .from('companies')
         .select('*')
         .eq('id', profile.company_id)
         .maybeSingle();
 
-      if (company) {
-        setExistingCompanyLoaded(true);
-        // Pre-fill form data
-        updateFormData('companyName', company.name);
-        updateFormData('companyNumber', company.company_number);
-        updateFormData('industry', company.industry);
-        updateFormData('website', company.website);
-
-        // Set UI state to show company is selected
-        setSearchQuery(company.name || '');
-        if (company.company_number) {
-          setSelectedCompany({
-            company_number: company.company_number,
-            company_name: company.name || '',
-            status: 'active',
-            address: '',
-          });
-        }
-
-        // Always fetch company details from Companies House API if company_number exists
-        if (company.company_number) {
-          setLoadingOfficers(true);
-          try {
-            const response = await fetch(`/api/companies-house/company/${company.company_number}`);
-            if (response.ok) {
-              const details: CompanyDetails = await response.json();
-              setCompanyDetails(details);
-              
-              // Store Companies House data in formData
-              updateFormData('companiesHouseData', details.company);
-              
-              // Try to match current user with director
-              if (profile.first_name && profile.last_name) {
-                const matchingOfficer = details.officers.findIndex(
-                  (o) => 
-                    o.forename.toLowerCase() === profile.first_name?.toLowerCase() &&
-                    o.surname.toLowerCase() === profile.last_name?.toLowerCase()
-                );
-                if (matchingOfficer >= 0) {
-                  setSelectedDirector(matchingOfficer.toString());
-                  updateFormData('firstName', details.officers[matchingOfficer].forename);
-                  updateFormData('lastName', details.officers[matchingOfficer].surname);
-                } else {
-                  setShowManualName(true);
-                  setSelectedDirector('manual');
-                  // Pre-fill with profile name
-                  if (profile.first_name) {
-                    setManualFirstName(profile.first_name);
-                    updateFormData('firstName', profile.first_name);
-                  }
-                  if (profile.last_name) {
-                    setManualLastName(profile.last_name);
-                    updateFormData('lastName', profile.last_name);
-                  }
-                }
-              } else {
-                setShowManualName(true);
-                setSelectedDirector('manual');
-              }
-            } else {
-              // API call failed, show manual entry
-              setShowManualName(true);
-              setSelectedDirector('manual');
-              if (profile.first_name) {
-                setManualFirstName(profile.first_name);
-                updateFormData('firstName', profile.first_name);
-              }
-              if (profile.last_name) {
-                setManualLastName(profile.last_name);
-                updateFormData('lastName', profile.last_name);
-              }
+      if (data) {
+        // Map SIC codes to industry if not already set
+        let industry = data.industry;
+        const chData = data.companies_house_data;
+        const sicCodes = chData?.sic_codes || [];
+        
+        if (!industry && sicCodes.length > 0) {
+          // Try to find industry from SIC codes
+          for (const sicCode of sicCodes) {
+            const mappedIndustry = mapSicCodeToIndustry(sicCode);
+            if (mappedIndustry) {
+              industry = mappedIndustry;
+              // Auto-update in database
+              supabase
+                .from('companies')
+                .update({ industry: mappedIndustry })
+                .eq('id', data.id);
+              break; // Use first matching SIC code
             }
-          } catch (error) {
-            console.error('Error loading company details:', error);
-            setShowManualName(true);
-            setSelectedDirector('manual');
-            if (profile.first_name) {
-              setManualFirstName(profile.first_name);
-              updateFormData('firstName', profile.first_name);
-            }
-            if (profile.last_name) {
-              setManualLastName(profile.last_name);
-              updateFormData('lastName', profile.last_name);
-            }
-          } finally {
-            setLoadingOfficers(false);
-          }
-        } else {
-          // No company number, show manual entry
-          setShowManualName(true);
-          setSelectedDirector('manual');
-          if (profile.first_name) {
-            setManualFirstName(profile.first_name);
-            updateFormData('firstName', profile.first_name);
-          }
-          if (profile.last_name) {
-            setManualLastName(profile.last_name);
-            updateFormData('lastName', profile.last_name);
           }
         }
+        
+        setCompany(data);
+        setEditedIndustry(industry || '');
+        setEditedWebsite(data.website || '');
+        
+        // Sync to formData
+        updateFormData('companyName', data.name);
+        updateFormData('companyNumber', data.company_number || '');
+        updateFormData('industry', industry || '');
+        updateFormData('website', data.website || '');
+        updateFormData('companiesHouseData', data.companies_house_data);
       }
+
+      setLoading(false);
     };
 
-    // Load company if profile has company_id
-    if (profile?.company_id && !existingCompanyLoaded) {
-      loadExistingCompany();
+    fetchCompany();
+  }, [profile?.company_id, updateFormData]);
+
+  const handleSaveEdits = async () => {
+    if (!company) return;
+
+    const supabase = getSupabaseClient();
+    
+    const { error } = await supabase
+      .from('companies')
+      .update({
+        industry: editedIndustry || null,
+        website: editedWebsite || null,
+      })
+      .eq('id', company.id);
+
+    if (!error) {
+      setCompany({ ...company, industry: editedIndustry, website: editedWebsite });
+      updateFormData('industry', editedIndustry);
+      updateFormData('website', editedWebsite);
+      setIsEditing(false);
+    }
+  };
+
+  // Extract data from Companies House
+  const chData = company?.companies_house_data;
+  const incorporationDate = chData?.date_of_creation;
+  const companyStatus = chData?.company_status;
+  const sicCodes = chData?.sic_codes || [];
+  const registeredAddress = chData?.registered_office_address;
+
+  // Format address
+  const formatAddress = () => {
+    if (registeredAddress) {
+      return [
+        registeredAddress.address_line_1,
+        registeredAddress.address_line_2,
+        registeredAddress.locality,
+        registeredAddress.postal_code,
+        registeredAddress.country,
+      ].filter(Boolean).join(', ');
     }
     
-    // Also check if formData already has company info (from wizard pre-loading)
-    if (formData.companyName && formData.companyNumber && !existingCompanyLoaded && !companyDetails) {
-      // Company info is in formData, fetch officers
-      setLoadingOfficers(true);
-      const fetchOfficers = async () => {
-        try {
-          const response = await fetch(`/api/companies-house/company/${formData.companyNumber}`);
-          if (response.ok) {
-            const details: CompanyDetails = await response.json();
-            setCompanyDetails(details);
-            setSearchQuery(formData.companyName || '');
-            setSelectedCompany({
-              company_number: formData.companyNumber || '',
-              company_name: formData.companyName || '',
-              status: 'active',
-              address: '',
-            });
-            updateFormData('companiesHouseData', details.company);
-            
-            // Try to match user with director
-            if (profile?.first_name && profile?.last_name) {
-              const matchingOfficer = details.officers.findIndex(
-                (o) => 
-                  o.forename.toLowerCase() === profile.first_name?.toLowerCase() &&
-                  o.surname.toLowerCase() === profile.last_name?.toLowerCase()
-              );
-              if (matchingOfficer >= 0) {
-                setSelectedDirector(matchingOfficer.toString());
-                updateFormData('firstName', details.officers[matchingOfficer].forename);
-                updateFormData('lastName', details.officers[matchingOfficer].surname);
-              } else {
-                setShowManualName(true);
-                setSelectedDirector('manual');
-                if (profile.first_name) {
-                  setManualFirstName(profile.first_name);
-                  updateFormData('firstName', profile.first_name);
-                }
-                if (profile.last_name) {
-                  setManualLastName(profile.last_name);
-                  updateFormData('lastName', profile.last_name);
-                }
-              }
-            } else {
-              setShowManualName(true);
-              setSelectedDirector('manual');
-            }
-          }
-        } catch (error) {
-          console.error('Error fetching company officers:', error);
-          setShowManualName(true);
-          setSelectedDirector('manual');
-        } finally {
-          setLoadingOfficers(false);
-        }
-      };
-      fetchOfficers();
-    }
-  }, [profile, supabase, existingCompanyLoaded, updateFormData, formData.companyName, formData.companyNumber, companyDetails]);
-
-  // Initialize manual name fields from formData if available
-  useEffect(() => {
-    if (formData.firstName && !manualFirstName) {
-      setManualFirstName(formData.firstName);
-    }
-    if (formData.lastName && !manualLastName) {
-      setManualLastName(formData.lastName);
-    }
-  }, [formData.firstName, formData.lastName, manualFirstName, manualLastName]);
-
-  // Debounced search
-  useEffect(() => {
-    if (searchTimeoutRef.current) {
-      clearTimeout(searchTimeoutRef.current);
-    }
-
-    // Don't search if a company is already selected (prevents dropdown reopening)
-    if (selectedCompany) {
-      setShowResults(false);
-      return;
-    }
-
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      setShowResults(false);
-      return;
-    }
-
-    setIsSearching(true);
-    searchTimeoutRef.current = setTimeout(async () => {
-      try {
-        const response = await fetch(`/api/companies-house/search?q=${encodeURIComponent(searchQuery)}`);
-        if (response.ok) {
-          const data = await response.json();
-          setSearchResults(data.results || []);
-          setShowResults(true);
-        } else {
-          setSearchResults([]);
-        }
-      } catch (error) {
-        console.error('Error searching companies:', error);
-        setSearchResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 300);
-
-    return () => {
-      if (searchTimeoutRef.current) {
-        clearTimeout(searchTimeoutRef.current);
-      }
-    };
-  }, [searchQuery, selectedCompany]);
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowResults(false);
-      }
-    };
-
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, []);
-
-  const handleSelectCompany = async (company: CompanySearchResult) => {
-    setSelectedCompany(company);
-    setSearchQuery(company.company_name);
-    setShowResults(false);
-    updateFormData('companyName', company.company_name);
-    updateFormData('companyNumber', company.company_number);
-    setSelectedDirector(null);
-    setShowManualName(false);
-
-    // Fetch full company details and officers
-    try {
-      const response = await fetch(`/api/companies-house/company/${company.company_number}`);
-      if (response.ok) {
-        const details: CompanyDetails = await response.json();
-        setCompanyDetails(details);
-        
-        // Store Companies House data
-        updateFormData('companiesHouseData', details.company);
-      } else {
-        setShowManualName(true);
-        setSelectedDirector('manual');
-      }
-    } catch (error) {
-      console.error('Error fetching company details:', error);
-      setShowManualName(true);
-      setSelectedDirector('manual');
-    }
+    return [
+      company?.address_line_1,
+      company?.address_line_2,
+      company?.city,
+      company?.postcode,
+      company?.country,
+    ].filter(Boolean).join(', ') || 'Not provided';
   };
 
-  const handleSelectDirector = (officerIndex: string) => {
-    if (officerIndex === 'manual') {
-      setShowManualName(true);
-      setSelectedDirector('manual');
-      if (!formData.firstName && manualFirstName) {
-        updateFormData('firstName', manualFirstName);
-      }
-      if (!formData.lastName && manualLastName) {
-        updateFormData('lastName', manualLastName);
-      }
-    } else {
-      setShowManualName(false);
-      setSelectedDirector(officerIndex);
-      const officer = companyDetails?.officers[parseInt(officerIndex)];
-      if (officer) {
-        updateFormData('firstName', officer.forename);
-        updateFormData('lastName', officer.surname);
-        setManualFirstName(officer.forename);
-        setManualLastName(officer.surname);
-      }
-    }
-  };
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-12">
+        <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
-  const formatDate = (dateString: string) => {
-    if (!dateString) return '';
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  };
-
-  const hasExistingCompany = profile?.company_id && formData.companyName && !showSearch;
+  if (!company) {
+    return (
+      <div className="text-center py-12">
+        <p className="text-[var(--color-text-secondary)]">No company found. Please go back and complete signup.</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
-      {/* Show existing company or search */}
-      {hasExistingCompany ? (
-        <div className="space-y-4">
-          <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-            <div className="flex items-start justify-between gap-3">
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-2">
-                  <CheckCircle2 className="w-5 h-5 text-green-600" />
-                  <span className="text-sm font-medium text-green-900">Your Company</span>
-                </div>
-                <p className="font-medium text-green-900">{formData.companyName}</p>
-                {formData.companyNumber && (
-                  <p className="text-sm text-green-700 mt-1">
-                    Company Number: {formData.companyNumber}
-                  </p>
-                )}
-              </div>
+      {/* Company Header */}
+      <div className="bg-[var(--color-bg-tertiary)] rounded-xl p-6">
+        <div className="flex items-start justify-between">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 bg-[var(--color-accent-light)] rounded-lg flex items-center justify-center">
+              <Building2 className="w-6 h-6 text-[var(--color-accent)]" />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-[var(--color-text-primary)]">
+                {company.name}
+              </h2>
+              {company.company_number && (
+                <p className="text-sm text-[var(--color-text-secondary)]">
+                  Company No: {company.company_number}
+                </p>
+              )}
+              {companyStatus && (
+                <span className={`inline-block mt-2 px-2 py-1 text-xs rounded-full ${
+                  companyStatus === 'active' 
+                    ? 'bg-green-100 text-green-800' 
+                    : 'bg-yellow-100 text-yellow-800'
+                }`}>
+                  {companyStatus.charAt(0).toUpperCase() + companyStatus.slice(1)}
+                </span>
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Company Details Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        {/* Registered Address */}
+        <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <MapPin className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+            <h3 className="text-sm font-medium text-[var(--color-text-tertiary)]">Registered Address</h3>
+          </div>
+          <p className="text-[var(--color-text-primary)]">{formatAddress()}</p>
+        </div>
+
+        {/* Incorporation Date */}
+        {incorporationDate && (
+          <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <Calendar className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+              <h3 className="text-sm font-medium text-[var(--color-text-tertiary)]">Incorporated</h3>
+            </div>
+            <p className="text-[var(--color-text-primary)]">
+              {new Date(incorporationDate).toLocaleDateString('en-GB', {
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric',
+              })}
+            </p>
+          </div>
+        )}
+
+        {/* SIC Codes */}
+        {sicCodes.length > 0 && (
+          <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <FileText className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+              <h3 className="text-sm font-medium text-[var(--color-text-tertiary)]">SIC Codes</h3>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {sicCodes.map((code: string) => (
+                <span
+                  key={code}
+                  className="px-2 py-1 bg-[var(--color-bg-tertiary)] text-[var(--color-text-secondary)] text-sm rounded"
+                >
+                  {code}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Website */}
+        <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Globe className="w-4 h-4 text-[var(--color-text-tertiary)]" />
+            <h3 className="text-sm font-medium text-[var(--color-text-tertiary)]">Website</h3>
+          </div>
+          {isEditing ? (
+            <input
+              type="url"
+              value={editedWebsite}
+              onChange={(e) => setEditedWebsite(e.target.value)}
+              placeholder="https://example.com"
+              className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+            />
+          ) : (
+            <p className="text-[var(--color-text-primary)]">
+              {company.website || <span className="text-[var(--color-text-tertiary)]">Not provided</span>}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {/* Industry - Editable */}
+      <div className="bg-[var(--color-bg-secondary)] border border-[var(--color-border)] rounded-lg p-4">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-medium text-[var(--color-text-tertiary)]">Industry</h3>
+          {!isEditing && (
+            <button
+              type="button"
+              onClick={() => setIsEditing(true)}
+              className="text-sm text-[var(--color-accent)] hover:underline flex items-center gap-1"
+            >
+              <Edit2 className="w-3 h-3" />
+              Edit
+            </button>
+          )}
+        </div>
+        
+        {isEditing ? (
+          <div className="space-y-3">
+            <select
+              value={editedIndustry}
+              onChange={(e) => setEditedIndustry(e.target.value)}
+              className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)]"
+            >
+              <option value="">Select industry...</option>
+              <option value="professional_services">Professional Services</option>
+              <option value="retail">Retail</option>
+              <option value="hospitality">Hospitality</option>
+              <option value="construction">Construction</option>
+              <option value="manufacturing">Manufacturing</option>
+              <option value="technology">Technology</option>
+              <option value="healthcare">Healthcare</option>
+              <option value="transport">Transport & Logistics</option>
+              <option value="property">Property</option>
+              <option value="agriculture">Agriculture</option>
+              <option value="other">Other</option>
+            </select>
+            
+            <div className="flex gap-2">
               <button
                 type="button"
                 onClick={() => {
-                  setShowSearch(true);
-                  setSearchQuery('');
+                  setIsEditing(false);
+                  setEditedIndustry(company?.industry || '');
+                  setEditedWebsite(company?.website || '');
                 }}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm text-[var(--color-accent)] hover:text-[var(--color-accent-light)] transition-colors"
+                className="px-4 py-2 border border-[var(--color-border)] rounded-lg text-[var(--color-text-secondary)] hover:bg-[var(--color-bg-tertiary)]"
               >
-                <Edit2 className="w-4 h-4" />
-                Change
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveEdits}
+                className="px-4 py-2 bg-[var(--color-accent)] text-white rounded-lg hover:bg-[var(--color-accent-hover)]"
+              >
+                Save
               </button>
             </div>
           </div>
-        </div>
-      ) : (
-        <>
-          {/* Company Search */}
-          <div>
-            <div className="mb-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-900">
-                <strong>💡 Quick tip:</strong> Search for your company on Companies House to auto-fill your details. This saves time and ensures accuracy!
-              </p>
-            </div>
-            <label className="block text-sm font-medium text-slate-700 mb-2">
-              Search for your company on Companies House <span className="text-[var(--color-error)]">*</span>
-            </label>
-            <div className="relative" ref={dropdownRef}>
-              <div className="relative">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-                <input
-                  type="text"
-                  value={searchQuery}
-                  onChange={(e) => {
-                    const newValue = e.target.value;
-                    setSearchQuery(newValue);
-                    // Clear selected company if user starts typing a different value
-                    if (selectedCompany && newValue !== selectedCompany.company_name) {
-                      setSelectedCompany(null);
-                      setCompanyDetails(null);
-                      setSelectedDirector(null);
-                      setShowManualName(false);
-                      updateFormData('companyName', '');
-                      updateFormData('companyNumber', '');
-                      updateFormData('companiesHouseData', null);
-                    }
-                    if (!newValue) {
-                      setSelectedCompany(null);
-                      setCompanyDetails(null);
-                      setSelectedDirector(null);
-                      setShowManualName(false);
-                      updateFormData('companyName', '');
-                      updateFormData('companyNumber', '');
-                      updateFormData('companiesHouseData', null);
-                    }
-                  }}
-                  placeholder="Start typing company name..."
-                  className="w-full pl-10 pr-10 rounded-lg border border-slate-200 p-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-                />
-                {isSearching && (
-                  <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400 animate-spin" />
-                )}
-              </div>
-
-              {/* Search Results Dropdown */}
-              {showResults && searchResults.length > 0 && (
-                <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                  {searchResults.map((result) => (
-                    <button
-                      key={result.company_number}
-                      type="button"
-                      onClick={() => handleSelectCompany(result)}
-                      className="w-full text-left px-4 py-3 hover:bg-slate-50 transition-colors border-b border-slate-100 last:border-0"
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-slate-900 truncate">{result.company_name}</p>
-                          <p className="text-xs text-slate-500 mt-1">
-                            {result.company_number} • {result.status}
-                          </p>
-                          {result.address && (
-                            <p className="text-xs text-slate-400 mt-1 truncate">{result.address}</p>
-                          )}
-                        </div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
-              )}
-
-              {showResults && searchResults.length === 0 && !isSearching && searchQuery.length >= 2 && (
-                <div className="absolute z-50 w-full mt-2 bg-white border border-slate-200 rounded-lg shadow-lg p-4">
-                  <p className="text-sm text-slate-500">No companies found. Try a different search term.</p>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Selected Company Info */}
-          {selectedCompany && (
-            <div className="p-4 bg-green-50 border border-green-200 rounded-lg">
-              <div className="flex items-start gap-3">
-                <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
-                <div className="flex-1">
-                  <p className="font-medium text-green-900">{selectedCompany.company_name}</p>
-                  <p className="text-sm text-green-700 mt-1">
-                    Company Number: {selectedCompany.company_number} • Status: {selectedCompany.status}
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </>
-      )}
-
-      {/* Director Selection - Show when company is selected */}
-      {(formData.companyName || selectedCompany || hasExistingCompany) && (
-        <div className="pt-4 border-t border-slate-200">
-          {loadingOfficers ? (
-            <div className="flex items-center gap-2 text-sm text-slate-500 py-4">
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <span>Loading directors from Companies House...</span>
-            </div>
-          ) : companyDetails && companyDetails.officers.length > 0 ? (
-            <>
-              <label className="block text-sm font-medium text-slate-700 mb-3">
-                Which director are you? <span className="text-[var(--color-error)]">*</span>
-              </label>
-              <div className="space-y-2">
-                {companyDetails.officers.map((officer, index) => (
-                  <label
-                    key={index}
-                    className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                      selectedDirector === index.toString()
-                        ? 'border-[var(--color-accent)] bg-blue-50'
-                        : 'border-slate-200 hover:bg-slate-50'
-                    }`}
-                  >
-                    <input
-                      type="radio"
-                      name="director"
-                      value={index}
-                      checked={selectedDirector === index.toString()}
-                      onChange={() => handleSelectDirector(index.toString())}
-                      className="mt-1"
-                    />
-                    <div className="flex-1">
-                      <p className="font-medium text-slate-900">
-                        {officer.forename} {officer.surname}
-                      </p>
-                      <p className="text-xs text-slate-500 mt-1">
-                        Director, appointed {formatDate(officer.appointed_on)}
-                      </p>
-                    </div>
-                  </label>
-                ))}
-                <label
-                  className={`flex items-start gap-3 p-3 border rounded-lg cursor-pointer transition-colors ${
-                    selectedDirector === 'manual'
-                      ? 'border-[var(--color-accent)] bg-blue-50'
-                      : 'border-slate-200 hover:bg-slate-50'
-                  }`}
-                >
-                  <input
-                    type="radio"
-                    name="director"
-                    value="manual"
-                    checked={selectedDirector === 'manual'}
-                    onChange={() => handleSelectDirector('manual')}
-                    className="mt-1"
-                  />
-                  <div className="flex-1">
-                    <p className="font-medium text-slate-900">I'm not listed here</p>
-                  </div>
-                </label>
-              </div>
-
-              {/* Manual Name Entry */}
-              {showManualName && (
-                <div className="mt-4 p-4 bg-slate-50 rounded-lg space-y-4">
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        First Name <span className="text-[var(--color-error)]">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={manualFirstName}
-                        onChange={(e) => {
-                          setManualFirstName(e.target.value);
-                          updateFormData('firstName', e.target.value);
-                        }}
-                        required
-                        className="w-full rounded-lg border border-slate-200 p-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-sm font-medium text-slate-700 mb-2">
-                        Last Name <span className="text-[var(--color-error)]">*</span>
-                      </label>
-                      <input
-                        type="text"
-                        value={manualLastName}
-                        onChange={(e) => {
-                          setManualLastName(e.target.value);
-                          updateFormData('lastName', e.target.value);
-                        }}
-                        required
-                        className="w-full rounded-lg border border-slate-200 p-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <>
-              <label className="block text-sm font-medium text-slate-700 mb-3">
-                Director Information <span className="text-[var(--color-error)]">*</span>
-              </label>
-              <p className="text-sm text-slate-500 mb-4">
-                No directors found in Companies House records. Please enter your details manually.
-              </p>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    First Name <span className="text-[var(--color-error)]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.firstName || ''}
-                    onChange={(e) => {
-                      updateFormData('firstName', e.target.value);
-                      setManualFirstName(e.target.value);
-                    }}
-                    placeholder="John"
-                    required
-                    className="w-full rounded-lg border border-slate-200 p-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-700 mb-2">
-                    Last Name <span className="text-[var(--color-error)]">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.lastName || ''}
-                    onChange={(e) => {
-                      updateFormData('lastName', e.target.value);
-                      setManualLastName(e.target.value);
-                    }}
-                    placeholder="Smith"
-                    required
-                    className="w-full rounded-lg border border-slate-200 p-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-                  />
-                </div>
-              </div>
-            </>
-          )}
-        </div>
-      )}
-
-      {/* Industry */}
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Industry <span className="text-[var(--color-error)]">*</span>
-        </label>
-        <select
-          value={formData.industry || ''}
-          onChange={(e) => updateFormData('industry', e.target.value)}
-          required
-          className="w-full rounded-lg border border-slate-200 p-3 bg-white text-slate-900 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-        >
-          <option value="">Select an industry...</option>
-          <option value="retail">Retail</option>
-          <option value="hospitality">Hospitality</option>
-          <option value="construction">Construction</option>
-          <option value="healthcare">Healthcare</option>
-          <option value="professional_services">Professional Services</option>
-          <option value="manufacturing">Manufacturing</option>
-          <option value="transport_logistics">Transport & Logistics</option>
-          <option value="technology">Technology</option>
-          <option value="food_beverage">Food & Beverage</option>
-          <option value="beauty_wellness">Beauty & Wellness</option>
-          <option value="automotive">Automotive</option>
-          <option value="education">Education</option>
-          <option value="agriculture">Agriculture</option>
-          <option value="entertainment">Entertainment</option>
-          <option value="financial_services">Financial Services</option>
-          <option value="real_estate">Real Estate</option>
-          <option value="ecommerce">E-commerce</option>
-          <option value="wholesale">Wholesale</option>
-          <option value="recruitment">Recruitment</option>
-          <option value="other">Other</option>
-        </select>
-      </div>
-
-      {/* Website */}
-      <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">
-          Website
-        </label>
-        <input
-          type="url"
-          value={formData.website || ''}
-          onChange={(e) => updateFormData('website', e.target.value)}
-          placeholder="https://www.example.com"
-          className="w-full rounded-lg border border-slate-200 p-3 bg-white text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-[var(--color-accent)] focus:border-transparent"
-        />
+        ) : (
+          <p className="text-[var(--color-text-primary)]">
+            {company.industry ? formatIndustry(company.industry) : <span className="text-[var(--color-text-tertiary)]">Not provided - please add</span>}
+          </p>
+        )}
       </div>
     </div>
   );
 }
 
+// Helper function
+function formatIndustry(industry: string): string {
+  const labels: Record<string, string> = {
+    professional_services: 'Professional Services',
+    retail: 'Retail',
+    hospitality: 'Hospitality',
+    construction: 'Construction',
+    manufacturing: 'Manufacturing',
+    technology: 'Technology',
+    healthcare: 'Healthcare',
+    transport: 'Transport & Logistics',
+    property: 'Property',
+    agriculture: 'Agriculture',
+    other: 'Other',
+  };
+  return labels[industry] || industry;
+}

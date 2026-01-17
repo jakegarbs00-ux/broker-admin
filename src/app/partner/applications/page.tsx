@@ -69,11 +69,11 @@ export default function PartnerApplicationsPage() {
         return;
       }
 
-      // Get companies referred by any user in this partner company
+      // Get companies under this partner company (via partner_company_id - matches dashboard)
       const { data: referredCompanies, error: companiesError } = await supabase
         .from('companies')
         .select('id')
-        .in('referred_by', partnerUserIds);
+        .eq('partner_company_id', userProfile.partner_company_id);
 
       if (companiesError) {
         console.error('Error loading referred companies', companiesError);

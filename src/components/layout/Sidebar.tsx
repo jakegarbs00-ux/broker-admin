@@ -83,7 +83,7 @@ const adminPartnerNavItems: NavItem[] = [
     label: 'Settings',
     href: '/settings',
     icon: <Settings className="w-5 h-5" />,
-    roles: ['PARTNER', 'ADMIN'],
+    roles: ['ADMIN'],
   },
 ];
 

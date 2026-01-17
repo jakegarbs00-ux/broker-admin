@@ -4,9 +4,6 @@
 
 /* Design System Tokens */
 :root {
-  --cursor-x: 50%;
-  --cursor-y: 50%;
-
   /* Primary Colors - Navy Blue */
   --color-primary: #1e3a5f;
   --color-primary-light: #2d4a6f;

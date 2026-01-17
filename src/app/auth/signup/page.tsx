@@ -78,8 +78,8 @@ function SignupContent() {
 
     if (!searchQuery.trim() || searchQuery.length < 2) {
       setSearchResults([]);
-      return;
-    }
+        return;
+      }
 
     searchTimeoutRef.current = setTimeout(() => {
       searchCompaniesHouse();
@@ -154,28 +154,91 @@ function SignupContent() {
     setIsLoading(true);
     setFormError(null);
 
+    // Set a timeout fallback - if stuck for more than 30 seconds, show error
+    const timeoutId = setTimeout(() => {
+      console.error('[Signup] Timeout - process took longer than 30 seconds');
+      setFormError('The signup process is taking longer than expected. Please check your browser console and try refreshing the page.');
+      setIsLoading(false);
+    }, 30000);
+
     try {
-      // 1. Create auth user
+      // 1. Create auth user (or sign in if already exists)
+      let userId: string;
+      
       const { data: authData, error: authError } = await supabase.auth.signUp({
         email: accountData.email,
         password: accountData.password,
       });
 
-      if (authError || !authData.user) {
-        throw new Error(authError?.message || 'Failed to create account');
+      if (authError) {
+        // If error is "user already registered", try to sign in instead
+        if (authError.message?.includes('already registered') || authError.message?.includes('already exists') || authError.message?.toLowerCase().includes('email')) {
+          console.log('[Signup] User already registered, attempting to sign in...');
+          const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+            email: accountData.email,
+            password: accountData.password,
+          });
+          
+          if (signInError || !signInData?.user) {
+            // If sign in fails, user might have wrong password - redirect to login
+            throw new Error('An account with this email already exists. Please sign in instead.');
+          }
+          
+          userId = signInData.user.id;
+          console.log('[Signup] Signed in with existing user:', userId);
+        } else {
+          throw new Error(authError.message || 'Failed to create account');
+        }
+      } else if (!authData.user) {
+        throw new Error('Failed to create user account');
+      } else {
+        userId = authData.user.id;
+        console.log('[Signup] User created:', userId);
       }
 
-      const userId = authData.user.id;
-      console.log('[Signup] User created:', userId);
-
-      // 2. Wait for profile trigger
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // 2. Create profile immediately (don't wait for trigger - it might not work)
+      console.log('[Signup] Creating profile...');
+      
+      // Try to insert profile - if it exists, upsert will handle it
+      const { error: createProfileError } = await supabase
+        .from('profiles')
+        .upsert({
+          id: userId,
+          email: accountData.email,
+          role: 'CLIENT',
+        }, {
+          onConflict: 'id',
+        });
+      
+      if (createProfileError) {
+        // If upsert fails, try regular insert (might fail if exists - that's OK)
+        console.log('[Signup] Upsert failed, trying insert...', createProfileError.code);
+        const { error: insertError } = await supabase
+          .from('profiles')
+          .insert({
+            id: userId,
+            email: accountData.email,
+            role: 'CLIENT',
+          });
+        
+        // If insert also fails, profile might already exist - continue anyway
+        if (insertError && insertError.code !== '23505') { // 23505 = duplicate key (already exists)
+          console.error('[Signup] Failed to create profile:', insertError);
+          // Don't throw - continue with signup, profile might exist from trigger
+        } else if (insertError?.code === '23505') {
+          console.log('[Signup] Profile already exists (created by trigger)');
+        } else {
+          console.log('[Signup] ✓ Profile created');
+        }
+      } else {
+        console.log('[Signup] ✓ Profile created/updated');
+      }
 
       // 3. Get referrer's partner_company_id if referred
       let partnerCompanyId = null;
-      if (referrerId) {
+    if (referrerId) {
         const { data: referrerProfile } = await supabase
-          .from('profiles')
+        .from('profiles')
           .select('partner_company_id')
           .eq('id', referrerId)
           .eq('role', 'PARTNER')
@@ -187,6 +250,13 @@ function SignupContent() {
       }
 
       // 4. Create company with referral attribution
+      console.log('[Signup] Creating company...');
+      console.log('[Signup] Company data:', {
+        name: companyData.name,
+        companyNumber: companyData.companyNumber,
+        hasCHData: !!companyData.companiesHouseData,
+      });
+      
       const { data: newCompany, error: companyError } = await supabase
         .from('companies')
         .insert({
@@ -205,43 +275,121 @@ function SignupContent() {
         .single();
 
       if (companyError) {
-        throw new Error(companyError.message);
+        console.error('[Signup] Company creation error:', companyError);
+        console.error('[Signup] Company error details:', {
+          message: companyError.message,
+          code: companyError.code,
+          details: companyError.details,
+          hint: companyError.hint,
+        });
+        throw new Error(`Failed to create company: ${companyError.message}`);
       }
 
-      console.log('[Signup] Company created:', newCompany.id);
+      if (!newCompany || !newCompany.id) {
+        throw new Error('Company was created but no ID was returned');
+      }
 
-      // 5. Update profile with company_id
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          company_id: newCompany.id,
-          is_primary_director: true,
-        })
-        .eq('id', userId);
+      console.log('[Signup] ✓ Company created:', newCompany.id);
+
+      // 5. Update profile with company_id (retry if needed)
+      console.log('[Signup] Linking company to profile...');
+      let profileUpdated = false;
+      let updateRetries = 0;
+      const maxUpdateRetries = 5;
+      
+      while (!profileUpdated && updateRetries < maxUpdateRetries) {
+        updateRetries++;
+        console.log(`[Signup] Updating profile with company_id, attempt ${updateRetries}/${maxUpdateRetries}...`);
+        
+        const { error: profileError, data: updateData } = await supabase
+          .from('profiles')
+          .update({
+            company_id: newCompany.id,
+            is_primary_director: true,
+          })
+          .eq('id', userId)
+          .select('id');
 
       if (profileError) {
-        console.error('[Signup] Profile update error:', profileError);
+          console.error('[Signup] Profile update error (attempt', updateRetries, '):', profileError);
+          console.error('[Signup] Profile update error details:', {
+            message: profileError.message,
+            code: profileError.code,
+            details: profileError.details,
+            hint: profileError.hint,
+          });
+          
+          if (updateRetries < maxUpdateRetries) {
+            await new Promise(resolve => setTimeout(resolve, 500));
+          }
+        } else {
+          profileUpdated = true;
+          console.log('[Signup] ✓ Profile updated successfully with company_id');
+        }
       }
 
-      // 6. Handle lead conversion if applicable
-      if (leadId) {
-        await supabase
-          .from('leads')
-          .update({
+      if (!profileUpdated) {
+        console.error('[Signup] Failed to update profile after', maxUpdateRetries, 'attempts');
+        throw new Error('Failed to link company to profile. Please try again or contact support.');
+      }
+
+      // 6. Handle lead conversion if applicable (non-blocking)
+    if (leadId) {
+        supabase
+        .from('leads')
+        .update({
             user_id: userId,
-            converted_at: new Date().toISOString(),
-            status: 'converted',
-          })
-          .eq('id', leadId);
+          converted_at: new Date().toISOString(),
+          status: 'converted',
+        })
+          .eq('id', leadId)
+          .then(({ error }) => {
+            if (error) {
+              console.error('[Signup] Lead conversion error:', error);
+            }
+          });
       }
 
-      // 7. Redirect to application wizard (will skip company step)
-      console.log('[Signup] Redirecting to /apply');
-      window.location.href = '/apply';
+      // 7. Verify session before redirect
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        console.warn('[Signup] No session found, waiting...');
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      // 8. Success - redirect to application wizard
+      console.log('[Signup] Account creation complete!');
+      console.log('[Signup] - User ID:', userId);
+      console.log('[Signup] - Company ID:', newCompany.id);
+      console.log('[Signup] - Profile linked:', profileUpdated);
+      console.log('[Signup] - Session active:', !!session);
+      
+      // Clear any errors
+      setFormError(null);
+      
+      // Force immediate redirect - don't reset loading state
+      // This ensures the button stays in "Creating account..." state until redirect
+      console.log('[Signup] Redirecting to /apply...');
+      
+      // Clear timeout since we succeeded
+      clearTimeout(timeoutId);
+      
+      // Use window.location.replace for reliable redirect (prevents back button issues)
+      window.location.replace('/apply');
       
     } catch (err: any) {
+      // Clear timeout on error
+      clearTimeout(timeoutId);
+      
       console.error('[Signup] Error:', err);
-      setFormError(err.message || 'Something went wrong');
+      console.error('[Signup] Error stack:', err.stack);
+      console.error('[Signup] Error details:', {
+        message: err.message,
+        code: err.code,
+        details: err.details,
+        hint: err.hint,
+      });
+      setFormError(err.message || 'Something went wrong. Please try again.');
       setIsLoading(false);
     }
   };
@@ -269,40 +417,40 @@ function SignupContent() {
       {/* Step 1: Account Details */}
       {step === 1 && (
         <>
-          <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Create your account</h1>
-          
-          {referrerId && (
-            <p className="text-sm text-[var(--color-text-secondary)]">
+      <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Create your account</h1>
+
+      {referrerId && (
+        <p className="text-sm text-[var(--color-text-secondary)]">
               You were referred by a partner. We&apos;ll link your account automatically.
-            </p>
-          )}
+        </p>
+      )}
 
           <form onSubmit={handleSubmit(onAccountSubmit)} className="space-y-4">
-            <div>
+        <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 Email <span className="text-red-600">*</span>
               </label>
-              <input 
-                className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]" 
+          <input 
+            className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]" 
                 placeholder="john@example.com" 
                 type="email"
-                {...register('email')} 
-              />
-              {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
-            </div>
+            {...register('email')} 
+          />
+          {errors.email && <p className="text-red-600 text-sm mt-1">{errors.email.message}</p>}
+        </div>
 
-            <div>
+        <div>
               <label className="block text-sm font-medium text-[var(--color-text-primary)] mb-2">
                 Password <span className="text-red-600">*</span>
               </label>
-              <input
-                className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+          <input
+            className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                 placeholder="At least 6 characters"
-                type="password"
-                {...register('password')}
-              />
-              {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>}
-            </div>
+            type="password"
+            {...register('password')}
+          />
+          {errors.password && <p className="text-red-600 text-sm mt-1">{errors.password.message}</p>}
+        </div>
 
             <button
               className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white p-2 rounded-lg disabled:opacity-50"
@@ -325,8 +473,8 @@ function SignupContent() {
           {!manualEntry ? (
             <div className="space-y-4">
               <div className="relative">
-                <input
-                  className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
+          <input
+            className="w-full border border-[var(--color-border)] rounded-lg p-2 bg-[var(--color-bg-primary)] text-[var(--color-text-primary)] placeholder:text-[var(--color-text-tertiary)] focus:ring-2 focus:ring-[var(--color-accent)] focus:border-[var(--color-accent)]"
                   placeholder="Search by company name or number..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -336,7 +484,7 @@ function SignupContent() {
                     <div className="w-4 h-4 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
                   </div>
                 )}
-              </div>
+        </div>
 
               {/* Search results */}
               {searchResults.length > 0 && (
@@ -386,10 +534,10 @@ function SignupContent() {
           <h1 className="text-2xl font-semibold text-[var(--color-text-primary)]">Confirm details</h1>
           
           <div className="bg-[var(--color-bg-tertiary)] rounded-lg p-4 space-y-3">
-            <div>
+          <div>
               <p className="text-sm text-[var(--color-text-tertiary)]">Email</p>
               <p className="font-medium text-[var(--color-text-primary)]">{accountData?.email}</p>
-            </div>
+          </div>
             
             <div className="border-t border-[var(--color-border)] pt-3">
               <p className="text-sm text-[var(--color-text-tertiary)]">Company</p>
@@ -399,7 +547,7 @@ function SignupContent() {
                   Company No: {companyData.companyNumber}
                 </p>
               )}
-            </div>
+        </div>
 
             {companyData.addressLine1 && (
               <div className="border-t border-[var(--color-border)] pt-3">
@@ -427,19 +575,22 @@ function SignupContent() {
                 </p>
               </div>
             )}
+        </div>
+
+        {formError && (
+          <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+            <p className="text-red-600 text-sm">{formError}</p>
           </div>
+        )}
 
-          {formError && (
-            <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-red-600 text-sm">{formError}</p>
-            </div>
-          )}
-
-          <button
+        <button
             onClick={createAccount}
             disabled={isLoading}
-            className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white p-2 rounded-lg disabled:opacity-50"
+            className="w-full bg-[var(--color-accent)] hover:bg-[var(--color-accent-hover)] text-white p-2 rounded-lg disabled:opacity-50 flex items-center justify-center gap-2"
           >
+            {isLoading && (
+              <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+            )}
             {isLoading ? 'Creating account...' : 'Create account'}
           </button>
 
@@ -449,7 +600,7 @@ function SignupContent() {
             className="text-sm text-[var(--color-text-secondary)] hover:text-[var(--color-text-primary)]"
           >
             ← Back
-          </button>
+        </button>
         </>
       )}
     </main>

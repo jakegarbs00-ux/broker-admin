@@ -60,6 +60,16 @@ export function getStageBadgeVariant(stage: string): BadgeProps['variant'] {
 
 // Format stage for display
 export function formatStage(stage: string): string {
+  const stageLabels: Record<string, string> = {
+    info_required: 'Info Required',
+    information_required: 'Info Required',
+    in_credit: 'In Credit Review',
+  };
+  
+  if (stageLabels[stage]) {
+    return stageLabels[stage];
+  }
+  
   return stage
     .split('_')
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))

@@ -50,21 +50,7 @@ export default function PartnerCompaniesPage() {
         return;
       }
 
-      // Get all users in this partner company
-      const { data: partnerUsers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('partner_company_id', profile.partner_company_id);
-
-      const userIds = partnerUsers?.map((u) => u.id) || [];
-
-      if (userIds.length === 0) {
-        setCompanies([]);
-        setLoadingData(false);
-        return;
-      }
-
-      // Get companies referred by these users
+      // Get companies under this partner company (via partner_company_id - matches dashboard)
       const { data: referredCompanies, error: companiesError } = await supabase
         .from('companies')
         .select(`
@@ -77,7 +63,7 @@ export default function PartnerCompaniesPage() {
           referrer:referred_by(id, first_name, last_name, email),
           applications(id, stage)
         `)
-        .in('referred_by', userIds.length > 0 ? userIds : ['none'])
+        .eq('partner_company_id', profile.partner_company_id)
         .order('created_at', { ascending: false });
 
       if (companiesError) {

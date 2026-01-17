@@ -48,14 +48,6 @@ type Offer = {
   } | null;
 };
 
-type Document = {
-  id: string;
-  category: string;
-  original_filename: string | null;
-  storage_path: string;
-  created_at: string;
-};
-
 type InfoRequest = {
   id: string;
   message: string;
@@ -72,7 +64,6 @@ export default function PartnerApplicationDetailPage() {
 
   const [application, setApplication] = useState<Application | null>(null);
   const [offers, setOffers] = useState<Offer[]>([]);
-  const [documents, setDocuments] = useState<Document[]>([]);
   const [infoRequests, setInfoRequests] = useState<InfoRequest[]>([]);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -96,15 +87,6 @@ export default function PartnerApplicationDetailPage() {
         return;
       }
 
-      // Get all partner user IDs in this partner company
-      const { data: partnerUsers } = await supabase
-        .from('profiles')
-        .select('id')
-        .eq('partner_company_id', userProfile.partner_company_id)
-        .eq('role', 'PARTNER');
-
-      const partnerUserIds = (partnerUsers || []).map((u) => u.id);
-
       // Fetch application with company
       const { data: appData, error: appError } = await supabase
         .from('applications')
@@ -119,7 +101,8 @@ export default function PartnerApplicationDetailPage() {
             city,
             postcode,
             website,
-            referred_by
+            referred_by,
+            partner_company_id
           ),
           lender:accepted_lender_id(id, name)
         `)
@@ -132,8 +115,9 @@ export default function PartnerApplicationDetailPage() {
         return;
       }
 
-      // Verify this application belongs to a company referred by this partner company
-      if (appData.company?.referred_by && !partnerUserIds.includes(appData.company.referred_by)) {
+      // Verify this application's company belongs to this partner company (referred or admin-assigned)
+      const companyPartnerId = (appData.company as any)?.partner_company_id;
+      if (companyPartnerId !== userProfile.partner_company_id) {
         setError('You do not have permission to view this application');
         setLoadingData(false);
         return;
@@ -152,14 +136,6 @@ export default function PartnerApplicationDetailPage() {
         setOffers(offersData || []);
       }
 
-      // Fetch documents
-      const { data: docsData } = await supabase
-        .from('documents')
-        .select('*')
-        .eq('application_id', id)
-        .order('created_at', { ascending: false });
-      setDocuments(docsData || []);
-
       // Fetch information requests
       const { data: infoReqsData } = await supabase
         .from('information_requests')
@@ -173,11 +149,6 @@ export default function PartnerApplicationDetailPage() {
 
     loadData();
   }, [id, loading, user, profile?.role, supabase]);
-
-  const getDocumentUrl = (storagePath: string) => {
-    const { data } = supabase.storage.from('application-documents').getPublicUrl(storagePath);
-    return data.publicUrl;
-  };
 
   if (loading || loadingData) {
     return (
@@ -292,42 +263,6 @@ export default function PartnerApplicationDetailPage() {
                   <p className="text-[var(--color-text-primary)]">{new Date(application.created_at).toLocaleDateString('en-GB')}</p>
                 </div>
               </div>
-            </CardContent>
-          </Card>
-
-          {/* Documents */}
-          <Card>
-            <CardHeader>
-              <h2 className="font-medium text-[var(--color-text-primary)]">Documents</h2>
-            </CardHeader>
-            <CardContent>
-              {documents.length === 0 ? (
-                <p className="text-sm text-[var(--color-text-tertiary)]">No documents uploaded</p>
-              ) : (
-                <div className="space-y-2">
-                  {documents.map((doc) => (
-                    <a
-                      key={doc.id}
-                      href={getDocumentUrl(doc.storage_path)}
-                      target="_blank"
-                      rel="noreferrer"
-                      className="block p-3 bg-[var(--color-bg-tertiary)] rounded-lg hover:bg-[var(--color-bg-tertiary)]"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <Badge variant="info" size="sm">{doc.category}</Badge>
-                          <p className="text-sm text-[var(--color-text-primary)] mt-1">
-                            {doc.original_filename || 'View document'}
-                          </p>
-                        </div>
-                        <span className="text-xs text-[var(--color-text-tertiary)]">
-                          {new Date(doc.created_at).toLocaleDateString('en-GB')}
-                        </span>
-                      </div>
-                    </a>
-                  ))}
-                </div>
-              )}
             </CardContent>
           </Card>
 

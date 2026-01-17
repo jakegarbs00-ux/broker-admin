@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Providers from "./providers";
-import { ReactiveBackground } from "@/components/ReactiveBackground";
 
 export const metadata: Metadata = {
   title: "Broker Portal",
@@ -16,7 +15,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body className="bg-[var(--color-bg-primary)]">
-        <ReactiveBackground />
         <div className="relative z-10 min-h-screen">
           <Providers>
             {children}

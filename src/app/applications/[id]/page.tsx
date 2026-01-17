@@ -4,7 +4,6 @@ import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
 import { getSupabaseClient } from '@/lib/supabaseClient';
-import { useUserProfile } from '@/hooks/useUserProfile';
 import { DashboardShell } from '@/components/layout';
 import { Card, CardContent, CardHeader, PageHeader, Badge, getStageBadgeVariant, formatStage, Button } from '@/components/ui';
 
@@ -45,7 +44,6 @@ const DOCUMENT_CATEGORIES = [
 
 export default function ApplicationDetailPage() {
   const { id } = useParams<{ id: string }>();
-  const { user, profile, loading } = useUserProfile();
   const supabase = getSupabaseClient();
 
   const [app, setApp] = useState<AppDetail | null>(null);
@@ -55,6 +53,7 @@ export default function ApplicationDetailPage() {
   const [celebrating, setCelebrating] = useState(false);
   const [loadingData, setLoadingData] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
 
   const [uploading, setUploading] = useState(false);
   const [uploadCategory, setUploadCategory] = useState('other');
@@ -63,66 +62,108 @@ export default function ApplicationDetailPage() {
   const [responseText, setResponseText] = useState<Record<string, string>>({});
   const [submittingResponse, setSubmittingResponse] = useState(false);
 
+  // Get authenticated user directly (don't depend on useUserProfile)
   useEffect(() => {
-    if (!id || !user) return;
+    const checkAuth = async () => {
+      try {
+        const { data: { user }, error: authError } = await supabase.auth.getUser();
+        if (authError || !user) {
+          setError('You must be logged in to view this application');
+          setLoadingData(false);
+          return;
+        }
+        setCurrentUserId(user.id);
+      } catch (err) {
+        console.error('Error checking auth:', err);
+        setError('Authentication error');
+        setLoadingData(false);
+      }
+    };
+    checkAuth();
+  }, [supabase]);
+
+  useEffect(() => {
+    if (!id || !currentUserId) return;
 
     const load = async () => {
       setError(null);
+      setLoadingData(true);
 
-      const { data: appData, error: appError } = await supabase
-        .from('applications')
-        .select(
+      try {
+        const { data: appData, error: appError } = await supabase
+          .from('applications')
+          .select(
+            `
+            id,
+            requested_amount,
+            stage,
+            loan_type,
+            urgency,
+            purpose,
+            created_at,
+            created_by,
+            company:company_id(id, name)
           `
-          id,
-          requested_amount,
-          stage,
-          loan_type,
-          urgency,
-          purpose,
-          created_at,
-          company:company_id(id, name)
-        `
-        )
-        .eq('id', id)
-        .maybeSingle();
+          )
+          .eq('id', id)
+          .maybeSingle();
 
-      if (appError) {
-        console.error('Error loading application', appError);
-        setError('Error loading application: ' + appError.message);
+        if (appError) {
+          console.error('Error loading application', appError);
+          setError('Error loading application: ' + appError.message);
+          setLoadingData(false);
+          return;
+        }
+
+        if (!appData) {
+          setError('Application not found');
+          setLoadingData(false);
+          return;
+        }
+
+        // Verify user owns this application
+        if (appData.created_by !== currentUserId) {
+          setError('You do not have permission to view this application');
+          setLoadingData(false);
+          return;
+        }
+
+        setApp(appData as unknown as AppDetail);
+
+        const { data: docsData, error: docsError } = await supabase
+          .from('documents')
+          .select('id, category, original_filename, storage_path, created_at')
+          .eq('application_id', id)
+          .order('created_at', { ascending: false });
+
+        if (docsError) {
+          console.error('Error loading documents', docsError);
+        } else if (docsData) {
+          setDocs(docsData as Document[]);
+        }
+
+        const { data: reqs, error: reqError } = await supabase
+          .from('information_requests')
+          .select('*')
+          .eq('application_id', id)
+          .order('created_at', { ascending: false });
+
+        if (reqError) {
+          console.error('Error loading information requests', reqError);
+        } else if (reqs) {
+          setInfoRequests(reqs as InfoRequest[]);
+        }
+
         setLoadingData(false);
-        return;
+      } catch (err: any) {
+        console.error('Error loading application data:', err);
+        setError('Failed to load application: ' + (err.message || 'Unknown error'));
+        setLoadingData(false);
       }
-      setApp(appData as unknown as AppDetail);
-
-      const { data: docsData, error: docsError } = await supabase
-        .from('documents')
-        .select('id, category, original_filename, storage_path, created_at')
-        .eq('application_id', id)
-        .order('created_at', { ascending: false });
-
-      if (docsError) {
-        console.error('Error loading documents', docsError);
-      } else if (docsData) {
-        setDocs(docsData as Document[]);
-      }
-
-      const { data: reqs, error: reqError } = await supabase
-        .from('information_requests')
-        .select('*')
-        .eq('application_id', id)
-        .order('created_at', { ascending: false });
-
-      if (reqError) {
-        console.error('Error loading information requests', reqError);
-      } else if (reqs) {
-        setInfoRequests(reqs as InfoRequest[]);
-      }
-
-      setLoadingData(false);
     };
 
     load();
-  }, [id, user, supabase]);
+  }, [id, currentUserId, supabase]);
 
   // Fetch offers when stage allows
   useEffect(() => {
@@ -150,11 +191,11 @@ export default function ApplicationDetailPage() {
   }, [app, id, supabase]);
 
   const handleUpload = async () => {
-    if (!user || !id || !uploadFile) return;
+    if (!currentUserId || !id || !uploadFile) return;
     setUploading(true);
     try {
       const fileExt = uploadFile.name.split('.').pop();
-      const path = `${user.id}/${id}/${Date.now()}.${fileExt}`;
+      const path = `${currentUserId}/${id}/${Date.now()}.${fileExt}`;
 
       const { error: uploadError } = await supabase.storage
         .from('application-documents')
@@ -173,7 +214,7 @@ export default function ApplicationDetailPage() {
           category: uploadCategory,
           original_filename: uploadFile.name,
           storage_path: path,
-          uploaded_by: user.id,
+          uploaded_by: currentUserId,
         })
         .select('id, category, original_filename, storage_path, created_at')
         .single();
@@ -274,7 +315,7 @@ export default function ApplicationDetailPage() {
     }
   };
 
-  if (loading || loadingData) {
+  if (loadingData) {
     return (
       <DashboardShell>
         <div className="flex items-center justify-center py-12">
@@ -287,13 +328,26 @@ export default function ApplicationDetailPage() {
     );
   }
 
-  if (!user || !app) {
+  if (error && !app) {
+    return (
+      <DashboardShell>
+        <div className="text-center py-12">
+          <p className="text-[var(--color-error)] font-medium mb-4">{error}</p>
+          <Link href="/dashboard" className="text-[var(--color-accent)] hover:underline text-sm mt-2 inline-block">
+            ← Back to dashboard
+          </Link>
+        </div>
+      </DashboardShell>
+    );
+  }
+
+  if (!app) {
     return (
       <DashboardShell>
         <div className="text-center py-12">
           <p className="text-[var(--color-error)] font-medium">Application not found.</p>
-          <Link href="/applications" className="text-[var(--color-accent)] hover:underline text-sm mt-2 inline-block">
-            ← Back to applications
+          <Link href="/dashboard" className="text-[var(--color-accent)] hover:underline text-sm mt-2 inline-block">
+            ← Back to dashboard
           </Link>
         </div>
       </DashboardShell>
@@ -482,10 +536,12 @@ export default function ApplicationDetailPage() {
                   <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Loan Type</p>
                   <p className="text-[var(--color-text-primary)]">{app.loan_type}</p>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Urgency</p>
-                  <p className="text-[var(--color-text-primary)]">{app.urgency ?? '—'}</p>
-                </div>
+                {app.urgency && (
+                  <div>
+                    <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Urgency</p>
+                    <p className="text-[var(--color-text-primary)] capitalize">{app.urgency.replace(/_/g, ' ')}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-xs font-medium text-[var(--color-text-tertiary)] uppercase">Stage</p>
                   <Badge variant={getStageBadgeVariant(app.stage)}>{formatStage(app.stage)}</Badge>

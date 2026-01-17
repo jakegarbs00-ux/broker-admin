@@ -263,13 +263,13 @@ export function ApplicationWizard({ applicationId: propApplicationId }: Applicat
         }
         return true;
       case 2:
-        // Step 2 is Company
-        // If company already exists (from signup), skip validation (data is from DB)
-        if (profile?.company_id) {
-          return true;
+        // Step 2 is now Company verification - just check company exists and has industry
+        if (!profile?.company_id) {
+          setError('No company found. Please go back and complete signup.');
+          return false;
         }
-        if (!formData.companyName || !formData.industry) {
-          setError('Please provide your company name and industry');
+        if (!formData.industry) {
+          setError('Please select your industry');
           return false;
         }
         return true;

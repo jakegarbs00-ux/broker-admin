@@ -17,15 +17,21 @@ export default function ApplyPage() {
         const { data: { user }, error: authError } = await supabase.auth.getUser();
         
         if (authError || !user) {
+          console.error('[Apply] Auth error:', authError);
           // Not authenticated - redirect to login
           router.push('/auth/login');
           return;
         }
 
+        console.log('[Apply] User authenticated:', user.id);
+
+        // Wait a moment for profile to be created (if just signed up)
+        await new Promise(resolve => setTimeout(resolve, 500));
+
         // Check for existing open application (not closed)
         const closedStages = ['funded', 'declined', 'withdrawn'];
         
-        const { data: existingApp } = await supabase
+        const { data: existingApp, error: appError } = await supabase
           .from('applications')
           .select('id, stage')
           .eq('created_by', user.id)
@@ -34,17 +40,25 @@ export default function ApplyPage() {
           .limit(1)
           .maybeSingle();
 
+        if (appError) {
+          console.error('[Apply] Error checking applications:', appError);
+          // Continue anyway - might be a new user
+        }
+
         if (existingApp && existingApp.stage !== 'created') {
           // User has an in-progress application (submitted, in_credit, etc.) - redirect to it
+          console.log('[Apply] Redirecting to existing application:', existingApp.id);
           router.push(`/applications/${existingApp.id}`);
           return;
         }
 
         // No open application (or only draft) - allow new one or continue draft
+        console.log('[Apply] Allowing new application');
         setIsAuthChecked(true);
       } catch (err) {
-        console.error('Error checking auth:', err);
-        router.push('/auth/login');
+        console.error('[Apply] Error checking auth:', err);
+        // On error, still try to show the page (might be a new user)
+        setIsAuthChecked(true);
       }
     };
 

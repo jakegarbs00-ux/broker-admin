@@ -3,3 +3,4 @@
 -- NULL means not started, 5 means completed
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS onboarding_step integer DEFAULT NULL;
 
+

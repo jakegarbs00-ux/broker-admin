@@ -1,7 +1,8 @@
 'use client';
 
-import { ReactNode, useState } from 'react';
-import { useUserProfile } from '@/hooks/useUserProfile';
+import { ReactNode, useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
+import { getSupabaseClient } from '@/lib/supabaseClient';
 import Sidebar from './Sidebar';
 import Header from './Header';
 
@@ -10,10 +11,79 @@ interface DashboardShellProps {
 }
 
 export default function DashboardShell({ children }: DashboardShellProps) {
-  const { user, profile, loading } = useUserProfile();
+  const router = useRouter();
+  const supabase = useMemo(() => getSupabaseClient(), []);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [user, setUser] = useState<any>(null);
+  const [profile, setProfile] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadingTimeout, setLoadingTimeout] = useState(false);
 
-  if (loading) {
+  // Get auth and profile directly (don't depend on useUserProfile)
+  useEffect(() => {
+    let mounted = true;
+
+    const loadAuth = async () => {
+      try {
+        // Get authenticated user
+        const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
+        
+        if (!mounted) return;
+
+        if (authError || !authUser) {
+          // Not authenticated - redirect to login
+          router.replace('/auth/login');
+          setLoading(false);
+          return;
+        }
+
+        setUser(authUser);
+
+        // Get profile
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('id, role, email, company_id, partner_company_id, is_primary_contact')
+          .eq('id', authUser.id)
+          .maybeSingle();
+
+        if (!mounted) return;
+
+        if (profileError) {
+          console.error('[DashboardShell] Error loading profile:', profileError);
+          // Continue anyway - might be a new user
+          setProfile(null);
+          setLoading(false);
+          return;
+        }
+
+        setProfile(profileData);
+        setLoading(false);
+      } catch (err) {
+        console.error('[DashboardShell] Error loading auth:', err);
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    // Timeout fallback - if still loading after 5 seconds, stop loading
+    const timeoutId = setTimeout(() => {
+      if (loading) {
+        console.warn('[DashboardShell] Loading timeout - forcing completion');
+        setLoadingTimeout(true);
+        setLoading(false);
+      }
+    }, 5000);
+
+    loadAuth();
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeoutId);
+    };
+  }, [supabase, router, loading]);
+
+  if (loading && !loadingTimeout) {
     return (
       <div className="min-h-screen bg-[var(--color-bg-secondary)] flex items-center justify-center">
         <div className="flex flex-col items-center gap-3">
@@ -24,11 +94,21 @@ export default function DashboardShell({ children }: DashboardShellProps) {
     );
   }
 
-  if (!user || !profile) {
-    return null;
+  // If no user after timeout or error, redirect to login
+  if (!user) {
+    // Redirect will happen in useEffect, but show loading while redirecting
+    return (
+      <div className="min-h-screen bg-[var(--color-bg-secondary)] flex items-center justify-center">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[var(--color-accent)] border-t-transparent rounded-full animate-spin"></div>
+          <p className="text-sm text-[var(--color-text-tertiary)]">Redirecting...</p>
+        </div>
+      </div>
+    );
   }
 
-  const role = profile.role as 'CLIENT' | 'PARTNER' | 'ADMIN';
+  // If no profile, try to continue with default role (might be new user)
+  const role = (profile?.role as 'CLIENT' | 'PARTNER' | 'ADMIN') || 'CLIENT';
   const email = user.email ?? 'Unknown';
 
   return (

@@ -72,3 +72,4 @@ export function ApplicationProgress({ currentStep, totalSteps }: ApplicationProg
   );
 }
 
+
